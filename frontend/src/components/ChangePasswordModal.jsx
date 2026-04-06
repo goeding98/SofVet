@@ -10,7 +10,7 @@ export default function ChangePasswordModal() {
   const [error,     setError]     = useState('');
   const [loading,   setLoading]   = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     if (!oldPwd || !newPwd || !confirmPwd) return setError('Todos los campos son requeridos.');
@@ -19,12 +19,10 @@ export default function ChangePasswordModal() {
     if (newPwd === oldPwd) return setError('La nueva contraseña debe ser diferente a la anterior.');
 
     setLoading(true);
-    const result = changePassword(oldPwd, newPwd);
+    const result = await changePassword(oldPwd, newPwd);
     setLoading(false);
 
     if (!result.success) return setError(result.error);
-    // On success the session is updated and mustChangePassword becomes false
-    // The modal will disappear automatically since it renders based on session.mustChangePassword
   };
 
   const labelStyle = {

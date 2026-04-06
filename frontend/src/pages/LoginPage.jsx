@@ -10,19 +10,17 @@ export default function LoginPage() {
   const [error,    setError]    = useState('');
   const [loading,  setLoading]  = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    setTimeout(() => {
-      const result = login(username, password);
-      if (result.success) {
-        navigate('/');
-      } else {
-        setError(result.error);
-        setLoading(false);
-      }
-    }, 700);
+    const result = await login(username, password);
+    if (result.success) {
+      navigate('/');
+    } else {
+      setError(result.error);
+      setLoading(false);
+    }
   };
 
   return (

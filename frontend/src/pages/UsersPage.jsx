@@ -58,7 +58,7 @@ export default function UsersPage() {
     setForm(f => ({ ...f, tempPassword: pwd }));
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     setError('');
     if (!form.nombre.trim())    return setError('El nombre completo es requerido.');
     if (!form.username.trim())  return setError('El nombre de usuario es requerido.');
@@ -66,7 +66,7 @@ export default function UsersPage() {
     if (!form.rol)              return setError('El rol es requerido.');
     if (!form.tempPassword.trim()) return setError('La contraseña temporal es requerida.');
 
-    const result = createUser({
+    const result = await createUser({
       nombre:      form.nombre.trim(),
       username:    form.username.trim().toLowerCase(),
       rol:         form.rol,
@@ -92,7 +92,7 @@ export default function UsersPage() {
     setEditModal(true);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     setEditError('');
     if (!editForm.nombre.trim())   return setEditError('El nombre es requerido.');
     if (!editForm.username.trim()) return setEditError('El nombre de usuario es requerido.');
@@ -103,19 +103,20 @@ export default function UsersPage() {
       sede_id:  editForm.rol === 'Administrador' ? null : parseInt(editForm.sede_id),
       estado:   editForm.estado,
     };
-    editUser(editForm.id, changes);
+    const result = await editUser(editForm.id, changes);
+    if (!result.success) return setEditError(result.error);
     setEditModal(false);
   };
 
-  const handleDelete = (user) => {
+  const handleDelete = async (user) => {
     if (user.id === session?.id) return alert('No puedes eliminar tu propio usuario.');
     if (!confirm(`¿Eliminar al usuario ${user.nombre}? Esta acción no se puede deshacer.`)) return;
-    deleteUser(user.id);
+    await deleteUser(user.id);
   };
 
-  const handleToggle = (user) => {
+  const handleToggle = async (user) => {
     if (user.id === session?.id) return alert('No puedes desactivar tu propio usuario.');
-    toggleUserStatus(user.id);
+    await toggleUserStatus(user.id);
   };
 
   return (
