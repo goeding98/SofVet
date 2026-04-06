@@ -1,0 +1,777 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useStore } from '../utils/useStore';
+import { useAuth } from '../utils/useAuth';
+import { useSede, sedeBadge, SEDES } from '../utils/useSede';
+import Card from '../components/Card';
+import Button from '../components/Button';
+
+const UNIDADES    = ['ml', 'tabletas', 'paquetes', 'mg', 'comprimidos', 'gotas', 'otro'];
+const FRECUENCIAS = ['Cada 2 horas', 'Cada 4 horas', 'Cada 6 horas', 'Cada 8 horas', 'Cada 12 horas', 'Cada 24 horas', 'Una sola vez'];
+const EMPTY_MED   = { medicamento: '', dosis: '', unidad: 'ml', frecuencia: 'Cada 8 horas', observaciones: '' };
+
+const labelStyle = {
+  display: 'block', fontSize: '0.75rem', fontWeight: 600,
+  marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text)',
+};
+
+const speciesIcon = s => ({ Perro: '🐶', Gato: '🐱', Conejo: '🐰', Ave: '🐦', Reptil: '🦎' }[s] || '🐾');
+
+const statusBadge = (s) => {
+  const map = {
+    activo:     { bg: 'var(--color-danger-bg)',  color: 'var(--color-danger)',   label: 'Hospitalizado' },
+    cobrada:    { bg: 'var(--color-success-bg)', color: 'var(--color-success)',  label: 'Cobrada'       },
+    no_cobrada: { bg: '#fff8e1',                 color: '#b8860b',               label: 'Sin cobrar'    },
+    fallecido:  { bg: '#f5f5f5',                 color: '#666',                  label: 'Fallecido'     },
+  };
+  const s2 = map[s] || map.activo;
+  return <span style={{ background: s2.bg, color: s2.color, padding: '3px 10px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 600 }}>{s2.label}</span>;
+};
+
+function calcDuration(ingresoDate, altaDate) {
+  if (!ingresoDate || !altaDate) return null;
+  const ms   = new Date(altaDate) - new Date(ingresoDate);
+  const days = Math.ceil(ms / 86400000);
+  return days <= 0 ? 1 : days;
+}
+
+function buildApplicationSummary(aplicaciones) {
+  // Flatten: one row per medicamento per application
+  const rows = [];
+  (aplicaciones || []).forEach(app => {
+    (app.medicamentos || []).forEach(m => {
+      rows.push({
+        medicamento:  m.medicamento,
+        dosis:        m.dosis,
+        unidad:       m.unidad,
+        hora:         app.hora,
+        fecha:        app.fecha,
+        aplicado_por: app.aplicado_por,
+        notas:        app.notas,
+      });
+    });
+  });
+  // Subtotals per medicamento
+  const totals = {};
+  rows.forEach(r => {
+    const key = `${r.medicamento}__${r.unidad}`;
+    if (!totals[key]) totals[key] = { medicamento: r.medicamento, unidad: r.unidad, total: 0, aplicaciones: 0 };
+    totals[key].total      += parseFloat(r.dosis) || 0;
+    totals[key].aplicaciones += 1;
+  });
+  return { rows, totals: Object.values(totals) };
+}
+
+export default function HospitalizationPage() {
+  const navigate = useNavigate();
+  const { session } = useAuth();
+  const { items: hosps, edit: editHosp, remove: removeHosp } = useStore('hospitalization');
+  const { items: patients, edit: editPatient }               = useStore('patients');
+
+  const [hospSedeFilter, setHospSedeFilter] = useState(null); // null = todas
+  const isAdmin    = session?.rol === 'Administrador';
+  const isAuxiliar = session?.rol === 'Auxiliar';
+  const isMedico   = session?.rol === 'Médico' || session?.rol === 'Administrador';
+
+  // ── view state ─────────────────────────────────────────────────────────
+  const [selectedId,      setSelectedId]      = useState(null);
+  const [showNoCobradas,  setShowNoCobradas]  = useState(false);
+  const [resumenHosp,     setResumenHosp]     = useState(null); // for "Ver resumen" in no_cobradas
+
+  // ── apply modal ─────────────────────────────────────────────────────────
+  const [applyModal,  setApplyModal]  = useState(false);
+  const [applyHospId, setApplyHospId] = useState(null);
+  const [checkedMeds, setCheckedMeds] = useState({});
+  const [applyNotas,  setApplyNotas]  = useState('');
+  const [applyError,  setApplyError]  = useState('');
+
+  // ── alta modal ──────────────────────────────────────────────────────────
+  const [altaModal,   setAltaModal]   = useState(false);
+  const [altaHosp,    setAltaHosp]    = useState(null);
+
+  // ── edit treatment modal ────────────────────────────────────────────────
+  const [editTxModal,  setEditTxModal]  = useState(false);
+  const [editTxHospId, setEditTxHospId] = useState(null);
+  const [editTxMeds,   setEditTxMeds]   = useState([]);
+
+  // ── derived ─────────────────────────────────────────────────────────────
+  const activos    = hosps.filter(h => h.status === 'activo'     && (hospSedeFilter === null || h.sede_id === hospSedeFilter));
+  const noCobradas = hosps.filter(h => h.status === 'no_cobrada' && (hospSedeFilter === null || h.sede_id === hospSedeFilter)).slice(-20).reverse();
+  const selected    = hosps.find(h => h.id === selectedId);
+  const applyHosp   = hosps.find(h => h.id === applyHospId);
+  const editTxHosp  = hosps.find(h => h.id === editTxHospId);
+
+  // ── alta flow ───────────────────────────────────────────────────────────
+  const openAlta = (h) => { setAltaHosp(h); setAltaModal(true); };
+
+  const handleDischarge = (h, billingStatus) => {
+    const now = new Date();
+    const altaDate = now.toISOString().split('T')[0];
+    const altaTime = now.toTimeString().slice(0, 5);
+    editHosp(h.id, {
+      status:       billingStatus,
+      alta_date:    altaDate,
+      alta_time:    altaTime,
+      duration_days: calcDuration(h.ingreso_date, altaDate),
+    });
+    if (patients.find(p => p.id === h.patient_id)) {
+      editPatient(h.patient_id, { status: 'activo' });
+    }
+    setAltaModal(false);
+    setAltaHosp(null);
+    if (selectedId === h.id) setSelectedId(null);
+  };
+
+  const handleFallecido = (h) => {
+    if (!confirm(`⚠️ ¿Registrar fallecimiento de ${h.patient_name}? Esta acción no se puede deshacer.`)) return;
+    const now = new Date();
+    editHosp(h.id, { status: 'fallecido', alta_date: now.toISOString().split('T')[0] });
+    if (patients.find(p => p.id === h.patient_id)) editPatient(h.patient_id, { status: 'inactivo' });
+    if (selectedId === h.id) setSelectedId(null);
+  };
+
+  const handleMarkPaid = (h) => {
+    if (!confirm(`¿Marcar como cobrada la hospitalización de ${h.patient_name}?`)) return;
+    editHosp(h.id, { status: 'cobrada' });
+  };
+
+  const handleDelete = (h) => {
+    if (!confirm(`¿Eliminar completamente el registro de hospitalización de ${h.patient_name}?`)) return;
+    removeHosp(h.id);
+  };
+
+  // ── apply modal ─────────────────────────────────────────────────────────
+  const openApply = (h) => {
+    setApplyHospId(h.id);
+    const init = {};
+    (h.tratamiento || []).forEach((t, i) => { init[i] = { checked: false, dosis: t.dosis, unidad: t.unidad }; });
+    setCheckedMeds(init);
+    setApplyNotas('');
+    setApplyError('');
+    setApplyModal(true);
+  };
+
+  const toggleCheck = (i) =>
+    setCheckedMeds(prev => ({ ...prev, [i]: { ...prev[i], checked: !prev[i].checked } }));
+
+  const handleSaveApplication = () => {
+    setApplyError('');
+    const selected_meds = Object.entries(checkedMeds)
+      .filter(([, v]) => v.checked)
+      .map(([idx, v]) => ({
+        medicamento: applyHosp.tratamiento[idx].medicamento,
+        dosis:       v.dosis,
+        unidad:      v.unidad,
+      }));
+    if (!selected_meds.length) { setApplyError('Selecciona al menos un medicamento aplicado.'); return; }
+    const now = new Date();
+    const newApp = {
+      medicamentos: selected_meds,
+      notas:        applyNotas,
+      aplicado_por: session?.nombre || 'Desconocido',
+      fecha:        now.toISOString().split('T')[0],
+      hora:         now.toTimeString().slice(0, 5),
+    };
+    editHosp(applyHospId, { aplicaciones: [...(applyHosp.aplicaciones || []), newApp] });
+    setApplyModal(false);
+  };
+
+  // ── edit treatment ──────────────────────────────────────────────────────
+  const openEditTx = (h) => { setEditTxHospId(h.id); setEditTxMeds((h.tratamiento || []).map(t => ({ ...t }))); setEditTxModal(true); };
+  const updateEditTxMed = (i, field, val) => setEditTxMeds(m => m.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
+  const handleSaveEditTx = () => { editHosp(editTxHospId, { tratamiento: editTxMeds.filter(m => m.medicamento.trim()) }); setEditTxModal(false); };
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>Hospitalización</h1>
+        <p>{activos.length} paciente(s) hospitalizado(s) · {noCobradas.length} sin cobrar</p>
+      </div>
+
+      {/* ── Section 1: Active ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 440px' : '1fr', gap: '1.5rem', alignItems: 'start', marginBottom: '1.5rem' }}>
+
+        <Card
+          title={`Pacientes hospitalizados ahora (${activos.length})`}
+          action={
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <select
+                value={hospSedeFilter ?? ''}
+                onChange={e => setHospSedeFilter(e.target.value === '' ? null : parseInt(e.target.value))}
+                style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', cursor: 'pointer' }}
+              >
+                <option value="">Todas las sedes</option>
+                {SEDES.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+              </select>
+              <button
+                onClick={() => setShowNoCobradas(v => !v)}
+                style={{ padding: '0.35rem 0.85rem', borderRadius: 999, border: '1px solid #b8860b', fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 600, background: showNoCobradas ? '#b8860b' : '#fff8e1', color: showNoCobradas ? 'white' : '#b8860b' }}
+              >
+                {showNoCobradas ? '▲ Ocultar' : '▼'} Sin cobrar ({noCobradas.length})
+              </button>
+            </div>
+          }
+        >
+          {activos.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🏥</div>
+              <p>No hay pacientes hospitalizados en este momento.</p>
+              <p style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>Para hospitalizar, ve a la ficha del paciente y usa el botón "Hospitalizar".</p>
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
+                    {['Paciente', 'Cliente', 'Sede', 'Motivo', 'Ingreso', 'Veterinario', 'Acciones'].map(h => (
+                      <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {activos.map((h, idx) => (
+                    <tr
+                      key={h.id}
+                      style={{ borderBottom: '1px solid var(--color-border)', background: selectedId === h.id ? 'rgba(49,109,116,0.05)' : idx % 2 === 0 ? 'transparent' : 'rgba(49,109,116,0.02)', cursor: 'pointer' }}
+                      onClick={() => setSelectedId(selectedId === h.id ? null : h.id)}
+                    >
+                      <td style={{ padding: '0.85rem 1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontSize: '1.3rem' }}>{speciesIcon(h.species)}</span>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{h.patient_name}</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{h.species}{h.breed ? ` · ${h.breed}` : ''}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.875rem' }}>
+                        <div style={{ fontWeight: 500 }}>{h.client_name}</div>
+                        {h.client_phone && <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{h.client_phone}</div>}
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>{sedeBadge(h.sede_id)}</td>
+                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem', maxWidth: 180 }}>
+                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.motivo || '—'}</div>
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                        <div>{h.ingreso_date}</div>
+                        <div style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{h.ingreso_time}</div>
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem' }}>{h.responsible_vet}</td>
+                      <td style={{ padding: '0.85rem 1rem' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                          <button onClick={() => setSelectedId(selectedId === h.id ? null : h.id)} style={btnStyle('var(--color-primary)')}>
+                            {selectedId === h.id ? 'Ocultar' : 'Detalles'}
+                          </button>
+                          {(isAuxiliar || isMedico) && (
+                            <button onClick={() => openApply(h)} style={btnStyle('var(--color-secondary)')}>💊 Tratamiento</button>
+                          )}
+                          {isMedico && (
+                            <>
+                              <button onClick={() => openAlta(h)} style={btnStyle('var(--color-success)')}>✅ Alta</button>
+                              <button onClick={() => handleFallecido(h)} style={btnStyle('var(--color-danger)')}>💀 Fallecido</button>
+                            </>
+                          )}
+                          {h.patient_id && (
+                            <button onClick={() => navigate(`/patients/${h.patient_id}`)} style={btnStyle('#7c5cbf')}>🐾 Ficha</button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+
+        {/* Detail panel */}
+        {selected && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <Card>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                <div>
+                  <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-primary)', fontSize: '1.1rem', margin: '0 0 0.15rem' }}>
+                    {speciesIcon(selected.species)} {selected.patient_name}
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                    {selected.species} · {selected.breed} · {selected.weight} kg · {selected.age} años
+                  </p>
+                </div>
+                <button onClick={() => setSelectedId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: 'var(--color-text-muted)' }}>×</button>
+              </div>
+              <div style={{ marginBottom: '0.5rem' }}>{sedeBadge(selected.sede_id)}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <InfoChip label="Cliente"     value={selected.client_name} />
+                <InfoChip label="Ingreso"     value={`${selected.ingreso_date} ${selected.ingreso_time}`} />
+                <InfoChip label="Veterinario" value={selected.responsible_vet} />
+                <InfoChip label="Aplicaciones" value={`${selected.aplicaciones?.length || 0} registradas`} />
+              </div>
+              <InfoBlock label="Motivo"      value={selected.motivo} />
+              <InfoBlock label="Diagnóstico" value={selected.diagnostico} />
+            </Card>
+
+            <Card
+              title="Plan de tratamiento"
+              action={isMedico && (
+                <button onClick={() => openEditTx(selected)} style={{ padding: '0.3rem 0.75rem', background: 'var(--color-white)', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius-sm)', color: 'var(--color-primary)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600 }}>
+                  ✏️ Editar
+                </button>
+              )}
+            >
+              {!selected.tratamiento?.length ? (
+                <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '1rem 0' }}>Sin plan registrado.</p>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg)' }}>
+                        {['Medicamento', 'Dosis', 'Frecuencia'].map(h => (
+                          <th key={h} style={{ padding: '0.5rem 0.6rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selected.tratamiento.map((t, i) => (
+                        <tr key={i} style={{ borderBottom: i < selected.tratamiento.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
+                          <td style={{ padding: '0.5rem 0.6rem', fontWeight: 500 }}>{t.medicamento}</td>
+                          <td style={{ padding: '0.5rem 0.6rem' }}>{t.dosis} {t.unidad}</td>
+                          <td style={{ padding: '0.5rem 0.6rem', color: 'var(--color-text-muted)' }}>{t.frecuencia}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+
+            <Card title={`Historial de aplicaciones (${selected.aplicaciones?.length || 0})`}>
+              {!selected.aplicaciones?.length ? (
+                <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '1.5rem 0' }}>Aún no se han registrado aplicaciones.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: 280, overflowY: 'auto' }}>
+                  {[...selected.aplicaciones].reverse().map((a, i) => (
+                    <div key={i} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.85rem', fontSize: '0.8rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>💊 Aplicación</span>
+                        <span style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{a.fecha} {a.hora}</span>
+                      </div>
+                      {a.medicamentos?.map((m, mi) => (
+                        <div key={mi} style={{ fontSize: '0.8rem' }}>· {m.medicamento} — {m.dosis} {m.unidad}</div>
+                      ))}
+                      <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>Por: <strong>{a.aplicado_por}</strong></div>
+                      {a.notas && <div style={{ marginTop: '0.2rem', color: 'var(--color-text)', fontSize: '0.78rem' }}>{a.notas}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {selected.status === 'activo' && (isAuxiliar || isMedico) && (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <Button variant="primary" size="sm" onClick={() => openApply(selected)}>💊 Registrar aplicación</Button>
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
+      </div>
+
+      {/* ── Section 2: No cobradas ── */}
+      {showNoCobradas && (
+        <Card
+          title={`Hospitalizaciones sin cobrar (${noCobradas.length})`}
+          style={{ marginBottom: '1.5rem' }}
+        >
+          {noCobradas.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>✅</div>
+              <p>No hay hospitalizaciones pendientes de cobro.</p>
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
+                    {['Cliente', 'Mascota', 'Fecha ingreso', 'Fecha alta', 'Duración', 'Aplicaciones', 'Acciones'].map(h => (
+                      <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {noCobradas.map((h, idx) => {
+                    const dur = h.duration_days || calcDuration(h.ingreso_date, h.alta_date);
+                    const totalApps = (h.aplicaciones || []).reduce((acc, a) => acc + (a.medicamentos?.length || 0), 0);
+                    return (
+                      <tr key={h.id} style={{ borderBottom: '1px solid var(--color-border)', background: idx % 2 === 0 ? 'transparent' : 'rgba(184,134,11,0.03)' }}>
+                        <td style={{ padding: '0.85rem 1rem', fontSize: '0.875rem', fontWeight: 500 }}>{h.client_name}</td>
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span>{speciesIcon(h.species)}</span>
+                            <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{h.patient_name}</span>
+                          </div>
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem' }}>{h.ingreso_date}</td>
+                        <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem' }}>{h.alta_date || '—'}</td>
+                        <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem' }}>
+                          {dur ? (
+                            <span style={{ fontWeight: 600 }}>{dur} día{dur !== 1 ? 's' : ''}</span>
+                          ) : '—'}
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>
+                          {totalApps > 0
+                            ? <span style={{ background: 'var(--color-info-bg)', color: 'var(--color-primary)', padding: '2px 8px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 600 }}>{totalApps} aplicación{totalApps !== 1 ? 'es' : ''}</span>
+                            : <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>Ninguna</span>
+                          }
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                            <button onClick={() => setResumenHosp(h)} style={btnStyle('var(--color-primary)')}>
+                              📋 Resumen
+                            </button>
+                            <button onClick={() => handleMarkPaid(h)} style={btnStyle('var(--color-success)')}>
+                              ✅ Cobrada
+                            </button>
+                            <button onClick={() => handleDelete(h)} style={btnStyle('var(--color-danger)')}>
+                              🗑 Eliminar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* ══════════════ MODAL: DAR DE ALTA ══════════════ */}
+      {altaModal && altaHosp && (() => {
+        const now       = new Date();
+        const altaDate  = now.toISOString().split('T')[0];
+        const dur       = calcDuration(altaHosp.ingreso_date, altaDate);
+        const { rows, totals } = buildApplicationSummary(altaHosp.aplicaciones);
+        return (
+          <div onClick={() => setAltaModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', backdropFilter: 'blur(2px)', overflowY: 'auto' }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 680, overflow: 'hidden', margin: 'auto' }}>
+
+              {/* Header */}
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', background: 'var(--color-success-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-success)', fontSize: '1.1rem', margin: '0 0 0.15rem' }}>✅ Dar de alta — {altaHosp.patient_name}</h3>
+                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                    Ingreso: {altaHosp.ingreso_date} {altaHosp.ingreso_time} · Alta: {altaDate} · Duración: <strong>{dur} día{dur !== 1 ? 's' : ''}</strong>
+                  </p>
+                </div>
+                <button onClick={() => setAltaModal(false)} style={{ width: 32, height: 32, background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)' }}>×</button>
+              </div>
+
+              <div style={{ padding: '1.5rem' }}>
+
+                {/* Resumen aplicaciones */}
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.6rem' }}>Medicamentos aplicados</div>
+                  {rows.length === 0 ? (
+                    <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', padding: '0.75rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>No se registraron aplicaciones de medicamentos.</p>
+                  ) : (
+                    <div style={{ overflowX: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                        <thead>
+                          <tr style={{ background: 'var(--color-bg)', borderBottom: '1px solid var(--color-border)' }}>
+                            {['Medicamento', 'Cantidad', 'Unidad', 'Hora', 'Quién aplicó'].map(h => (
+                              <th key={h} style={{ padding: '0.5rem 0.75rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((r, i) => (
+                            <tr key={i} style={{ borderBottom: i < rows.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
+                              <td style={{ padding: '0.5rem 0.75rem', fontWeight: 500 }}>{r.medicamento}</td>
+                              <td style={{ padding: '0.5rem 0.75rem' }}>{r.dosis}</td>
+                              <td style={{ padding: '0.5rem 0.75rem' }}>{r.unidad}</td>
+                              <td style={{ padding: '0.5rem 0.75rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{r.fecha} {r.hora}</td>
+                              <td style={{ padding: '0.5rem 0.75rem', color: 'var(--color-text-muted)' }}>{r.aplicado_por}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Subtotals */}
+                {totals.length > 0 && (
+                  <div style={{ marginBottom: '1.25rem', background: 'var(--color-info-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem' }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>Totales aplicados</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      {totals.map((t, i) => (
+                        <span key={i} style={{ background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.3rem 0.75rem', fontSize: '0.82rem', fontWeight: 500 }}>
+                          {t.medicamento}: <strong>{t.total} {t.unidad}</strong> ({t.aplicaciones} aplic.)
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => handleDischarge(altaHosp, 'cobrada')}
+                    style={{ flex: 1, padding: '0.75rem 1rem', background: 'var(--color-success)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600, minWidth: 200 }}
+                  >
+                    ✅ Dar de alta — COBRADO
+                  </button>
+                  <button
+                    onClick={() => handleDischarge(altaHosp, 'no_cobrada')}
+                    style={{ flex: 1, padding: '0.75rem 1rem', background: '#b8860b', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600, minWidth: 200 }}
+                  >
+                    🕐 Dar de alta — GUARDAR PARA COBRAR
+                  </button>
+                  <button
+                    onClick={() => setAltaModal(false)}
+                    style={{ padding: '0.75rem 1.25rem', background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ══════════════ MODAL: RESUMEN (no cobradas) ══════════════ */}
+      {resumenHosp && (() => {
+        const dur = resumenHosp.duration_days || calcDuration(resumenHosp.ingreso_date, resumenHosp.alta_date);
+        const { rows, totals } = buildApplicationSummary(resumenHosp.aplicaciones);
+        return (
+          <div onClick={() => setResumenHosp(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', backdropFilter: 'blur(2px)', overflowY: 'auto' }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 660, overflow: 'hidden', margin: 'auto' }}>
+
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', background: '#fff8e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ fontFamily: 'var(--font-title)', color: '#b8860b', fontSize: '1.1rem', margin: '0 0 0.15rem' }}>📋 Resumen — {resumenHosp.patient_name}</h3>
+                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                    {resumenHosp.client_name} · Ingreso: {resumenHosp.ingreso_date} · Alta: {resumenHosp.alta_date} · <strong>{dur} día{dur !== 1 ? 's' : ''}</strong>
+                  </p>
+                </div>
+                <button onClick={() => setResumenHosp(null)} style={{ width: 32, height: 32, background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)' }}>×</button>
+              </div>
+
+              <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <InfoBlock label="Motivo"      value={resumenHosp.motivo} />
+                <InfoBlock label="Diagnóstico" value={resumenHosp.diagnostico} />
+
+                <div>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>Medicamentos aplicados</div>
+                  {rows.length === 0 ? (
+                    <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>Sin aplicaciones registradas.</p>
+                  ) : (
+                    <div style={{ overflowX: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                        <thead>
+                          <tr style={{ background: 'var(--color-bg)', borderBottom: '1px solid var(--color-border)' }}>
+                            {['Medicamento', 'Cantidad', 'Unidad', 'Hora', 'Quién aplicó'].map(h => (
+                              <th key={h} style={{ padding: '0.5rem 0.75rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((r, i) => (
+                            <tr key={i} style={{ borderBottom: i < rows.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
+                              <td style={{ padding: '0.5rem 0.75rem', fontWeight: 500 }}>{r.medicamento}</td>
+                              <td style={{ padding: '0.5rem 0.75rem' }}>{r.dosis}</td>
+                              <td style={{ padding: '0.5rem 0.75rem' }}>{r.unidad}</td>
+                              <td style={{ padding: '0.5rem 0.75rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{r.fecha} {r.hora}</td>
+                              <td style={{ padding: '0.5rem 0.75rem', color: 'var(--color-text-muted)' }}>{r.aplicado_por}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {totals.length > 0 && (
+                  <div style={{ background: 'var(--color-info-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem' }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>Totales</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      {totals.map((t, i) => (
+                        <span key={i} style={{ background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.3rem 0.75rem', fontSize: '0.82rem', fontWeight: 500 }}>
+                          {t.medicamento}: <strong>{t.total} {t.unidad}</strong>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                  <button onClick={() => { handleMarkPaid(resumenHosp); setResumenHosp(null); }} style={{ padding: '0.6rem 1.25rem', background: 'var(--color-success)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600 }}>✅ Marcar como cobrada</button>
+                  <button onClick={() => setResumenHosp(null)} style={{ padding: '0.6rem 1.1rem', background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Cerrar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ══════════════ MODAL: APLICAR TRATAMIENTO ══════════════ */}
+      {applyModal && applyHosp && (
+        <div onClick={() => setApplyModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(2px)' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 520, overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '1.1rem 1.5rem', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-primary)', fontSize: '1rem', margin: '0 0 0.1rem' }}>💊 Aplicar tratamiento</h3>
+                <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>{applyHosp.patient_name}</p>
+              </div>
+              <button onClick={() => setApplyModal(false)} style={{ width: 30, height: 30, background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)' }}>×</button>
+            </div>
+
+            <div style={{ padding: '1.25rem 1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={labelStyle}>Selecciona medicamentos aplicados *</label>
+                {!applyHosp.tratamiento?.length ? (
+                  <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>No hay plan de tratamiento registrado.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                    {applyHosp.tratamiento.map((t, i) => {
+                      const entry = checkedMeds[i] || { checked: false, dosis: t.dosis, unidad: t.unidad };
+                      return (
+                        <div key={i} style={{ border: `1px solid ${entry.checked ? 'var(--color-primary)' : 'var(--color-border)'}`, borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem', background: entry.checked ? 'rgba(49,109,116,0.04)' : 'var(--color-white)', transition: 'all 0.15s' }}>
+                          <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={entry.checked} onChange={() => toggleCheck(i)} style={{ marginTop: '0.15rem', accentColor: 'var(--color-primary)', width: 16, height: 16, flexShrink: 0 }} />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{t.medicamento}</div>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>Plan: {t.dosis} {t.unidad} · {t.frecuencia}</div>
+                            </div>
+                          </label>
+                          {entry.checked && (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.65rem', paddingTop: '0.65rem', borderTop: '1px dashed var(--color-border)' }}>
+                              <div>
+                                <label style={{ ...labelStyle, fontSize: '0.68rem' }}>Cantidad aplicada</label>
+                                <input value={entry.dosis} onChange={e => setCheckedMeds(prev => ({ ...prev, [i]: { ...prev[i], dosis: e.target.value } }))} style={{ width: '100%', padding: '0.4rem 0.6rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.82rem' }} />
+                              </div>
+                              <div>
+                                <label style={{ ...labelStyle, fontSize: '0.68rem' }}>Unidad</label>
+                                <select value={entry.unidad} onChange={e => setCheckedMeds(prev => ({ ...prev, [i]: { ...prev[i], unidad: e.target.value } }))} style={{ width: '100%', padding: '0.4rem 0.6rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.82rem' }}>
+                                  {UNIDADES.map(u => <option key={u}>{u}</option>)}
+                                </select>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label style={labelStyle}>Notas de aplicación</label>
+                <textarea value={applyNotas} onChange={e => setApplyNotas(e.target.value)} rows={2} placeholder="Observaciones adicionales..." style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-body)', resize: 'vertical', fontSize: '0.875rem' }} />
+              </div>
+
+              {applyError && (
+                <div style={{ background: 'var(--color-danger-bg)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', padding: '0.5rem 0.8rem', color: 'var(--color-danger)', fontSize: '0.8rem' }}>⚠️ {applyError}</div>
+              )}
+
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                <button onClick={() => setApplyModal(false)} style={{ padding: '0.55rem 1.1rem', background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Cancelar</button>
+                <button onClick={handleSaveApplication} style={{ padding: '0.55rem 1.25rem', background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600 }}>✅ Registrar aplicación</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════ MODAL: EDITAR TRATAMIENTO (Médico) ══════════════ */}
+      {editTxModal && editTxHosp && (
+        <div onClick={() => setEditTxModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', backdropFilter: 'blur(2px)', overflowY: 'auto' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 700, overflow: 'hidden', margin: 'auto' }}>
+            <div style={{ padding: '1.1rem 1.5rem', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-primary)', fontSize: '1rem', margin: '0 0 0.1rem' }}>✏️ Editar plan de tratamiento</h3>
+                <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>{editTxHosp.patient_name}</p>
+              </div>
+              <button onClick={() => setEditTxModal(false)} style={{ width: 30, height: 30, background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)' }}>×</button>
+            </div>
+            <div style={{ padding: '1.25rem 1.5rem' }}>
+              {/* Admin puede cambiar sede */}
+              {isAdmin && (
+                <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text)', whiteSpace: 'nowrap' }}>📍 Sede:</label>
+                  <select
+                    value={editTxHosp.sede_id || ''}
+                    onChange={e => editHosp(editTxHospId, { sede_id: parseInt(e.target.value) })}
+                    style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)' }}
+                  >
+                    {SEDES.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                  </select>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+                <button onClick={() => setEditTxMeds(m => [...m, { ...EMPTY_MED }])} style={{ padding: '0.35rem 0.85rem', background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.78rem', fontWeight: 600 }}>+ Agregar fila</button>
+              </div>
+              <div style={{ overflowX: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 580 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--color-bg)', borderBottom: '1px solid var(--color-border)' }}>
+                      {['Medicamento', 'Dosis', 'Unidad', 'Frecuencia', 'Observaciones', ''].map(h => (
+                        <th key={h} style={{ padding: '0.5rem 0.6rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {editTxMeds.map((m, i) => (
+                      <tr key={i} style={{ borderBottom: i < editTxMeds.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
+                        <td style={{ padding: '0.4rem 0.5rem' }}><input value={m.medicamento} onChange={e => updateEditTxMed(i, 'medicamento', e.target.value)} placeholder="Nombre" style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }} /></td>
+                        <td style={{ padding: '0.4rem 0.5rem' }}><input value={m.dosis} onChange={e => updateEditTxMed(i, 'dosis', e.target.value)} placeholder="0" style={{ width: 55, padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }} /></td>
+                        <td style={{ padding: '0.4rem 0.5rem' }}><select value={m.unidad} onChange={e => updateEditTxMed(i, 'unidad', e.target.value)} style={{ padding: '0.4rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>{UNIDADES.map(u => <option key={u}>{u}</option>)}</select></td>
+                        <td style={{ padding: '0.4rem 0.5rem' }}><select value={m.frecuencia} onChange={e => updateEditTxMed(i, 'frecuencia', e.target.value)} style={{ padding: '0.4rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>{FRECUENCIAS.map(f => <option key={f}>{f}</option>)}</select></td>
+                        <td style={{ padding: '0.4rem 0.5rem' }}><input value={m.observaciones} onChange={e => updateEditTxMed(i, 'observaciones', e.target.value)} placeholder="Notas" style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }} /></td>
+                        <td style={{ padding: '0.4rem 0.5rem' }}><button onClick={() => setEditTxMeds(m2 => m2.filter((_, idx) => idx !== i))} style={{ background: 'var(--color-danger-bg)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '0.25rem 0.5rem', fontSize: '0.72rem' }}>✕</button></td>
+                      </tr>
+                    ))}
+                    {editTxMeds.length === 0 && (
+                      <tr><td colSpan={6} style={{ padding: '1.25rem', textAlign: 'center', fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>Sin medicamentos. Agrega una fila.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.25rem' }}>
+                <button onClick={() => setEditTxModal(false)} style={{ padding: '0.55rem 1.1rem', background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Cancelar</button>
+                <button onClick={handleSaveEditTx} style={{ padding: '0.55rem 1.25rem', background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600 }}>💾 Guardar cambios</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function btnStyle(color) {
+  return {
+    padding: '0.28rem 0.6rem', fontSize: '0.72rem', background: 'var(--color-white)',
+    color, border: `1px solid ${color}`, borderRadius: 'var(--radius-sm)',
+    cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, whiteSpace: 'nowrap',
+  };
+}
+
+function InfoChip({ label, value }) {
+  return (
+    <div style={{ background: 'var(--color-bg)', borderRadius: 'var(--radius-sm)', padding: '0.45rem 0.65rem' }}>
+      <div style={{ fontSize: '0.62rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+      <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text)', marginTop: '0.1rem' }}>{value || '—'}</div>
+    </div>
+  );
+}
+
+function InfoBlock({ label, value }) {
+  if (!value) return null;
+  return (
+    <div style={{ marginBottom: '0.5rem' }}>
+      <div style={{ fontSize: '0.62rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>{label}</div>
+      <div style={{ fontSize: '0.82rem', color: 'var(--color-text)', lineHeight: 1.5 }}>{value}</div>
+    </div>
+  );
+}

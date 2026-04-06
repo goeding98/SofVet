@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Environment variables (claves secretas)
+.env
+.env.local
+.env.production
+
+# Build output
+frontend/dist/
+
+# Data sensible — pacientes reales, backups
+backend/data/sofvet_payload.json
+backend/data/sofvet_import.json
+backend/data/*.xlsx
+backend/data/*.xls
+
+# OS
+.DS_Store
+Thumbs.db
