@@ -488,9 +488,13 @@ export default function AppointmentsPage() {
           </div>
           <div style={{marginBottom:'0.75rem'}}>
             <label style={labelSt}>Servicio</label>
-            <select style={inputSt} value={form.service||''} onChange={e=>setF('service',e.target.value)}>
+            <select style={inputSt} value={SERVICES.includes(form.service||'') ? form.service : 'Otro'} onChange={e => { if (e.target.value === 'Otro') setF('service', ''); else setF('service', e.target.value); }}>
               {SERVICES.map(s=><option key={s}>{s}</option>)}
+              <option value="Otro">Otro</option>
             </select>
+            {!SERVICES.includes(form.service||'') && (
+              <input style={{...inputSt, marginTop:'0.4rem'}} value={form.service||''} onChange={e=>setF('service',e.target.value)} placeholder="Describe el servicio..." autoFocus />
+            )}
           </div>
           <div style={{marginBottom:'0.75rem'}}>
             <label style={labelSt}>Consultorio</label>
