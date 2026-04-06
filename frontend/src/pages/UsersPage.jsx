@@ -4,7 +4,7 @@ import { SEDES, sedeById } from '../utils/useSede';
 import Card from '../components/Card';
 import Button from '../components/Button';
 
-const ROLES = ['Médico', 'Auxiliar'];
+const ROLES = ['Administrador', 'Médico', 'Auxiliar'];
 
 function generateTempPassword() {
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
@@ -307,12 +307,14 @@ export default function UsersPage() {
                       {ROLES.map(r => <option key={r}>{r}</option>)}
                     </select>
                   </div>
+                  {form.rol !== 'Administrador' && (
                   <div style={{ marginBottom: '1rem' }}>
                     <label style={labelStyle}>Sede asignada *</label>
                     <select value={form.sede_id} onChange={e => setForm(f => ({ ...f, sede_id: parseInt(e.target.value) }))} style={{ width: '100%', padding: '0.6rem 0.75rem' }}>
                       {SEDES.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
                     </select>
                   </div>
+                  )}
                   <div style={{ marginBottom: '1.25rem' }}>
                     <label style={labelStyle}>Contraseña temporal *</label>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
