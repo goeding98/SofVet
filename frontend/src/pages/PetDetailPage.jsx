@@ -654,12 +654,12 @@ export default function PetDetailPage() {
                         {labResult.resultados && (
                           <p style={{ fontSize:'0.8rem', color:'var(--color-text)', margin:'0 0 0.3rem', lineHeight:1.5 }}>{labResult.resultados}</p>
                         )}
-                        {labResult.file_url && (
-                          <a href={labResult.file_url} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize:'0.78rem', color:'#2e7d50', fontWeight:600, textDecoration:'none' }}>
-                            📄 Ver PDF adjunto
+                        {(labResult.archivos?.length > 0 ? labResult.archivos : labResult.file_url ? [{ name: 'Ver PDF adjunto', url: labResult.file_url }] : []).map((f, fi) => (
+                          <a key={fi} href={f.url} target="_blank" rel="noopener noreferrer"
+                            style={{ display:'inline-block', marginRight:'0.5rem', fontSize:'0.78rem', color:'#2e7d50', fontWeight:600, textDecoration:'none' }}>
+                            📄 {f.name}
                           </a>
-                        )}
+                        ))}
                       </div>
                     )}
                   </div>

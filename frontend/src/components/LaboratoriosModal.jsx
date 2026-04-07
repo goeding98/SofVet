@@ -10,51 +10,63 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, pet, pedido
   const { session } = useAuth();
   const fileRef = useRef(null);
 
-  // pedidos solicitados para este paciente
   const solicitados = pedidos.filter(p => p.estado === 'Solicitado');
 
   const [selectedPedidoId, setSelectedPedidoId] = useState('');
   const [resultados,        setResult]           = useState('');
-  const [file,              setFile]             = useState(null);
+  const [files,             setFiles]            = useState([]);  // array of File objects
   const [uploading,         setUploading]        = useState(false);
   const [error,             setError]            = useState('');
 
   useEffect(() => {
     if (isOpen) {
-      setResult(''); setFile(null); setError(''); setUploading(false);
-      // Auto-select if only one pending
+      setResult(''); setFiles([]); setError(''); setUploading(false);
       setSelectedPedidoId(solicitados.length === 1 ? String(solicitados[0].id) : '');
     }
   }, [isOpen, solicitados.length]);
 
   if (!isOpen || !pet) return null;
 
-  const reset = () => { setResult(''); setFile(null); setError(''); setUploading(false); setSelectedPedidoId(''); };
+  const reset = () => { setResult(''); setFiles([]); setError(''); setUploading(false); setSelectedPedidoId(''); };
   const handleClose = () => { reset(); onClose(); };
 
-  const handleFile = (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    if (f.size > 5 * 1024 * 1024) { setError('El archivo no debe superar 5MB.'); return; }
-    setFile(f); setError('');
+  const handleFiles = (e) => {
+    const selected = Array.from(e.target.files);
+    const oversize = selected.filter(f => f.size > 10 * 1024 * 1024);
+    if (oversize.length) { setError(`Archivo(s) demasiado grande(s): ${oversize.map(f=>f.name).join(', ')} (máx 10MB c/u)`); return; }
+    setFiles(prev => {
+      const existingNames = new Set(prev.map(f => f.name));
+      const news = selected.filter(f => !existingNames.has(f.name));
+      return [...prev, ...news];
+    });
+    setError('');
+    if (fileRef.current) fileRef.current.value = '';
   };
+
+  const removeFile = (idx) => setFiles(prev => prev.filter((_, i) => i !== idx));
 
   const selectedPedido = solicitados.find(p => String(p.id) === selectedPedidoId);
 
   const handleSave = async () => {
-    if (solicitados.length === 0) return; // blocked
+    if (solicitados.length === 0) return;
     if (solicitados.length > 1 && !selectedPedidoId) { setError('Selecciona a qué pedido corresponde este resultado.'); return; }
 
     setError('');
-    let file_url = null;
+    const archivos = [];
 
-    if (file) {
+    if (files.length > 0) {
       setUploading(true);
-      const path = `laboratorios/${pet.id}/${new Date().toISOString().split('T')[0]}/${Date.now()}_${file.name}`;
-      const { error: upErr } = await supabase.storage.from('laboratorios-reports').upload(path, file, { upsert:true });
-      if (!upErr) {
+      const date = new Date().toISOString().split('T')[0];
+      for (const file of files) {
+        const path = `laboratorios/${pet.id}/${date}/${Date.now()}_${file.name}`;
+        const { error: upErr } = await supabase.storage.from('laboratorios-reports').upload(path, file, { upsert: true });
+        if (upErr) {
+          setError(`Error subiendo ${file.name}: ${upErr.message}`);
+          setUploading(false);
+          return;
+        }
         const { data } = supabase.storage.from('laboratorios-reports').getPublicUrl(path);
-        file_url = data.publicUrl;
+        archivos.push({ name: file.name, url: data.publicUrl });
       }
       setUploading(false);
     }
@@ -62,7 +74,8 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, pet, pedido
     onSave({
       tipo:       selectedPedido?.tipo_examen || 'Otro',
       resultados,
-      file_url,
+      file_url:   archivos[0]?.url || null,   // first file for backward compat
+      archivos,                                // all files
       pedido_id:  selectedPedido?.id || null,
       created_by: session?.nombre || 'Desconocido',
       fecha:      new Date().toISOString().split('T')[0],
@@ -93,7 +106,7 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, pet, pedido
   // ── NORMAL: upload form ───────────────────────────────────────────────────
   return (
     <div onClick={handleClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'2rem 1rem', backdropFilter:'blur(2px)', overflowY:'auto' }}>
-      <div onClick={e=>e.stopPropagation()} style={{ background:'var(--color-white)', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-lg)', width:'100%', maxWidth:520, margin:'auto', overflow:'hidden' }}>
+      <div onClick={e=>e.stopPropagation()} style={{ background:'var(--color-white)', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-lg)', width:'100%', maxWidth:540, margin:'auto', overflow:'hidden' }}>
 
         <div style={{ padding:'1.25rem 1.5rem', borderBottom:'1px solid var(--color-border)', background:'#f0fdf4', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <div>
@@ -109,7 +122,6 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, pet, pedido
           <div style={{ marginBottom:'1rem' }}>
             <label style={lSt}>¿A qué pedido corresponde este resultado? *</label>
             {solicitados.length === 1 ? (
-              // Only one — show it as read-only info
               <div style={{ padding:'0.75rem 1rem', background:'#e8f5ee', border:'1px solid #2e7d50', borderRadius:'var(--radius-sm)', display:'flex', alignItems:'center', gap:'0.6rem' }}>
                 <span style={{ fontSize:'1.1rem' }}>🧪</span>
                 <div>
@@ -120,7 +132,6 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, pet, pedido
                 </div>
               </div>
             ) : (
-              // Multiple — show selector
               <select value={selectedPedidoId} onChange={e=>setSelectedPedidoId(e.target.value)} style={{ ...iSt, border:'1px solid #2e7d50' }}>
                 <option value="">— Selecciona el examen —</option>
                 {solicitados.map(p => (
@@ -135,23 +146,39 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, pet, pedido
           {/* Resultados */}
           <div style={{ marginBottom:'1rem' }}>
             <label style={lSt}>Resultados / Interpretación</label>
-            <textarea value={resultados} onChange={e=>setResult(e.target.value)} rows={4} style={taSt} placeholder="Describa los resultados o hallazgos del laboratorio..." />
+            <textarea value={resultados} onChange={e=>setResult(e.target.value)} rows={3} style={taSt} placeholder="Describa los resultados o hallazgos del laboratorio..." />
           </div>
 
-          {/* PDF upload */}
+          {/* PDF upload — múltiple */}
           <div style={{ marginBottom:'1.25rem' }}>
-            <label style={lSt}>Adjuntar PDF (máx 5MB)</label>
-            {file ? (
-              <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.6rem 0.85rem', background:'#e8f5ee', border:'1px solid #2e7d50', borderRadius:'var(--radius-sm)' }}>
-                <span style={{ fontSize:'0.82rem', color:'#2e7d50', fontWeight:600, flex:1 }}>📄 {file.name}</span>
-                <button onClick={()=>{setFile(null);if(fileRef.current)fileRef.current.value='';}} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-danger)', fontSize:'1rem' }}>×</button>
+            <label style={lSt}>Adjuntar PDFs (puedes seleccionar varios)</label>
+
+            {/* File list */}
+            {files.length > 0 && (
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem', marginBottom:'0.5rem' }}>
+                {files.map((f, i) => (
+                  <div key={i} style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.5rem 0.75rem', background:'#e8f5ee', border:'1px solid #2e7d50', borderRadius:'var(--radius-sm)' }}>
+                    <span style={{ fontSize:'0.82rem', color:'#2e7d50', fontWeight:600, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>📄 {f.name}</span>
+                    <span style={{ fontSize:'0.72rem', color:'var(--color-text-muted)', flexShrink:0 }}>{(f.size / 1024).toFixed(0)} KB</span>
+                    <button onClick={() => removeFile(i)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-danger)', fontSize:'1rem', flexShrink:0, padding:'0 2px' }}>×</button>
+                  </div>
+                ))}
               </div>
-            ) : (
-              <button onClick={()=>fileRef.current?.click()} style={{ width:'100%', padding:'0.75rem', border:'2px dashed var(--color-border)', borderRadius:'var(--radius-md)', background:'var(--color-bg)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.82rem', color:'var(--color-text-muted)' }}>
-                📎 Seleccionar archivo PDF
-              </button>
             )}
-            <input ref={fileRef} type="file" accept=".pdf" onChange={handleFile} style={{ display:'none' }} />
+
+            <button
+              onClick={() => fileRef.current?.click()}
+              style={{ width:'100%', padding:'0.75rem', border:'2px dashed var(--color-border)', borderRadius:'var(--radius-md)', background:'var(--color-bg)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.82rem', color:'var(--color-text-muted)' }}
+            >
+              📎 {files.length > 0 ? 'Agregar más PDFs' : 'Seleccionar PDFs'}
+            </button>
+            <input ref={fileRef} type="file" accept=".pdf" multiple onChange={handleFiles} style={{ display:'none' }} />
+
+            {files.length > 0 && (
+              <div style={{ marginTop:'0.4rem', fontSize:'0.75rem', color:'#2e7d50' }}>
+                {files.length} archivo{files.length !== 1 ? 's' : ''} seleccionado{files.length !== 1 ? 's' : ''}
+              </div>
+            )}
           </div>
 
           <div style={{ marginBottom:'1.25rem', background:'var(--color-bg)', borderRadius:'var(--radius-sm)', padding:'0.65rem 0.85rem', fontSize:'0.78rem', color:'var(--color-text-muted)' }}>
@@ -163,7 +190,7 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, pet, pedido
           <div style={{ display:'flex', gap:'0.75rem', justifyContent:'flex-end' }}>
             <button onClick={handleClose} style={{ padding:'0.6rem 1.25rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', color:'var(--color-text-muted)' }}>Cancelar</button>
             <button onClick={handleSave} disabled={uploading} style={{ padding:'0.6rem 1.5rem', background:'#2e7d50', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:uploading?'not-allowed':'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', fontWeight:600, opacity:uploading?0.7:1 }}>
-              {uploading ? '⏳ Subiendo...' : '🧪 Guardar resultado'}
+              {uploading ? `⏳ Subiendo ${files.length} archivo${files.length!==1?'s':''}...` : '🧪 Guardar resultado'}
             </button>
           </div>
         </div>
@@ -171,4 +198,3 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, pet, pedido
     </div>
   );
 }
-

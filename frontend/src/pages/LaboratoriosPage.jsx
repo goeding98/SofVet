@@ -135,7 +135,8 @@ export default function LaboratoriosPage() {
                 {sinReportar.map(p => {
                   const lab      = laboratorios.find(l => l.pedido_id === p.id);
                   const isOpen   = expanded === p.id;
-                  const hasPDF   = !!lab?.file_url;
+                  const labFiles = lab?.archivos?.length > 0 ? lab.archivos : lab?.file_url ? [{ name: 'PDF adjunto', url: lab.file_url }] : [];
+                  const hasPDF   = labFiles.length > 0;
                   return (
                     <Fragment key={p.id}>
                       <tr style={{ background: confirming === p.id ? '#fff8e1' : isOpen ? '#f0fdf4' : 'transparent' }}>
@@ -190,11 +191,16 @@ export default function LaboratoriosPage() {
                                   📄 <strong style={{ color:'var(--color-text)' }}>{lab.tipo || p.tipo_examen}</strong>
                                   {lab.fecha && ` · Subido el ${lab.fecha}`}
                                   {lab.created_by && ` · por ${lab.created_by}`}
+                                  {labFiles.length > 1 && <span style={{ marginLeft:'0.5rem', background:'#2e7d50', color:'white', padding:'1px 8px', borderRadius:999, fontSize:'0.68rem', fontWeight:700 }}>{labFiles.length} PDFs</span>}
                                 </div>
-                                <a href={lab.file_url} target="_blank" rel="noopener noreferrer"
-                                  style={{ padding:'0.3rem 0.75rem', background:'#2e7d50', color:'white', borderRadius:'var(--radius-sm)', fontSize:'0.75rem', fontWeight:600, textDecoration:'none' }}>
-                                  ↗ Abrir en pestaña
-                                </a>
+                                <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', justifyContent:'flex-end' }}>
+                                  {labFiles.map((f, fi) => (
+                                    <a key={fi} href={f.url} target="_blank" rel="noopener noreferrer"
+                                      style={{ padding:'0.3rem 0.75rem', background:'#2e7d50', color:'white', borderRadius:'var(--radius-sm)', fontSize:'0.75rem', fontWeight:600, textDecoration:'none', whiteSpace:'nowrap' }}>
+                                      ↗ {labFiles.length > 1 ? f.name : 'Abrir en pestaña'}
+                                    </a>
+                                  ))}
+                                </div>
                               </div>
                               {/* Resultados text if any */}
                               {lab.resultados && (
@@ -202,14 +208,21 @@ export default function LaboratoriosPage() {
                                   {lab.resultados}
                                 </div>
                               )}
-                              {/* PDF iframe */}
-                              <div style={{ border:'1px solid #c3e8d0', borderRadius:'var(--radius-md)', overflow:'hidden', background:'white' }}>
-                                <iframe
-                                  src={lab.file_url}
-                                  title={`PDF ${p.tipo_examen}`}
-                                  style={{ width:'100%', height:520, border:'none', display:'block' }}
-                                />
-                              </div>
+                              {/* PDF iframes — one per file */}
+                              {labFiles.map((f, fi) => (
+                                <div key={fi} style={{ border:'1px solid #c3e8d0', borderRadius:'var(--radius-md)', overflow:'hidden', background:'white', marginTop: fi > 0 ? '0.75rem' : 0 }}>
+                                  {labFiles.length > 1 && (
+                                    <div style={{ padding:'0.4rem 0.85rem', background:'#e8f5ee', fontSize:'0.75rem', fontWeight:600, color:'#2e7d50', borderBottom:'1px solid #c3e8d0' }}>
+                                      📄 {f.name}
+                                    </div>
+                                  )}
+                                  <iframe
+                                    src={f.url}
+                                    title={`PDF ${fi + 1} — ${p.tipo_examen}`}
+                                    style={{ width:'100%', height:520, border:'none', display:'block' }}
+                                  />
+                                </div>
+                              ))}
                             </div>
                           </td>
                         </tr>
