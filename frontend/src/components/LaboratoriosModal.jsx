@@ -58,7 +58,10 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, pet, pedido
       setUploading(true);
       const date = new Date().toISOString().split('T')[0];
       for (const file of files) {
-        const path = `laboratorios/${pet.id}/${date}/${Date.now()}_${file.name}`;
+        const safeName = file.name
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // quitar tildes
+          .replace(/[^a-zA-Z0-9._-]/g, '_');                  // reemplazar especiales con _
+        const path = `laboratorios/${pet.id}/${date}/${Date.now()}_${safeName}`;
         const { error: upErr } = await supabase.storage.from('laboratorios-reports').upload(path, file, { upsert: true });
         if (upErr) {
           setError(`Error subiendo ${file.name}: ${upErr.message}`);
