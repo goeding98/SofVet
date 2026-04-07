@@ -21,6 +21,7 @@ const TABLE_MAP = {
   laboratorios:            'laboratorios',
   hospitalization_reports: 'hospitalization_reports',
   laboratorios_pedidos:    'laboratorios_pedidos',
+  prepagada:               'prepagada',
 };
 
 // ── Module-level cache (survives navigation, shared across all components) ──

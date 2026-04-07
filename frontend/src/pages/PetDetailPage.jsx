@@ -31,6 +31,7 @@ export default function PetDetailPage() {
   const navigate = useNavigate();
   const { items: patients, loading: loadingPatients } = useStore('patients');
   const { items: clients }     = useStore('clients');
+  const { items: prepagada }   = useStore('prepagada');
   const { items: consultations, add: addConsultation } = useStore('consultations');
   const { items: vaccines, add: addVaccine } = useStore('vaccines');
   const { items: imagingRecords, add: addImaging }     = useStore('imaging');
@@ -117,6 +118,11 @@ export default function PetDetailPage() {
   }
 
   const sc = statusColors[pet.status] || statusColors.inactivo;
+
+  const prepagadaEntry = prepagada.find(i => i.patient_id === pet.id && i.status !== 'baja');
+  const prepagadaStatus = prepagadaEntry
+    ? (new Date(prepagadaEntry.paid_until + 'T23:59:59') >= new Date() ? 'activo' : 'mora')
+    : null;
 
   const isHospitalized = pet.status === 'hospitalizado';
 
@@ -405,6 +411,8 @@ export default function PetDetailPage() {
               <div style={{ display:'flex', alignItems:'center', gap:'0.6rem', marginBottom:'0.35rem', flexWrap:'wrap' }}>
                 <h2 style={{ fontFamily:'var(--font-title)', color:'var(--color-primary)', fontSize:'1.5rem', lineHeight:1 }}>{pet.name}</h2>
                 <span style={{ background:sc.bg, color:sc.color, padding:'3px 10px', borderRadius:999, fontSize:'0.7rem', fontWeight:500 }}>{pet.status}</span>
+                {prepagadaStatus === 'activo' && <span style={{ background:'#e8f0ff', color:'#2e5cbf', padding:'3px 10px', borderRadius:999, fontSize:'0.7rem', fontWeight:600 }}>💳 Afiliado</span>}
+                {prepagadaStatus === 'mora'   && <span style={{ background:'#fff8e1', color:'#b8860b', padding:'3px 10px', borderRadius:999, fontSize:'0.7rem', fontWeight:600 }}>⚠️ En Mora</span>}
               </div>
               <p style={{ fontSize:'0.875rem', color:'var(--color-text-muted)', marginBottom:'1rem' }}>
                 {pet.species}{pet.breed ? ` · ${pet.breed}` : ''}

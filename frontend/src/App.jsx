@@ -22,6 +22,7 @@ import EPSPage from './pages/EPSPage';
 import DocumentsPage from './pages/DocumentsPage';
 import UsersPage from './pages/UsersPage';
 import ImportPage from './pages/ImportPage';
+import PrepagadaPage from './pages/PrepagadaPage';
 
 function ProtectedLayout({ children }) {
   const { session } = useAuth();
@@ -73,7 +74,8 @@ function AppRoutes() {
       <Route path="/laboratorios"      element={<ProtectedLayout><LaboratoriosPage /></ProtectedLayout>} />
       <Route path="/remissions"        element={<ProtectedLayout><RemissionsPage /></ProtectedLayout>} />
       <Route path="/eps"               element={<ProtectedLayout><EPSPage /></ProtectedLayout>} />
-      <Route path="/documents"         element={<ProtectedLayout><DocumentsPage /></ProtectedLayout>} />
+      <Route path="/documents"          element={<ProtectedLayout><DocumentsPage /></ProtectedLayout>} />
+      <Route path="/prepagada"          element={<ProtectedLayout><PrepagadaPage /></ProtectedLayout>} />
 
       {/* Admin-only */}
       {isAdmin && (

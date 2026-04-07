@@ -15,7 +15,8 @@ const serviciosItems = [
 ];
 
 const otrosItems = [
-  { path: '/documents', label: 'Documentos', icon: '📄'  },
+  { path: '/prepagada', label: 'Med. Prepagada', icon: '💳'  },
+  { path: '/documents', label: 'Documentos',     icon: '📄'  },
 ];
 
 export default function Sidebar() {
