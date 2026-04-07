@@ -44,17 +44,32 @@ export default function PrepagadaPage() {
   const { session } = useAuth();
   const isAdmin = session?.rol === 'Administrador';
 
-  const [modal,       setModal]       = useState(false);
-  const [cobroModal,  setCobroModal]  = useState(null); // item
-  const [bajaModal,   setBajaModal]   = useState(null); // item
-  const [mesesPago,   setMesesPago]   = useState(1);
-  const [search,      setSearch]      = useState('');
-  const [filterStatus,setFilterStatus]= useState('todos');
-  const [saving,      setSaving]      = useState(false);
+  const [modal,        setModal]        = useState(false);
+  const [cobroModal,   setCobroModal]   = useState(null);
+  const [bajaModal,    setBajaModal]    = useState(null);
+  const [mesesPago,    setMesesPago]    = useState(1);
+  const [search,       setSearch]       = useState('');
+  const [filterStatus, setFilterStatus] = useState('todos');
+  const [saving,       setSaving]       = useState(false);
 
   // New affiliation form
-  const [form, setForm] = useState({ patient_id: '', client_id: '', notes: '' });
-  const [formError, setFormError] = useState('');
+  const [form,         setForm]         = useState({ patient_id: '', notes: '', meses: 1 });
+  const [formError,    setFormError]    = useState('');
+  const [petSearch,    setPetSearch]    = useState('');
+  const [petSelected,  setPetSelected]  = useState(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  const petSuggestions = useMemo(() => {
+    if (!petSearch.trim()) return [];
+    const q = petSearch.toLowerCase();
+    return patients
+      .filter(p => !prepagada.find(i => i.patient_id === p.id && i.status !== 'baja'))
+      .filter(p => {
+        const owner = clients.find(c => c.id === p.client_id);
+        return p.name.toLowerCase().includes(q) || owner?.name?.toLowerCase().includes(q);
+      })
+      .slice(0, 10);
+  }, [petSearch, patients, clients, prepagada]);
 
   const now = todayDate();
   const dayOfMonth = now.getDate();
@@ -78,26 +93,26 @@ export default function PrepagadaPage() {
 
   const handleAffiliate = async () => {
     setFormError('');
-    if (!form.patient_id) return setFormError('Selecciona una mascota.');
-    const pet = patients.find(p => p.id === parseInt(form.patient_id));
-    if (!pet) return setFormError('Mascota no encontrada.');
-    const already = prepagada.find(i => i.patient_id === pet.id && i.status !== 'baja');
+    if (!petSelected) return setFormError('Selecciona una mascota.');
+    const already = prepagada.find(i => i.patient_id === petSelected.id && i.status !== 'baja');
     if (already) return setFormError('Esta mascota ya está afiliada.');
     setSaving(true);
-    const client = clients.find(c => c.id === pet.client_id);
+    const client = clients.find(c => c.id === petSelected.client_id);
     await add({
-      patient_id:   pet.id,
-      patient_name: pet.name,
-      client_id:    pet.client_id || null,
+      patient_id:   petSelected.id,
+      patient_name: petSelected.name,
+      client_id:    petSelected.client_id || null,
       client_name:  client?.name || '',
       status:       'activo',
-      paid_until:   addMonths(today(), 1),
+      paid_until:   addMonths(today(), form.meses),
       plan_start:   today(),
       notes:        form.notes,
     });
     setSaving(false);
     setModal(false);
-    setForm({ patient_id: '', client_id: '', notes: '' });
+    setForm({ patient_id: '', notes: '', meses: 1 });
+    setPetSearch('');
+    setPetSelected(null);
   };
 
   const handleCobro = async () => {
@@ -260,18 +275,49 @@ export default function PrepagadaPage() {
               <button onClick={() => setModal(false)} style={{ width: 32, height: 32, background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontSize: '1rem' }}>×</button>
             </div>
             <div style={{ padding: '1.5rem' }}>
-              <div style={{ marginBottom: '1rem' }}>
+              <div style={{ marginBottom: '1rem', position: 'relative' }}>
                 <label style={labelSt}>Mascota *</label>
-                <select style={inputSt} value={form.patient_id} onChange={e => setForm(f => ({ ...f, patient_id: e.target.value }))}>
-                  <option value="">— Selecciona una mascota —</option>
-                  {patients
-                    .filter(p => !prepagada.find(i => i.patient_id === p.id && i.status !== 'baja'))
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map(p => {
-                      const owner = clients.find(c => c.id === p.client_id);
-                      return <option key={p.id} value={p.id}>{p.name} — {owner?.name || 'Sin propietario'}</option>;
-                    })
-                  }
+                {petSelected ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem 0.75rem', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius-sm)', background: 'var(--color-info-bg)' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>🐾 {petSelected.name} — {clients.find(c => c.id === petSelected.client_id)?.name}</span>
+                    <button onClick={() => { setPetSelected(null); setPetSearch(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontSize: '1rem' }}>×</button>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      style={inputSt}
+                      placeholder="Escribe el nombre de la mascota o propietario..."
+                      value={petSearch}
+                      onChange={e => { setPetSearch(e.target.value); setShowDropdown(true); }}
+                      onFocus={() => setShowDropdown(true)}
+                      autoFocus
+                    />
+                    {showDropdown && petSuggestions.length > 0 && (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', boxShadow: 'var(--shadow-md)', zIndex: 10, maxHeight: 220, overflowY: 'auto' }}>
+                        {petSuggestions.map(p => {
+                          const owner = clients.find(c => c.id === p.client_id);
+                          return (
+                            <div key={p.id} onClick={() => { setPetSelected(p); setPetSearch(''); setShowDropdown(false); }}
+                              style={{ padding: '0.6rem 0.9rem', cursor: 'pointer', borderBottom: '1px solid var(--color-border)', fontSize: '0.875rem' }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'var(--color-info-bg)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'white'}
+                            >
+                              <span style={{ fontWeight: 600 }}>🐾 {p.name}</span>
+                              <span style={{ color: 'var(--color-text-muted)', marginLeft: '0.5rem' }}>{owner?.name}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={labelSt}>¿Cuántos meses está pagando?</label>
+                <select style={inputSt} value={form.meses} onChange={e => setForm(f => ({ ...f, meses: parseInt(e.target.value) }))}>
+                  {[1,2,3,4,5,6,9,12].map(n => (
+                    <option key={n} value={n}>{n} {n === 1 ? 'mes' : 'meses'} — {formatCOP(n * MONTHLY_RATE)}</option>
+                  ))}
                 </select>
               </div>
               <div style={{ marginBottom: '1.25rem' }}>
@@ -279,7 +325,7 @@ export default function PrepagadaPage() {
                 <input style={inputSt} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Observaciones opcionales..." />
               </div>
               <div style={{ background: 'var(--color-info-bg)', borderRadius: 'var(--radius-sm)', padding: '0.75rem 1rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>
-                Se afiliará con 1 mes de vigencia a partir de hoy · {formatCOP(MONTHLY_RATE)}/mes
+                Pagado hasta: <strong>{formatDate(addMonths(today(), form.meses))}</strong> · Total: <strong>{formatCOP(form.meses * MONTHLY_RATE)}</strong>
               </div>
               {formError && <div style={{ background: 'var(--color-danger-bg)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', padding: '0.6rem 0.9rem', color: 'var(--color-danger)', fontSize: '0.8rem', marginBottom: '1rem' }}>⚠️ {formError}</div>}
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
