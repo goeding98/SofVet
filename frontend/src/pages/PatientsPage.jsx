@@ -243,7 +243,6 @@ export default function PatientsPage() {
           {F('Peso (kg) *', 'weight', 'number')}
           {F('Esterilizado *', 'esterilizado', 'text', ['No', 'Sí'])}
           {F('Carácter *', 'caracter', 'text', ['Dócil', 'Calmado', 'Nervioso', 'Agresivo'])}
-          {F('Estado', 'status', 'text', ['activo', 'hospitalizado', 'inactivo'])}
         </div>
       </Modal>
     </div>

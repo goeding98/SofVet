@@ -207,7 +207,6 @@ export default function ClientDetailPage() {
           {F('Esterilizado *', 'esterilizado', 'text', ['No', 'Sí'])}
           {F('Carácter *', 'caracter', 'text', ['Dócil', 'Calmado', 'Nervioso', 'Agresivo'])}
         </div>
-        {F('Estado', 'status', 'text', ['activo', 'hospitalizado', 'inactivo'])}
       </Modal>
     </div>
   );
