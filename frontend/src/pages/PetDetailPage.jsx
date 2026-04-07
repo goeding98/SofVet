@@ -224,7 +224,15 @@ export default function PetDetailPage() {
   };
 
   const handleSaveLaboratorio = async (data) => {
-    await addLaboratorio({ ...data, patient_id: petId, patient_name: pet.name });
+    let saveErr = null;
+    const result = await addLaboratorio(
+      { ...data, patient_id: petId, patient_name: pet.name },
+      { onError: (m) => { saveErr = m; } }
+    );
+    if (!result) {
+      alert('❌ Error al guardar laboratorio en DB:\n\n' + saveErr);
+      return;
+    }
     // Auto-link: if there's a 'Solicitado' pedido for this patient+tipo, advance to 'Subido SIN REPORTAR'
     const pedido = labPedidos.find(p =>
       p.patient_id === petId &&
