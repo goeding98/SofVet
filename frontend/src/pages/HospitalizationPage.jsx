@@ -8,7 +8,8 @@ import Button from '../components/Button';
 
 const UNIDADES    = ['ml', 'tabletas', 'paquetes', 'mg', 'comprimidos', 'gotas', 'otro'];
 const FRECUENCIAS = ['Cada 2 horas', 'Cada 4 horas', 'Cada 6 horas', 'Cada 8 horas', 'Cada 12 horas', 'Cada 24 horas', 'Una sola vez'];
-const EMPTY_MED   = { medicamento: '', dosis: '', unidad: 'ml', frecuencia: 'Cada 8 horas', observaciones: '' };
+const VIAS        = ['IV', 'IM', 'VO', 'SC', 'Tópica', 'Inhalada', 'Oftálmica', 'Ótica'];
+const EMPTY_MED   = { medicamento: '', dosis: '', unidad: 'ml', via: 'IV', frecuencia: 'Cada 8 horas', observaciones: '' };
 
 const labelStyle = {
   display: 'block', fontSize: '0.75rem', fontWeight: 600,
@@ -452,7 +453,7 @@ export default function HospitalizationPage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg)' }}>
-                        {['Medicamento', 'Dosis', 'Frecuencia'].map(h => (
+                        {['Medicamento', 'Dosis', 'Vía', 'Frecuencia'].map(h => (
                           <th key={h} style={{ padding: '0.5rem 0.6rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{h}</th>
                         ))}
                       </tr>
@@ -462,6 +463,7 @@ export default function HospitalizationPage() {
                         <tr key={i} style={{ borderBottom: i < selected.tratamiento.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
                           <td style={{ padding: '0.5rem 0.6rem', fontWeight: 500 }}>{t.medicamento}</td>
                           <td style={{ padding: '0.5rem 0.6rem' }}>{t.dosis} {t.unidad}</td>
+                          <td style={{ padding: '0.5rem 0.6rem' }}>{t.via || '—'}</td>
                           <td style={{ padding: '0.5rem 0.6rem', color: 'var(--color-text-muted)' }}>{t.frecuencia}</td>
                         </tr>
                       ))}
@@ -1005,10 +1007,10 @@ export default function HospitalizationPage() {
                 <button onClick={() => setEditTxMeds(m => [...m, { ...EMPTY_MED }])} style={{ padding: '0.35rem 0.85rem', background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.78rem', fontWeight: 600 }}>+ Agregar fila</button>
               </div>
               <div style={{ overflowX: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 580 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 660 }}>
                   <thead>
                     <tr style={{ background: 'var(--color-bg)', borderBottom: '1px solid var(--color-border)' }}>
-                      {['Medicamento', 'Dosis', 'Unidad', 'Frecuencia', 'Observaciones', ''].map(h => (
+                      {['Medicamento', 'Dosis', 'Unidad', 'Vía', 'Frecuencia', 'Observaciones', ''].map(h => (
                         <th key={h} style={{ padding: '0.5rem 0.6rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{h}</th>
                       ))}
                     </tr>
@@ -1019,13 +1021,14 @@ export default function HospitalizationPage() {
                         <td style={{ padding: '0.4rem 0.5rem' }}><input value={m.medicamento} onChange={e => updateEditTxMed(i, 'medicamento', e.target.value)} placeholder="Nombre" style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }} /></td>
                         <td style={{ padding: '0.4rem 0.5rem' }}><input value={m.dosis} onChange={e => updateEditTxMed(i, 'dosis', e.target.value)} placeholder="0" style={{ width: 55, padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }} /></td>
                         <td style={{ padding: '0.4rem 0.5rem' }}><select value={m.unidad} onChange={e => updateEditTxMed(i, 'unidad', e.target.value)} style={{ padding: '0.4rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>{UNIDADES.map(u => <option key={u}>{u}</option>)}</select></td>
+                        <td style={{ padding: '0.4rem 0.5rem' }}><select value={m.via || 'IV'} onChange={e => updateEditTxMed(i, 'via', e.target.value)} style={{ padding: '0.4rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>{VIAS.map(v => <option key={v}>{v}</option>)}</select></td>
                         <td style={{ padding: '0.4rem 0.5rem' }}><select value={m.frecuencia} onChange={e => updateEditTxMed(i, 'frecuencia', e.target.value)} style={{ padding: '0.4rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>{FRECUENCIAS.map(f => <option key={f}>{f}</option>)}</select></td>
                         <td style={{ padding: '0.4rem 0.5rem' }}><input value={m.observaciones} onChange={e => updateEditTxMed(i, 'observaciones', e.target.value)} placeholder="Notas" style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }} /></td>
                         <td style={{ padding: '0.4rem 0.5rem' }}><button onClick={() => setEditTxMeds(m2 => m2.filter((_, idx) => idx !== i))} style={{ background: 'var(--color-danger-bg)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '0.25rem 0.5rem', fontSize: '0.72rem' }}>✕</button></td>
                       </tr>
                     ))}
                     {editTxMeds.length === 0 && (
-                      <tr><td colSpan={6} style={{ padding: '1.25rem', textAlign: 'center', fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>Sin medicamentos. Agrega una fila.</td></tr>
+                      <tr><td colSpan={7} style={{ padding: '1.25rem', textAlign: 'center', fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>Sin medicamentos. Agrega una fila.</td></tr>
                     )}
                   </tbody>
                 </table>

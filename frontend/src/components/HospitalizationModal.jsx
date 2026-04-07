@@ -4,9 +4,10 @@ import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
 import { useSede, SEDES } from '../utils/useSede';
 
-const EMPTY_MED = { medicamento: '', dosis: '', unidad: 'ml', frecuencia: 'Cada 8 horas', observaciones: '' };
-const UNIDADES   = ['ml', 'tabletas', 'paquetes', 'mg', 'comprimidos', 'gotas', 'otro'];
+const EMPTY_MED   = { medicamento: '', dosis: '', unidad: 'ml', via: 'IV', frecuencia: 'Cada 8 horas', observaciones: '' };
+const UNIDADES    = ['ml', 'tabletas', 'paquetes', 'mg', 'comprimidos', 'gotas', 'otro'];
 const FRECUENCIAS = ['Cada 2 horas', 'Cada 4 horas', 'Cada 6 horas', 'Cada 8 horas', 'Cada 12 horas', 'Cada 24 horas', 'Una sola vez'];
+const VIAS        = ['IV', 'IM', 'VO', 'SC', 'Tópica', 'Inhalada', 'Oftálmica', 'Ótica'];
 
 export default function HospitalizationModal({ isOpen, onClose, pet, client }) {
   const navigate = useNavigate();
@@ -128,10 +129,10 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client }) {
               </button>
             </div>
             <div style={{ overflowX: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
                 <thead>
                   <tr style={{ background: 'var(--color-bg)', borderBottom: '1px solid var(--color-border)' }}>
-                    {['Medicamento / Tratamiento', 'Dosis', 'Unidad', 'Frecuencia', 'Observaciones', ''].map(h => (
+                    {['Medicamento / Tratamiento', 'Dosis', 'Unidad', 'Vía', 'Frecuencia', 'Observaciones', ''].map(h => (
                       <th key={h} style={{ padding: '0.5rem 0.6rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -148,6 +149,11 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client }) {
                       <td style={{ padding: '0.4rem 0.5rem' }}>
                         <select value={m.unidad} onChange={e => updateMed(i, 'unidad', e.target.value)} style={{ padding: '0.4rem 0.4rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
                           {UNIDADES.map(u => <option key={u}>{u}</option>)}
+                        </select>
+                      </td>
+                      <td style={{ padding: '0.4rem 0.5rem' }}>
+                        <select value={m.via || 'IV'} onChange={e => updateMed(i, 'via', e.target.value)} style={{ padding: '0.4rem 0.4rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
+                          {VIAS.map(v => <option key={v}>{v}</option>)}
                         </select>
                       </td>
                       <td style={{ padding: '0.4rem 0.5rem' }}>
