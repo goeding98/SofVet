@@ -74,6 +74,33 @@ function buildConsumoSummary(consumo, liquidaciones_parciales) {
   return { pending, liquidated, idToLiqDate };
 }
 
+function buildNochesSummary(ingresoDate, endDate, liquidaciones_parciales) {
+  if (!ingresoDate) return [];
+  const liquidatedNights = new Set(
+    (liquidaciones_parciales || []).flatMap(lp => lp.noches || [])
+  );
+  const nightToLiqDate = {};
+  (liquidaciones_parciales || []).forEach(lp => {
+    (lp.noches || []).forEach(n => { nightToLiqDate[n] = `${lp.fecha} ${lp.hora}`; });
+  });
+  const nights = [];
+  let d = new Date(ingresoDate + 'T12:00:00');
+  const end = new Date((endDate || new Date().toISOString().split('T')[0]) + 'T12:00:00');
+  let idx = 1;
+  while (d <= end) {
+    const dateStr = d.toISOString().split('T')[0];
+    nights.push({ fecha: dateStr, idx, liquidado: liquidatedNights.has(dateStr), liqDate: nightToLiqDate[dateStr] });
+    d.setDate(d.getDate() + 1);
+    idx++;
+  }
+  return nights;
+}
+
+function fmtNoche(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
 export default function HospitalizationPage() {
   const navigate = useNavigate();
   const { session } = useAuth();
@@ -113,9 +140,10 @@ export default function HospitalizationPage() {
   const [consumoNewCant, setConsumoNewCant] = useState('');
 
   // ── liquidación parcial modal ───────────────────────────────────────────
-  const [liquidModal,   setLiquidModal]   = useState(false);
-  const [liquidHospId,  setLiquidHospId]  = useState(null);
-  const [liquidChecked, setLiquidChecked] = useState({});
+  const [liquidModal,         setLiquidModal]         = useState(false);
+  const [liquidHospId,        setLiquidHospId]        = useState(null);
+  const [liquidChecked,       setLiquidChecked]       = useState({});
+  const [liquidNochesChecked, setLiquidNochesChecked] = useState({});
 
   // ── derived ─────────────────────────────────────────────────────────────
   const activos    = hosps.filter(h => h.status === 'activo'     && (hospSedeFilter === null || h.sede_id === hospSedeFilter));
@@ -242,25 +270,34 @@ export default function HospitalizationPage() {
   // ── liquidación parcial ─────────────────────────────────────────────────
   const openLiquidParcial = (h) => {
     setLiquidHospId(h.id);
+    // consumo items
     const liquidatedIds = new Set((h.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
     const init = {};
     (h.consumo || []).forEach(item => {
       if (!liquidatedIds.has(item.id)) init[item.id] = false;
     });
     setLiquidChecked(init);
+    // noches
+    const today = new Date().toISOString().split('T')[0];
+    const noches = buildNochesSummary(h.ingreso_date, today, h.liquidaciones_parciales);
+    const nochesInit = {};
+    noches.filter(n => !n.liquidado).forEach(n => { nochesInit[n.fecha] = false; });
+    setLiquidNochesChecked(nochesInit);
     setLiquidModal(true);
   };
 
   const handleLiquidParcial = () => {
     if (!liquidHosp) return;
-    const selectedIds = Object.entries(liquidChecked).filter(([, v]) => v).map(([k]) => parseInt(k));
-    if (!selectedIds.length) { alert('Selecciona al menos un ítem para liquidar.'); return; }
+    const selectedIds    = Object.entries(liquidChecked).filter(([, v]) => v).map(([k]) => parseInt(k));
+    const selectedNoches = Object.entries(liquidNochesChecked).filter(([, v]) => v).map(([k]) => k);
+    if (!selectedIds.length && !selectedNoches.length) { alert('Selecciona al menos un ítem o noche para liquidar.'); return; }
     const now = new Date();
     const newLiq = {
       fecha:          now.toISOString().split('T')[0],
       hora:           now.toTimeString().slice(0, 5),
       registrado_por: session?.nombre || 'Desconocido',
       item_ids:       selectedIds,
+      noches:         selectedNoches,
       items_snapshot: selectedIds.map(id => (liquidHosp.consumo || []).find(item => item.id === id)).filter(Boolean),
     };
     editHosp(liquidHosp.id, { liquidaciones_parciales: [...(liquidHosp.liquidaciones_parciales || []), newLiq] });
@@ -585,6 +622,9 @@ export default function HospitalizationPage() {
         const dur      = calcDuration(altaHosp.ingreso_date, altaDate);
         const { rows, totals } = buildApplicationSummary(altaHosp.aplicaciones);
         const { pending: consumoPending, liquidated: consumoLiquidated, idToLiqDate } = buildConsumoSummary(altaHosp.consumo, altaHosp.liquidaciones_parciales);
+        const noches = buildNochesSummary(altaHosp.ingreso_date, altaDate, altaHosp.liquidaciones_parciales);
+        const nochesPending    = noches.filter(n => !n.liquidado);
+        const nochesLiquidated = noches.filter(n =>  n.liquidado);
         return (
           <div onClick={() => setAltaModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', backdropFilter: 'blur(2px)', overflowY: 'auto' }}>
             <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 680, overflow: 'hidden', margin: 'auto' }}>
@@ -647,6 +687,40 @@ export default function HospitalizationPage() {
                   </div>
                 )}
 
+                {/* Noches de hospitalización — pendiente */}
+                {nochesPending.length > 0 && (
+                  <div style={{ background: '#fff8e1', border: '1px solid #f5c842', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#b8860b', marginBottom: '0.6rem' }}>
+                      🌙 Noches pendientes de cobro ({nochesPending.length})
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      {nochesPending.map(n => (
+                        <div key={n.fecha} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', padding: '0.25rem 0', borderBottom: '1px dashed #f5c842' }}>
+                          <span>Noche {n.idx}</span>
+                          <span style={{ color: '#b8860b', fontWeight: 500 }}>{fmtNoche(n.fecha)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Noches ya liquidadas */}
+                {nochesLiquidated.length > 0 && (
+                  <div style={{ background: 'var(--color-success-bg)', border: '1px solid var(--color-success)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-success)', marginBottom: '0.6rem' }}>
+                      ✅ Noches ya cobradas ({nochesLiquidated.length})
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      {nochesLiquidated.map(n => (
+                        <div key={n.fecha} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', padding: '0.25rem 0', borderBottom: '1px dashed var(--color-success)', color: 'var(--color-text-muted)' }}>
+                          <span>Noche {n.idx} — {fmtNoche(n.fecha)}</span>
+                          <span style={{ fontSize: '0.68rem', color: 'var(--color-success)' }}>cobrado {n.liqDate}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Hoja de Consumo — pendiente */}
                 {consumoPending.length > 0 && (
                   <div style={{ background: '#fff8e1', border: '1px solid #f5c842', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem' }}>
@@ -668,7 +742,7 @@ export default function HospitalizationPage() {
                 {consumoLiquidated.length > 0 && (
                   <div style={{ background: 'var(--color-success-bg)', border: '1px solid var(--color-success)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem' }}>
                     <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-success)', marginBottom: '0.6rem' }}>
-                      ✅ Ya liquidados ({consumoLiquidated.length} ítem{consumoLiquidated.length !== 1 ? 's' : ''})
+                      ✅ Consumo ya liquidado ({consumoLiquidated.length} ítem{consumoLiquidated.length !== 1 ? 's' : ''})
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                       {consumoLiquidated.map(item => (
@@ -716,6 +790,7 @@ export default function HospitalizationPage() {
         const dur = resumenHosp.duration_days || calcDuration(resumenHosp.ingreso_date, resumenHosp.alta_date);
         const { rows, totals } = buildApplicationSummary(resumenHosp.aplicaciones);
         const { pending: consumoPending, liquidated: consumoLiquidated, idToLiqDate } = buildConsumoSummary(resumenHosp.consumo, resumenHosp.liquidaciones_parciales);
+        const nochesR = buildNochesSummary(resumenHosp.ingreso_date, resumenHosp.alta_date, resumenHosp.liquidaciones_parciales);
         return (
           <div onClick={() => setResumenHosp(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', backdropFilter: 'blur(2px)', overflowY: 'auto' }}>
             <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 660, overflow: 'hidden', margin: 'auto' }}>
@@ -772,6 +847,24 @@ export default function HospitalizationPage() {
                         <span key={i} style={{ background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.3rem 0.75rem', fontSize: '0.82rem', fontWeight: 500 }}>
                           {t.medicamento}: <strong>{t.total} {t.unidad}</strong>
                         </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Noches en resumen */}
+                {nochesR.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>Noches de hospitalización</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      {nochesR.map(n => (
+                        <div key={n.fecha} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', padding: '0.25rem 0.65rem', borderRadius: 'var(--radius-sm)', background: n.liquidado ? 'var(--color-success-bg)' : '#fff8e1' }}>
+                          <span style={{ color: n.liquidado ? 'var(--color-text-muted)' : 'var(--color-text)' }}>Noche {n.idx} — {fmtNoche(n.fecha)}</span>
+                          {n.liquidado
+                            ? <span style={{ fontSize: '0.68rem', color: 'var(--color-success)' }}>✅ cobrado {n.liqDate}</span>
+                            : <span style={{ fontSize: '0.68rem', color: '#b8860b', fontWeight: 600 }}>Pendiente</span>
+                          }
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -1046,9 +1139,14 @@ export default function HospitalizationPage() {
 
       {/* ══════════════ MODAL: LIQUIDACIÓN PARCIAL ══════════════ */}
       {liquidModal && liquidHosp && (() => {
+        const today         = new Date().toISOString().split('T')[0];
         const liquidatedIds = new Set((liquidHosp.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
         const pendingItems  = (liquidHosp.consumo || []).filter(item => !liquidatedIds.has(item.id));
-        const selectedCount = Object.values(liquidChecked).filter(Boolean).length;
+        const allNoches     = buildNochesSummary(liquidHosp.ingreso_date, today, liquidHosp.liquidaciones_parciales);
+        const pendingNoches = allNoches.filter(n => !n.liquidado);
+        const selectedConsumoCount = Object.values(liquidChecked).filter(Boolean).length;
+        const selectedNochesCount  = Object.values(liquidNochesChecked).filter(Boolean).length;
+        const selectedCount = selectedConsumoCount + selectedNochesCount;
         return (
           <div onClick={() => setLiquidModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', backdropFilter: 'blur(2px)', overflowY: 'auto' }}>
             <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 560, overflow: 'hidden', margin: 'auto' }}>
@@ -1063,50 +1161,91 @@ export default function HospitalizationPage() {
 
               <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
-                {pendingItems.length === 0 ? (
+                {pendingNoches.length === 0 && pendingItems.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-md)' }}>
                     <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>✅</div>
-                    <p style={{ fontSize: '0.875rem' }}>Todos los ítems de consumo ya han sido liquidados.</p>
-                    <p style={{ fontSize: '0.78rem', marginTop: '0.25rem' }}>Agrega nuevos ítems en la Hoja de Consumo.</p>
+                    <p style={{ fontSize: '0.875rem' }}>Todo está liquidado. No hay ítems pendientes.</p>
                   </div>
                 ) : (
                   <>
                     <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', background: '#f3e8ff', padding: '0.6rem 0.85rem', borderRadius: 'var(--radius-sm)' }}>
-                      Marca los ítems que el cliente paga ahora. Los no seleccionados quedarán pendientes para el alta.
+                      Marca lo que el cliente paga ahora. Lo no seleccionado quedará pendiente para el alta.
                     </div>
 
-                    {/* Select all */}
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, color: '#8e44ad' }}>
-                      <input
-                        type="checkbox"
-                        checked={pendingItems.every(item => liquidChecked[item.id])}
-                        onChange={e => {
-                          const next = {};
-                          pendingItems.forEach(item => { next[item.id] = e.target.checked; });
-                          setLiquidChecked(next);
-                        }}
-                        style={{ accentColor: '#8e44ad', width: 16, height: 16 }}
-                      />
-                      Seleccionar todos
-                    </label>
+                    {/* Noches */}
+                    {pendingNoches.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8e44ad', marginBottom: '0.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>🌙 Noches de hospitalización</span>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', fontWeight: 400, fontSize: '0.72rem', textTransform: 'none', letterSpacing: 0 }}>
+                            <input
+                              type="checkbox"
+                              checked={pendingNoches.every(n => liquidNochesChecked[n.fecha])}
+                              onChange={e => {
+                                const next = {};
+                                pendingNoches.forEach(n => { next[n.fecha] = e.target.checked; });
+                                setLiquidNochesChecked(next);
+                              }}
+                              style={{ accentColor: '#8e44ad' }}
+                            />
+                            Todas
+                          </label>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                          {pendingNoches.map(n => (
+                            <label key={n.fecha} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0.85rem', border: `1px solid ${liquidNochesChecked[n.fecha] ? '#8e44ad' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', background: liquidNochesChecked[n.fecha] ? '#f3e8ff' : 'var(--color-white)', cursor: 'pointer', transition: 'all 0.15s' }}>
+                              <input
+                                type="checkbox"
+                                checked={!!liquidNochesChecked[n.fecha]}
+                                onChange={e => setLiquidNochesChecked(prev => ({ ...prev, [n.fecha]: e.target.checked }))}
+                                style={{ accentColor: '#8e44ad', width: 16, height: 16, flexShrink: 0 }}
+                              />
+                              <span style={{ flex: 1, fontWeight: 500, fontSize: '0.875rem' }}>Noche {n.idx}</span>
+                              <span style={{ fontSize: '0.82rem', color: liquidNochesChecked[n.fecha] ? '#8e44ad' : 'var(--color-text-muted)', fontWeight: 500 }}>{fmtNoche(n.fecha)}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: 320, overflowY: 'auto' }}>
-                      {pendingItems.map(item => (
-                        <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.7rem 0.85rem', border: `1px solid ${liquidChecked[item.id] ? '#8e44ad' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', background: liquidChecked[item.id] ? '#f3e8ff' : 'var(--color-white)', cursor: 'pointer', transition: 'all 0.15s' }}>
-                          <input
-                            type="checkbox"
-                            checked={!!liquidChecked[item.id]}
-                            onChange={e => setLiquidChecked(prev => ({ ...prev, [item.id]: e.target.checked }))}
-                            style={{ accentColor: '#8e44ad', width: 16, height: 16, flexShrink: 0 }}
-                          />
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{item.descripcion}</div>
-                            <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>{item.fecha} · Por: {item.registrado_por}</div>
-                          </div>
-                          <span style={{ fontWeight: 700, fontSize: '0.9rem', color: liquidChecked[item.id] ? '#8e44ad' : 'var(--color-text-muted)' }}>x{item.cantidad}</span>
-                        </label>
-                      ))}
-                    </div>
+                    {/* Consumo items */}
+                    {pendingItems.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8e44ad', marginBottom: '0.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>📋 Hoja de consumo</span>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', fontWeight: 400, fontSize: '0.72rem', textTransform: 'none', letterSpacing: 0 }}>
+                            <input
+                              type="checkbox"
+                              checked={pendingItems.every(item => liquidChecked[item.id])}
+                              onChange={e => {
+                                const next = {};
+                                pendingItems.forEach(item => { next[item.id] = e.target.checked; });
+                                setLiquidChecked(next);
+                              }}
+                              style={{ accentColor: '#8e44ad' }}
+                            />
+                            Todos
+                          </label>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', maxHeight: 200, overflowY: 'auto' }}>
+                          {pendingItems.map(item => (
+                            <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0.85rem', border: `1px solid ${liquidChecked[item.id] ? '#8e44ad' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', background: liquidChecked[item.id] ? '#f3e8ff' : 'var(--color-white)', cursor: 'pointer', transition: 'all 0.15s' }}>
+                              <input
+                                type="checkbox"
+                                checked={!!liquidChecked[item.id]}
+                                onChange={e => setLiquidChecked(prev => ({ ...prev, [item.id]: e.target.checked }))}
+                                style={{ accentColor: '#8e44ad', width: 16, height: 16, flexShrink: 0 }}
+                              />
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{item.descripcion}</div>
+                                <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>{item.fecha} · Por: {item.registrado_por}</div>
+                              </div>
+                              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: liquidChecked[item.id] ? '#8e44ad' : 'var(--color-text-muted)' }}>x{item.cantidad}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
 
