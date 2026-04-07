@@ -36,7 +36,6 @@ function calcDuration(ingresoDate, altaDate) {
 }
 
 function buildApplicationSummary(aplicaciones) {
-  // Flatten: one row per medicamento per application
   const rows = [];
   (aplicaciones || []).forEach(app => {
     (app.medicamentos || []).forEach(m => {
@@ -51,7 +50,6 @@ function buildApplicationSummary(aplicaciones) {
       });
     });
   });
-  // Subtotals per medicamento
   const totals = {};
   rows.forEach(r => {
     const key = `${r.medicamento}__${r.unidad}`;
@@ -62,21 +60,35 @@ function buildApplicationSummary(aplicaciones) {
   return { rows, totals: Object.values(totals) };
 }
 
+function buildConsumoSummary(consumo, liquidaciones_parciales) {
+  const allConsumo = consumo || [];
+  const liquidatedIds = new Set(
+    (liquidaciones_parciales || []).flatMap(lp => lp.item_ids || [])
+  );
+  const idToLiqDate = {};
+  (liquidaciones_parciales || []).forEach(lp => {
+    (lp.item_ids || []).forEach(id => { idToLiqDate[id] = `${lp.fecha} ${lp.hora}`; });
+  });
+  const pending    = allConsumo.filter(item => !liquidatedIds.has(item.id));
+  const liquidated = allConsumo.filter(item =>  liquidatedIds.has(item.id));
+  return { pending, liquidated, idToLiqDate };
+}
+
 export default function HospitalizationPage() {
   const navigate = useNavigate();
   const { session } = useAuth();
   const { items: hosps, edit: editHosp, remove: removeHosp } = useStore('hospitalization');
   const { items: patients, edit: editPatient }               = useStore('patients');
 
-  const [hospSedeFilter, setHospSedeFilter] = useState(null); // null = todas
+  const [hospSedeFilter, setHospSedeFilter] = useState(null);
   const isAdmin    = session?.rol === 'Administrador';
   const isAuxiliar = session?.rol === 'Auxiliar';
   const isMedico   = session?.rol === 'Médico' || session?.rol === 'Administrador';
 
   // ── view state ─────────────────────────────────────────────────────────
-  const [selectedId,      setSelectedId]      = useState(null);
-  const [showNoCobradas,  setShowNoCobradas]  = useState(false);
-  const [resumenHosp,     setResumenHosp]     = useState(null); // for "Ver resumen" in no_cobradas
+  const [selectedId,     setSelectedId]     = useState(null);
+  const [showNoCobradas, setShowNoCobradas] = useState(false);
+  const [resumenHosp,    setResumenHosp]    = useState(null);
 
   // ── apply modal ─────────────────────────────────────────────────────────
   const [applyModal,  setApplyModal]  = useState(false);
@@ -86,13 +98,24 @@ export default function HospitalizationPage() {
   const [applyError,  setApplyError]  = useState('');
 
   // ── alta modal ──────────────────────────────────────────────────────────
-  const [altaModal,   setAltaModal]   = useState(false);
-  const [altaHosp,    setAltaHosp]    = useState(null);
+  const [altaModal, setAltaModal] = useState(false);
+  const [altaHosp,  setAltaHosp]  = useState(null);
 
   // ── edit treatment modal ────────────────────────────────────────────────
   const [editTxModal,  setEditTxModal]  = useState(false);
   const [editTxHospId, setEditTxHospId] = useState(null);
   const [editTxMeds,   setEditTxMeds]   = useState([]);
+
+  // ── hoja de consumo modal ───────────────────────────────────────────────
+  const [consumoModal,   setConsumoModal]   = useState(false);
+  const [consumoHospId,  setConsumoHospId]  = useState(null);
+  const [consumoNewDesc, setConsumoNewDesc] = useState('');
+  const [consumoNewCant, setConsumoNewCant] = useState('');
+
+  // ── liquidación parcial modal ───────────────────────────────────────────
+  const [liquidModal,   setLiquidModal]   = useState(false);
+  const [liquidHospId,  setLiquidHospId]  = useState(null);
+  const [liquidChecked, setLiquidChecked] = useState({});
 
   // ── derived ─────────────────────────────────────────────────────────────
   const activos    = hosps.filter(h => h.status === 'activo'     && (hospSedeFilter === null || h.sede_id === hospSedeFilter));
@@ -100,6 +123,8 @@ export default function HospitalizationPage() {
   const selected    = hosps.find(h => h.id === selectedId);
   const applyHosp   = hosps.find(h => h.id === applyHospId);
   const editTxHosp  = hosps.find(h => h.id === editTxHospId);
+  const consumoHosp = hosps.find(h => h.id === consumoHospId);
+  const liquidHosp  = hosps.find(h => h.id === liquidHospId);
 
   // ── alta flow ───────────────────────────────────────────────────────────
   const openAlta = (h) => { setAltaHosp(h); setAltaModal(true); };
@@ -180,6 +205,67 @@ export default function HospitalizationPage() {
   const openEditTx = (h) => { setEditTxHospId(h.id); setEditTxMeds((h.tratamiento || []).map(t => ({ ...t }))); setEditTxModal(true); };
   const updateEditTxMed = (i, field, val) => setEditTxMeds(m => m.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
   const handleSaveEditTx = () => { editHosp(editTxHospId, { tratamiento: editTxMeds.filter(m => m.medicamento.trim()) }); setEditTxModal(false); };
+
+  // ── hoja de consumo ─────────────────────────────────────────────────────
+  const openConsumo = (h) => {
+    setConsumoHospId(h.id);
+    setConsumoNewDesc('');
+    setConsumoNewCant('');
+    setConsumoModal(true);
+  };
+
+  const handleAddConsumo = () => {
+    if (!consumoNewDesc.trim() || !consumoHosp) return;
+    const now = new Date();
+    const newItem = {
+      id:             Date.now(),
+      descripcion:    consumoNewDesc.trim(),
+      cantidad:       consumoNewCant.trim() || '1',
+      fecha:          now.toISOString().split('T')[0],
+      hora:           now.toTimeString().slice(0, 5),
+      registrado_por: session?.nombre || 'Desconocido',
+    };
+    editHosp(consumoHospId, { consumo: [...(consumoHosp.consumo || []), newItem] });
+    setConsumoNewDesc('');
+    setConsumoNewCant('');
+  };
+
+  const handleDeleteConsumo = (hospId, itemId) => {
+    const h = hosps.find(x => x.id === hospId);
+    if (!h) return;
+    // Cannot delete liquidated items
+    const liquidatedIds = new Set((h.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
+    if (liquidatedIds.has(itemId)) { alert('Este ítem ya fue liquidado y no puede eliminarse.'); return; }
+    editHosp(hospId, { consumo: (h.consumo || []).filter(item => item.id !== itemId) });
+  };
+
+  // ── liquidación parcial ─────────────────────────────────────────────────
+  const openLiquidParcial = (h) => {
+    setLiquidHospId(h.id);
+    const liquidatedIds = new Set((h.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
+    const init = {};
+    (h.consumo || []).forEach(item => {
+      if (!liquidatedIds.has(item.id)) init[item.id] = false;
+    });
+    setLiquidChecked(init);
+    setLiquidModal(true);
+  };
+
+  const handleLiquidParcial = () => {
+    if (!liquidHosp) return;
+    const selectedIds = Object.entries(liquidChecked).filter(([, v]) => v).map(([k]) => parseInt(k));
+    if (!selectedIds.length) { alert('Selecciona al menos un ítem para liquidar.'); return; }
+    const now = new Date();
+    const newLiq = {
+      fecha:          now.toISOString().split('T')[0],
+      hora:           now.toTimeString().slice(0, 5),
+      registrado_por: session?.nombre || 'Desconocido',
+      item_ids:       selectedIds,
+      items_snapshot: selectedIds.map(id => (liquidHosp.consumo || []).find(item => item.id === id)).filter(Boolean),
+    };
+    editHosp(liquidHosp.id, { liquidaciones_parciales: [...(liquidHosp.liquidaciones_parciales || []), newLiq] });
+    setLiquidModal(false);
+  };
 
   return (
     <div>
@@ -265,8 +351,12 @@ export default function HospitalizationPage() {
                           {(isAuxiliar || isMedico) && (
                             <button onClick={() => openApply(h)} style={btnStyle('var(--color-secondary)')}>💊 Tratamiento</button>
                           )}
+                          {(isAuxiliar || isMedico) && (
+                            <button onClick={() => openConsumo(h)} style={btnStyle('#e67e22')}>📋 Consumo</button>
+                          )}
                           {isMedico && (
                             <>
+                              <button onClick={() => openLiquidParcial(h)} style={btnStyle('#8e44ad')}>💰 Liq. Parcial</button>
                               <button onClick={() => openAlta(h)} style={btnStyle('var(--color-success)')}>✅ Alta</button>
                               <button onClick={() => handleFallecido(h)} style={btnStyle('var(--color-danger)')}>💀 Fallecido</button>
                             </>
@@ -370,6 +460,50 @@ export default function HospitalizationPage() {
                 </div>
               )}
             </Card>
+
+            {/* Hoja de Consumo en panel de detalle */}
+            <Card
+              title={`Hoja de consumo (${selected.consumo?.length || 0} ítems)`}
+              action={(isAuxiliar || isMedico) && selected.status === 'activo' && (
+                <button onClick={() => openConsumo(selected)} style={{ padding: '0.3rem 0.75rem', background: 'var(--color-white)', border: '1px solid #e67e22', borderRadius: 'var(--radius-sm)', color: '#e67e22', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600 }}>
+                  + Agregar ítem
+                </button>
+              )}
+            >
+              {!selected.consumo?.length ? (
+                <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '1rem 0' }}>Sin ítems registrados.</p>
+              ) : (() => {
+                const liquidatedIds = new Set((selected.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: 220, overflowY: 'auto' }}>
+                    {selected.consumo.map(item => {
+                      const liquidado = liquidatedIds.has(item.id);
+                      return (
+                        <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0.65rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: liquidado ? 'var(--color-success-bg)' : 'var(--color-white)', fontSize: '0.8rem' }}>
+                          <span style={{ flex: 1 }}>{item.descripcion}</span>
+                          <span style={{ fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>x{item.cantidad}</span>
+                          {liquidado
+                            ? <span style={{ fontSize: '0.68rem', background: 'var(--color-success)', color: 'white', padding: '1px 6px', borderRadius: 999 }}>Liquidado</span>
+                            : <span style={{ fontSize: '0.68rem', background: '#fff3cd', color: '#856404', padding: '1px 6px', borderRadius: 999 }}>Pendiente</span>
+                          }
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+              {selected.status === 'activo' && isMedico && (selected.consumo?.length || 0) > 0 && (() => {
+                const liquidatedIds = new Set((selected.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
+                const pendingCount = (selected.consumo || []).filter(item => !liquidatedIds.has(item.id)).length;
+                return pendingCount > 0 ? (
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <button onClick={() => openLiquidParcial(selected)} style={{ ...btnStyle('#8e44ad'), padding: '0.4rem 0.85rem', fontSize: '0.78rem' }}>
+                      💰 Liquidar ítems ({pendingCount} pendiente{pendingCount !== 1 ? 's' : ''})
+                    </button>
+                  </div>
+                ) : null;
+              })()}
+            </Card>
           </div>
         )}
       </div>
@@ -446,10 +580,11 @@ export default function HospitalizationPage() {
 
       {/* ══════════════ MODAL: DAR DE ALTA ══════════════ */}
       {altaModal && altaHosp && (() => {
-        const now       = new Date();
-        const altaDate  = now.toISOString().split('T')[0];
-        const dur       = calcDuration(altaHosp.ingreso_date, altaDate);
+        const now      = new Date();
+        const altaDate = now.toISOString().split('T')[0];
+        const dur      = calcDuration(altaHosp.ingreso_date, altaDate);
         const { rows, totals } = buildApplicationSummary(altaHosp.aplicaciones);
+        const { pending: consumoPending, liquidated: consumoLiquidated, idToLiqDate } = buildConsumoSummary(altaHosp.consumo, altaHosp.liquidaciones_parciales);
         return (
           <div onClick={() => setAltaModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', backdropFilter: 'blur(2px)', overflowY: 'auto' }}>
             <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 680, overflow: 'hidden', margin: 'auto' }}>
@@ -465,10 +600,10 @@ export default function HospitalizationPage() {
                 <button onClick={() => setAltaModal(false)} style={{ width: 32, height: 32, background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)' }}>×</button>
               </div>
 
-              <div style={{ padding: '1.5rem' }}>
+              <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
-                {/* Resumen aplicaciones */}
-                <div style={{ marginBottom: '1.25rem' }}>
+                {/* Medicamentos aplicados */}
+                <div>
                   <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.6rem' }}>Medicamentos aplicados</div>
                   {rows.length === 0 ? (
                     <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', padding: '0.75rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>No se registraron aplicaciones de medicamentos.</p>
@@ -498,15 +633,52 @@ export default function HospitalizationPage() {
                   )}
                 </div>
 
-                {/* Subtotals */}
+                {/* Totales medicamentos */}
                 {totals.length > 0 && (
-                  <div style={{ marginBottom: '1.25rem', background: 'var(--color-info-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem' }}>
+                  <div style={{ background: 'var(--color-info-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem' }}>
                     <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>Totales aplicados</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                       {totals.map((t, i) => (
                         <span key={i} style={{ background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.3rem 0.75rem', fontSize: '0.82rem', fontWeight: 500 }}>
                           {t.medicamento}: <strong>{t.total} {t.unidad}</strong> ({t.aplicaciones} aplic.)
                         </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Hoja de Consumo — pendiente */}
+                {consumoPending.length > 0 && (
+                  <div style={{ background: '#fff8e1', border: '1px solid #f5c842', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#b8860b', marginBottom: '0.6rem' }}>
+                      📋 Hoja de consumo — pendiente de cobro ({consumoPending.length} ítem{consumoPending.length !== 1 ? 's' : ''})
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      {consumoPending.map(item => (
+                        <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', padding: '0.3rem 0', borderBottom: '1px dashed #f5c842' }}>
+                          <span>{item.descripcion}</span>
+                          <span style={{ fontWeight: 600 }}>x{item.cantidad}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Hoja de Consumo — ya liquidado */}
+                {consumoLiquidated.length > 0 && (
+                  <div style={{ background: 'var(--color-success-bg)', border: '1px solid var(--color-success)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-success)', marginBottom: '0.6rem' }}>
+                      ✅ Ya liquidados ({consumoLiquidated.length} ítem{consumoLiquidated.length !== 1 ? 's' : ''})
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      {consumoLiquidated.map(item => (
+                        <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', padding: '0.3rem 0', borderBottom: '1px dashed var(--color-success)' }}>
+                          <span style={{ color: 'var(--color-text-muted)' }}>{item.descripcion}</span>
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--color-text-muted)' }}>x{item.cantidad}</span>
+                            <span style={{ fontSize: '0.68rem', color: 'var(--color-success)', fontWeight: 500 }}>cobrado {idToLiqDate[item.id]}</span>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -543,6 +715,7 @@ export default function HospitalizationPage() {
       {resumenHosp && (() => {
         const dur = resumenHosp.duration_days || calcDuration(resumenHosp.ingreso_date, resumenHosp.alta_date);
         const { rows, totals } = buildApplicationSummary(resumenHosp.aplicaciones);
+        const { pending: consumoPending, liquidated: consumoLiquidated, idToLiqDate } = buildConsumoSummary(resumenHosp.consumo, resumenHosp.liquidaciones_parciales);
         return (
           <div onClick={() => setResumenHosp(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', backdropFilter: 'blur(2px)', overflowY: 'auto' }}>
             <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 660, overflow: 'hidden', margin: 'auto' }}>
@@ -601,6 +774,34 @@ export default function HospitalizationPage() {
                         </span>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* Consumo en resumen */}
+                {(consumoPending.length > 0 || consumoLiquidated.length > 0) && (
+                  <div>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>Hoja de consumo</div>
+                    {consumoPending.length > 0 && (
+                      <div style={{ background: '#fff8e1', border: '1px solid #f5c842', borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.85rem', marginBottom: '0.5rem' }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#b8860b', marginBottom: '0.35rem' }}>Pendiente de cobro</div>
+                        {consumoPending.map(item => (
+                          <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', padding: '0.2rem 0' }}>
+                            <span>{item.descripcion}</span><span style={{ fontWeight: 600 }}>x{item.cantidad}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {consumoLiquidated.length > 0 && (
+                      <div style={{ background: 'var(--color-success-bg)', border: '1px solid var(--color-success)', borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.85rem' }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-success)', marginBottom: '0.35rem' }}>Ya cobrados</div>
+                        {consumoLiquidated.map(item => (
+                          <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', padding: '0.2rem 0', color: 'var(--color-text-muted)' }}>
+                            <span>{item.descripcion}</span>
+                            <span>x{item.cantidad} · {idToLiqDate[item.id]}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -695,7 +896,6 @@ export default function HospitalizationPage() {
               <button onClick={() => setEditTxModal(false)} style={{ width: 30, height: 30, background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)' }}>×</button>
             </div>
             <div style={{ padding: '1.25rem 1.5rem' }}>
-              {/* Admin puede cambiar sede */}
               {isAdmin && (
                 <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text)', whiteSpace: 'nowrap' }}>📍 Sede:</label>
@@ -745,6 +945,200 @@ export default function HospitalizationPage() {
           </div>
         </div>
       )}
+
+      {/* ══════════════ MODAL: HOJA DE CONSUMO ══════════════ */}
+      {consumoModal && consumoHosp && (() => {
+        const liquidatedIds = new Set((consumoHosp.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
+        return (
+          <div onClick={() => setConsumoModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', backdropFilter: 'blur(2px)', overflowY: 'auto' }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 580, overflow: 'hidden', margin: 'auto' }}>
+
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', background: '#fff3e0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ fontFamily: 'var(--font-title)', color: '#e67e22', fontSize: '1.05rem', margin: '0 0 0.15rem' }}>📋 Hoja de consumo</h3>
+                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{consumoHosp.patient_name} · {consumoHosp.client_name}</p>
+                </div>
+                <button onClick={() => setConsumoModal(false)} style={{ width: 32, height: 32, background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)' }}>×</button>
+              </div>
+
+              <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+                {/* Formulario para nuevo ítem */}
+                <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '1rem', background: 'var(--color-bg)' }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>Agregar ítem</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', alignItems: 'end' }}>
+                    <div>
+                      <label style={labelStyle}>Descripción *</label>
+                      <input
+                        value={consumoNewDesc}
+                        onChange={e => setConsumoNewDesc(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAddConsumo()}
+                        placeholder="Ej: Lata de comida, Ecografía, Suero..."
+                        style={{ width: '100%', padding: '0.55rem 0.75rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.875rem' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      <label style={labelStyle}>Cantidad</label>
+                      <input
+                        value={consumoNewCant}
+                        onChange={e => setConsumoNewCant(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAddConsumo()}
+                        placeholder="1"
+                        style={{ width: 70, padding: '0.55rem 0.75rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.875rem' }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '0.75rem', display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      onClick={handleAddConsumo}
+                      disabled={!consumoNewDesc.trim()}
+                      style={{ padding: '0.5rem 1.25rem', background: consumoNewDesc.trim() ? '#e67e22' : 'var(--color-border)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: consumoNewDesc.trim() ? 'pointer' : 'default', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600 }}
+                    >
+                      + Agregar
+                    </button>
+                  </div>
+                </div>
+
+                {/* Lista de ítems */}
+                <div>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
+                    Ítems registrados ({consumoHosp.consumo?.length || 0})
+                  </div>
+                  {!consumoHosp.consumo?.length ? (
+                    <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '1.5rem', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-md)' }}>
+                      Aún no hay ítems. Agrega el primero arriba.
+                    </p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: 300, overflowY: 'auto' }}>
+                      {consumoHosp.consumo.map(item => {
+                        const liquidado = liquidatedIds.has(item.id);
+                        return (
+                          <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0.85rem', border: `1px solid ${liquidado ? 'var(--color-success)' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', background: liquidado ? 'var(--color-success-bg)' : 'var(--color-white)' }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{item.descripcion}</div>
+                              <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>{item.fecha} {item.hora} · Por: {item.registrado_por}</div>
+                            </div>
+                            <span style={{ fontWeight: 600, fontSize: '0.875rem', minWidth: 30, textAlign: 'right' }}>x{item.cantidad}</span>
+                            {liquidado
+                              ? <span style={{ fontSize: '0.68rem', background: 'var(--color-success)', color: 'white', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>✅ Liquidado</span>
+                              : (
+                                <button
+                                  onClick={() => handleDeleteConsumo(consumoHosp.id, item.id)}
+                                  style={{ background: 'var(--color-danger-bg)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '0.2rem 0.5rem', fontSize: '0.72rem', flexShrink: 0 }}
+                                >✕</button>
+                              )
+                            }
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button onClick={() => setConsumoModal(false)} style={{ padding: '0.55rem 1.25rem', background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Cerrar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ══════════════ MODAL: LIQUIDACIÓN PARCIAL ══════════════ */}
+      {liquidModal && liquidHosp && (() => {
+        const liquidatedIds = new Set((liquidHosp.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
+        const pendingItems  = (liquidHosp.consumo || []).filter(item => !liquidatedIds.has(item.id));
+        const selectedCount = Object.values(liquidChecked).filter(Boolean).length;
+        return (
+          <div onClick={() => setLiquidModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', backdropFilter: 'blur(2px)', overflowY: 'auto' }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 560, overflow: 'hidden', margin: 'auto' }}>
+
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', background: '#f3e8ff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ fontFamily: 'var(--font-title)', color: '#8e44ad', fontSize: '1.05rem', margin: '0 0 0.15rem' }}>💰 Liquidación parcial</h3>
+                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{liquidHosp.patient_name} · Selecciona los ítems a cobrar ahora</p>
+                </div>
+                <button onClick={() => setLiquidModal(false)} style={{ width: 32, height: 32, background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)' }}>×</button>
+              </div>
+
+              <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+                {pendingItems.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>✅</div>
+                    <p style={{ fontSize: '0.875rem' }}>Todos los ítems de consumo ya han sido liquidados.</p>
+                    <p style={{ fontSize: '0.78rem', marginTop: '0.25rem' }}>Agrega nuevos ítems en la Hoja de Consumo.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', background: '#f3e8ff', padding: '0.6rem 0.85rem', borderRadius: 'var(--radius-sm)' }}>
+                      Marca los ítems que el cliente paga ahora. Los no seleccionados quedarán pendientes para el alta.
+                    </div>
+
+                    {/* Select all */}
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, color: '#8e44ad' }}>
+                      <input
+                        type="checkbox"
+                        checked={pendingItems.every(item => liquidChecked[item.id])}
+                        onChange={e => {
+                          const next = {};
+                          pendingItems.forEach(item => { next[item.id] = e.target.checked; });
+                          setLiquidChecked(next);
+                        }}
+                        style={{ accentColor: '#8e44ad', width: 16, height: 16 }}
+                      />
+                      Seleccionar todos
+                    </label>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: 320, overflowY: 'auto' }}>
+                      {pendingItems.map(item => (
+                        <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.7rem 0.85rem', border: `1px solid ${liquidChecked[item.id] ? '#8e44ad' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', background: liquidChecked[item.id] ? '#f3e8ff' : 'var(--color-white)', cursor: 'pointer', transition: 'all 0.15s' }}>
+                          <input
+                            type="checkbox"
+                            checked={!!liquidChecked[item.id]}
+                            onChange={e => setLiquidChecked(prev => ({ ...prev, [item.id]: e.target.checked }))}
+                            style={{ accentColor: '#8e44ad', width: 16, height: 16, flexShrink: 0 }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{item.descripcion}</div>
+                            <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>{item.fecha} · Por: {item.registrado_por}</div>
+                          </div>
+                          <span style={{ fontWeight: 700, fontSize: '0.9rem', color: liquidChecked[item.id] ? '#8e44ad' : 'var(--color-text-muted)' }}>x{item.cantidad}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* Liquidaciones anteriores */}
+                {(liquidHosp.liquidaciones_parciales || []).length > 0 && (
+                  <div style={{ background: 'var(--color-success-bg)', border: '1px solid var(--color-success)', borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.85rem' }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-success)', marginBottom: '0.35rem' }}>✅ Liquidaciones anteriores</div>
+                    {liquidHosp.liquidaciones_parciales.map((lp, i) => (
+                      <div key={i} style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', paddingBottom: '0.2rem' }}>
+                        <strong>{lp.fecha} {lp.hora}</strong> · {lp.items_snapshot?.map(it => `${it.descripcion} x${it.cantidad}`).join(', ')} — por {lp.registrado_por}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', paddingTop: '0.5rem', borderTop: '1px solid var(--color-border)' }}>
+                  <button onClick={() => setLiquidModal(false)} style={{ padding: '0.55rem 1.1rem', background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Cancelar</button>
+                  {pendingItems.length > 0 && (
+                    <button
+                      onClick={handleLiquidParcial}
+                      disabled={selectedCount === 0}
+                      style={{ padding: '0.55rem 1.25rem', background: selectedCount > 0 ? '#8e44ad' : 'var(--color-border)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: selectedCount > 0 ? 'pointer' : 'default', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600 }}
+                    >
+                      💰 Liquidar {selectedCount > 0 ? `(${selectedCount} ítem${selectedCount !== 1 ? 's' : ''})` : ''}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
