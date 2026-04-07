@@ -10,7 +10,8 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, pet, pedido
   const { session } = useAuth();
   const fileRef = useRef(null);
 
-  const solicitados = pedidos.filter(p => p.estado === 'Solicitado');
+  // Include 'Subido SIN REPORTAR' so broken records (lab never saved) can be re-uploaded
+  const solicitados = pedidos.filter(p => p.estado === 'Solicitado' || p.estado === 'Subido SIN REPORTAR');
 
   const [selectedPedidoId, setSelectedPedidoId] = useState('');
   const [resultados,        setResult]           = useState('');

@@ -229,7 +229,7 @@ export default function PetDetailPage() {
     const pedido = labPedidos.find(p =>
       p.patient_id === petId &&
       p.tipo_examen === data.tipo &&
-      p.estado === 'Solicitado'
+      (p.estado === 'Solicitado' || p.estado === 'Subido SIN REPORTAR')
     );
     if (pedido) {
       editLabPedido(pedido.id, {
