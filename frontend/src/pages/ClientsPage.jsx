@@ -289,7 +289,6 @@ export default function ClientsPage() {
           {PF('Esterilizado *', 'esterilizado', 'text', ['No', 'Sí'])}
           {PF('Carácter *', 'caracter', 'text', ['Dócil', 'Calmado', 'Nervioso', 'Agresivo'])}
         </div>
-        {PF('Estado', 'status', 'text', ['activo', 'hospitalizado', 'inactivo'])}
       </Modal>
     </div>
   );
