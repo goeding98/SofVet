@@ -12,23 +12,17 @@ import { TIPOS_LAB } from '../utils/labTypes';
 const makeEmpty = () => ({
   date: new Date().toISOString().split('T')[0],
   time: new Date().toTimeString().slice(0, 5),
-  // Anamnesis
   antecedentes: '',
-  // Examen físico
   temperatura: '', frecuencia_cardiaca: '', frecuencia_respiratoria: '',
   peso: '', condicion_corporal: '', mucosas: '',
   tiempo_llenado_capilar: '', pulso: '', glicemia: '', presion_arterial: '',
-  // Clínico
   hallazgos: '',
   diagnostico_diferencial: '',
   diagnostico_final: '',
   plan_diagnostico: '',
   observaciones: '',
-  // Medicamentos aplicados en consulta
   medicamentos_aplicados: [],
-  // Fórmula médica (para llevar a casa)
   formula_productos: [],
-  // Laboratorios ordenados (array)
   labs_pedidos: [],
 });
 
@@ -55,34 +49,53 @@ const SectionHeader = ({ icon, title, color='var(--color-primary)' }) => (
   </div>
 );
 
-export default function ConsultationModal({ isOpen, onClose, onSave, pet }) {
+// mode: 'new' | 'incomplete' | 'edit'
+export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft, pet, initialData = null, mode = 'new' }) {
   const { sedeActual, isAdmin } = useSede();
   const [form, setForm] = useState(makeEmpty);
   const [sedeId, setSedeId] = useState(sedeActual || 1);
 
   useEffect(() => {
-    if (isOpen) { setForm(makeEmpty()); setSedeId(sedeActual || 1); }
-  }, [isOpen, sedeActual]);
+    if (isOpen) {
+      if (initialData) {
+        setForm({
+          ...makeEmpty(),
+          ...initialData,
+          medicamentos_aplicados: initialData.medicamentos_aplicados || [],
+          formula_productos:      initialData.formula_productos || [],
+          labs_pedidos:           initialData.labs_pedidos || [],
+        });
+        setSedeId(initialData.sede_id || sedeActual || 1);
+      } else {
+        setForm(makeEmpty());
+        setSedeId(sedeActual || 1);
+      }
+    }
+  }, [isOpen, initialData, sedeActual]);
 
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
   const handleSave = () => {
     if (!form.date) return alert('La fecha es requerida.');
-    if (!form.diagnostico_final.trim()) return alert('El diagnóstico final es requerido.');
+    if (!form.diagnostico_final?.trim()) return alert('El diagnóstico final es requerido.');
     onSave({ ...form, sede_id: sedeId || null });
   };
 
-  // ── Medicamentos aplicados ─────────────────────────────────────────────
+  const handleSaveDraft = () => {
+    onSaveDraft({ ...form, sede_id: sedeId || null });
+  };
+
+  // Medicamentos
   const addMed    = () => set('medicamentos_aplicados', [...form.medicamentos_aplicados, { ...EMPTY_MED }]);
   const removeMed = (i) => set('medicamentos_aplicados', form.medicamentos_aplicados.filter((_,idx)=>idx!==i));
   const updMed    = (i,k,v) => set('medicamentos_aplicados', form.medicamentos_aplicados.map((m,idx)=>idx===i?{...m,[k]:v}:m));
 
-  // ── Laboratorios pedidos ───────────────────────────────────────────────
+  // Laboratorios
   const addLab    = () => set('labs_pedidos', [...form.labs_pedidos, { tipo_examen: 'Hemograma', procesamiento: 'Interno' }]);
   const removeLab = (i) => set('labs_pedidos', form.labs_pedidos.filter((_,idx)=>idx!==i));
   const updLab    = (i,k,v) => set('labs_pedidos', form.labs_pedidos.map((l,idx)=>idx===i?{...l,[k]:v}:l));
 
-  // ── Fórmula médica ─────────────────────────────────────────────────────
+  // Fórmula
   const addFx    = () => set('formula_productos', [...form.formula_productos, { ...EMPTY_FORMULA }]);
   const removeFx = (i) => set('formula_productos', form.formula_productos.filter((_,idx)=>idx!==i));
   const updFx    = (i,k,v) => set('formula_productos', form.formula_productos.map((m,idx)=>idx===i?{...m,[k]:v}:m));
@@ -109,8 +122,44 @@ export default function ConsultationModal({ isOpen, onClose, onSave, pet }) {
     </div>
   );
 
+  const titles = {
+    new:        `🩺 Nueva Consulta${pet ? ` — ${pet.name}` : ''}`,
+    incomplete: `⏸ Continuar Consulta${pet ? ` — ${pet.name}` : ''}`,
+    edit:       `✏️ Editar Consulta${pet ? ` — ${pet.name}` : ''}`,
+  };
+
+  const saveLabels = {
+    new:        'Guardar consulta',
+    incomplete: 'Guardar consulta',
+    edit:       'Guardar cambios',
+  };
+
+  const draftButton = (mode === 'new' || mode === 'incomplete') && onSaveDraft ? (
+    <button
+      onClick={handleSaveDraft}
+      style={{ padding:'0.5rem 1rem', background:'#fff8e1', border:'1px solid #b8860b', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.85rem', fontWeight:600, color:'#b8860b' }}
+    >
+      {mode === 'new' ? '⏸ Terminar después' : '⏸ Guardar borrador'}
+    </button>
+  ) : null;
+
+  const incompleteBanner = mode === 'incomplete' ? (
+    <div style={{ background:'#fff8e1', border:'1px solid #f5c842', borderRadius:'var(--radius-sm)', padding:'0.6rem 1rem', fontSize:'0.82rem', color:'#b8860b', fontWeight:600, marginBottom:'1.25rem', display:'flex', alignItems:'center', gap:'0.5rem' }}>
+      ⏸ Esta consulta está incompleta. Termínala o guárdala como borrador nuevamente.
+    </div>
+  ) : null;
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`🩺 Nueva Consulta${pet ? ` — ${pet.name}` : ''}`} onSave={handleSave} saveLabel="Guardar consulta" size="xl">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={titles[mode] || titles.new}
+      onSave={handleSave}
+      saveLabel={saveLabels[mode] || 'Guardar'}
+      extraFooter={draftButton}
+      size="xl"
+    >
+      {incompleteBanner}
 
       {/* Fecha / Hora / Sede */}
       <div style={{ display:'flex', gap:'1rem', marginBottom:'1rem' }}>
@@ -161,9 +210,11 @@ export default function ConsultationModal({ isOpen, onClose, onSave, pet }) {
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem' }}>
         <div>{TA('Diagnóstico diferencial', 'diagnostico_diferencial', 3)}</div>
         <div>
-          <label style={{ ...lSt, color:'var(--color-primary)' }}>Diagnóstico final *</label>
+          <label style={{ ...lSt, color: mode === 'edit' || mode === 'new' ? 'var(--color-primary)' : 'var(--color-text)' }}>
+            Diagnóstico final{mode !== 'incomplete' ? ' *' : ''}
+          </label>
           <textarea value={form.diagnostico_final} onChange={e=>set('diagnostico_final',e.target.value)} rows={3}
-            style={{ ...taSt, border:'1px solid var(--color-primary)' }} />
+            style={{ ...taSt, border:`1px solid ${mode !== 'incomplete' ? 'var(--color-primary)' : 'var(--color-border)'}` }} />
         </div>
       </div>
       {TA('Plan diagnóstico / terapéutico', 'plan_diagnostico', 3)}

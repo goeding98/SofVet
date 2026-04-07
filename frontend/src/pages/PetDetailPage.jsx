@@ -32,7 +32,7 @@ export default function PetDetailPage() {
   const { items: patients, loading: loadingPatients } = useStore('patients');
   const { items: clients }     = useStore('clients');
   const { items: prepagada }   = useStore('prepagada');
-  const { items: consultations, add: addConsultation } = useStore('consultations');
+  const { items: consultations, add: addConsultation, edit: editConsultation } = useStore('consultations');
   const { items: vaccines, add: addVaccine } = useStore('vaccines');
   const { items: imagingRecords, add: addImaging }     = useStore('imaging');
   const { items: formulas, add: addFormula }           = useStore('formulas_medicas');
@@ -47,6 +47,7 @@ export default function PetDetailPage() {
   const { session } = useAuth();
 
   const [consultModal,   setConsultModal]   = useState(false);
+  const [editingConsult, setEditingConsult] = useState(null); // consultation being edited
   const [hospModal,      setHospModal]      = useState(false);
   const [imagingModal,   setImagingModal]   = useState(false);
   const [procedModal,    setProcedModal]    = useState(false);
@@ -127,7 +128,7 @@ export default function PetDetailPage() {
   const isHospitalized = pet.status === 'hospitalizado';
 
   const quickActions = [
-    { label: 'Nueva Consulta',   icon: '🩺', action: () => setConsultModal(true),                                                 color: 'var(--color-primary)', primary: true  },
+    { label: 'Nueva Consulta',   icon: '🩺', action: () => { setEditingConsult(null); setConsultModal(true); },                                                 color: 'var(--color-primary)', primary: true  },
     { label: isHospitalized ? 'Hospitalizado' : 'Hospitalizar', icon: '🏥', action: () => !isHospitalized && setHospModal(true), color: 'var(--color-danger)',  disabled: isHospitalized },
     { label: 'Vacunar',          icon: '💉', action: () => setVacunaModal(true),                                                   color: 'var(--color-secondary)'               },
     { label: 'Imagenología',     icon: '🔬', action: () => setImagingModal(true),                                                  color: '#1565c0'                               },
@@ -144,47 +145,67 @@ export default function PetDetailPage() {
     setVacunaModal(false);
   };
 
-  const handleSaveConsultation = async (data) => {
-    const { formula_productos, labs_pedidos, ...consultData } = data;
-    // Convert empty strings to null so numeric/integer columns don't reject ""
-    const cleaned = Object.fromEntries(
-      Object.entries(consultData).map(([k, v]) => [k, v === '' ? null : v])
-    );
-    let saveError = null;
-    const result = await addConsultation(
-      { ...cleaned, patient_id: petId, patient_name: pet.name, created_at: new Date().toISOString().split('T')[0] },
-      { onError: (msg) => { saveError = msg; } }
-    );
-    if (!result) {
-      alert('❌ Error al guardar consulta:\n\n' + saveError);
-      return;
-    }
+  const closeConsultModal = () => { setConsultModal(false); setEditingConsult(null); };
+
+  const _createFormulaAndLabs = async (data, petId, pet) => {
+    const { formula_productos, labs_pedidos } = data;
     if (formula_productos && formula_productos.length > 0) {
       let fxError = null;
       const fxResult = await addFormula(
-        {
-          patient_id:   petId,
-          patient_name: pet.name,
-          fecha:        data.date || new Date().toISOString().split('T')[0],
-          productos:    formula_productos,
-          estado:       'Pendiente',
-        },
+        { patient_id: petId, patient_name: pet.name, fecha: data.date || new Date().toISOString().split('T')[0], productos: formula_productos, estado: 'Pendiente' },
         { onError: (msg) => { fxError = msg; } }
       );
       if (!fxResult) alert('⚠️ Error al guardar fórmula médica:\n\n' + fxError);
     }
     for (const lab of (labs_pedidos || [])) {
       await addLabPedido({
-        patient_id:       petId,
-        patient_name:     pet.name,
-        sede_id:          data.sede_id,
-        tipo_examen:      lab.tipo_examen === 'Otro' ? (lab.otro_tipo?.trim() || 'Otro') : lab.tipo_examen,
-        procesamiento:    lab.procesamiento || 'Interno',
-        estado:           'Solicitado',
+        patient_id: petId, patient_name: pet.name, sede_id: data.sede_id,
+        tipo_examen: lab.tipo_examen === 'Otro' ? (lab.otro_tipo?.trim() || 'Otro') : lab.tipo_examen,
+        procesamiento: lab.procesamiento || 'Interno',
+        estado: 'Solicitado',
         fecha_solicitado: data.date || new Date().toISOString().split('T')[0],
       });
     }
-    setConsultModal(false);
+  };
+
+  const handleSaveConsultation = async (data) => {
+    const { formula_productos, labs_pedidos, ...consultData } = data;
+    const cleaned = Object.fromEntries(Object.entries(consultData).map(([k, v]) => [k, v === '' ? null : v]));
+
+    if (editingConsult) {
+      // Editing existing consultation
+      editConsultation(editingConsult.id, { ...cleaned, estado: 'completada' });
+      // If completing an incomplete consult, also create formula/labs
+      if (editingConsult.estado === 'incompleta') {
+        await _createFormulaAndLabs({ ...data, formula_produtos: formula_productos, labs_pedidos }, petId, pet);
+      }
+    } else {
+      // New consultation
+      let saveError = null;
+      const result = await addConsultation(
+        { ...cleaned, patient_id: petId, patient_name: pet.name, estado: 'completada', created_at: new Date().toISOString().split('T')[0] },
+        { onError: (msg) => { saveError = msg; } }
+      );
+      if (!result) { alert('❌ Error al guardar consulta:\n\n' + saveError); return; }
+      await _createFormulaAndLabs({ ...data, formula_productos, labs_pedidos }, petId, pet);
+    }
+    closeConsultModal();
+  };
+
+  const handleSaveDraft = async (data) => {
+    const { formula_productos: _fx, labs_pedidos: _lb, ...consultData } = data;
+    const cleaned = Object.fromEntries(Object.entries(consultData).map(([k, v]) => [k, v === '' ? null : v]));
+    if (editingConsult) {
+      editConsultation(editingConsult.id, { ...cleaned, estado: 'incompleta' });
+    } else {
+      let saveError = null;
+      const result = await addConsultation(
+        { ...cleaned, patient_id: petId, patient_name: pet.name, estado: 'incompleta', created_at: new Date().toISOString().split('T')[0] },
+        { onError: (msg) => { saveError = msg; } }
+      );
+      if (!result) { alert('❌ Error al guardar borrador:\n\n' + saveError); return; }
+    }
+    closeConsultModal();
   };
 
   const handleSolicitarLab = async (data) => {
@@ -474,7 +495,7 @@ export default function PetDetailPage() {
             <button onClick={handleDownloadPDF} style={{ padding:'0.4rem 0.85rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, color:'var(--color-text-muted)', display:'flex', alignItems:'center', gap:'0.35rem' }}>
               📄 Descargar PDF
             </button>
-            <Button size="sm" variant="primary" onClick={() => setConsultModal(true)}>+ Nueva consulta</Button>
+            <Button size="sm" variant="primary" onClick={() => { setEditingConsult(null); setConsultModal(true); }}>+ Nueva consulta</Button>
           </div>
         }
         style={{ marginBottom:'1.5rem' }}
@@ -526,25 +547,36 @@ export default function PetDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {recentConsults.map((c, idx) => (
-                  <tr key={c.id} style={{ borderBottom:'1px solid var(--color-border)', background: idx%2===0 ? 'transparent' : 'rgba(49,109,116,0.02)' }}>
-                    <td style={{ padding:'0.85rem 1rem', fontSize:'0.875rem', whiteSpace:'nowrap', fontWeight:500 }}>{c.date}</td>
-                    <td style={{ padding:'0.85rem 1rem', fontSize:'0.875rem', color:'var(--color-text-muted)', whiteSpace:'nowrap' }}>{c.time || '—'}</td>
-                    <td style={{ padding:'0.85rem 1rem', fontSize:'0.875rem', whiteSpace:'nowrap' }}>{sedeBadge(c.sede_id)}</td>
-                    <td style={{ padding:'0.85rem 1rem', fontSize:'0.875rem', maxWidth:240 }}>
-                      <div style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.diagnostico_final || '—'}</div>
-                    </td>
-                    <td style={{ padding:'0.85rem 1rem', fontSize:'0.875rem', maxWidth:200 }}>
-                      <div style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'var(--color-text-muted)' }}>{c.plan_diagnostico || '—'}</div>
-                    </td>
-                    <td style={{ padding:'0.85rem 1rem', fontSize:'0.875rem', textAlign:'center' }}>
-                      {c.medicamentos?.length > 0
-                        ? <span style={{ background:'var(--color-info-bg)', color:'var(--color-primary)', padding:'2px 8px', borderRadius:999, fontSize:'0.72rem', fontWeight:600 }}>{c.medicamentos.length}</span>
-                        : <span style={{ color:'var(--color-text-muted)' }}>—</span>
-                      }
-                    </td>
-                  </tr>
-                ))}
+                {recentConsults.map((c, idx) => {
+                  const isIncomplete = c.estado === 'incompleta';
+                  return (
+                    <tr
+                      key={c.id}
+                      onClick={() => { setEditingConsult(c); setConsultModal(true); }}
+                      style={{ borderBottom:'1px solid var(--color-border)', background: isIncomplete ? '#fffbeb' : idx%2===0 ? 'transparent' : 'rgba(49,109,116,0.02)', cursor:'pointer' }}
+                      title="Haz clic para editar esta consulta"
+                    >
+                      <td style={{ padding:'0.85rem 1rem', fontSize:'0.875rem', whiteSpace:'nowrap', fontWeight:500 }}>{c.date}</td>
+                      <td style={{ padding:'0.85rem 1rem', fontSize:'0.875rem', color:'var(--color-text-muted)', whiteSpace:'nowrap' }}>{c.time || '—'}</td>
+                      <td style={{ padding:'0.85rem 1rem', fontSize:'0.875rem', whiteSpace:'nowrap' }}>{sedeBadge(c.sede_id)}</td>
+                      <td style={{ padding:'0.85rem 1rem', fontSize:'0.875rem', maxWidth:240 }}>
+                        {isIncomplete
+                          ? <span style={{ background:'#fff3cd', color:'#856404', padding:'2px 10px', borderRadius:999, fontSize:'0.72rem', fontWeight:700 }}>⏸ Incompleta</span>
+                          : <div style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.diagnostico_final || '—'}</div>
+                        }
+                      </td>
+                      <td style={{ padding:'0.85rem 1rem', fontSize:'0.875rem', maxWidth:200 }}>
+                        <div style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'var(--color-text-muted)' }}>{c.plan_diagnostico || '—'}</div>
+                      </td>
+                      <td style={{ padding:'0.85rem 1rem', fontSize:'0.875rem', textAlign:'center' }}>
+                        {c.medicamentos_aplicados?.length > 0
+                          ? <span style={{ background:'var(--color-info-bg)', color:'var(--color-primary)', padding:'2px 8px', borderRadius:999, fontSize:'0.72rem', fontWeight:600 }}>{c.medicamentos_aplicados.length}</span>
+                          : <span style={{ color:'var(--color-text-muted)' }}>—</span>
+                        }
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             {petConsults.length > 5 && (
@@ -753,7 +785,15 @@ export default function PetDetailPage() {
 
       {/* Modals */}
       <VacunaModal isOpen={vacunaModal} onClose={() => setVacunaModal(false)} onSave={handleSaveVacuna} pet={pet} />
-      <ConsultationModal isOpen={consultModal} onClose={() => setConsultModal(false)} onSave={handleSaveConsultation} pet={pet} />
+      <ConsultationModal
+        isOpen={consultModal}
+        onClose={closeConsultModal}
+        onSave={handleSaveConsultation}
+        onSaveDraft={handleSaveDraft}
+        pet={pet}
+        initialData={editingConsult}
+        mode={editingConsult ? (editingConsult.estado === 'incompleta' ? 'incomplete' : 'edit') : 'new'}
+      />
 
       <HospitalizationModal isOpen={hospModal} onClose={() => setHospModal(false)} pet={pet} client={client} />
 
