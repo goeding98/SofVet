@@ -142,7 +142,7 @@ export default function LaboratoriosPage() {
               </thead>
               <tbody>
                 {sinReportar.map(p => {
-                  const lab      = laboratorios.find(l => l.pedido_id === p.id);
+                  const lab      = laboratorios.find(l => String(l.pedido_id) === String(p.id));
                   const isOpen   = expanded === p.id;
                   const labFiles = lab?.archivos?.length > 0 ? lab.archivos : lab?.file_url ? [{ name: 'PDF adjunto', url: lab.file_url }] : [];
                   const hasPDF   = labFiles.length > 0;

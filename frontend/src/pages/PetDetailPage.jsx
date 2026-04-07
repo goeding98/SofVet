@@ -624,7 +624,7 @@ export default function PetDetailPage() {
             </div>
             <div style={{ display:'flex', flexDirection:'column', gap:'0.6rem' }}>
               {petLabPedidos.map(p => {
-                const labResult = laboratorios.find(l => l.pedido_id === p.id);
+                const labResult = laboratorios.find(l => String(l.pedido_id) === String(p.id));
                 const estadoCfg = {
                   'Solicitado':          { bg:'#e8f0ff', color:'#2e5cbf', label:'Solicitado' },
                   'Subido SIN REPORTAR': { bg:'#fff8e1', color:'#b8860b', label:'PDF subido — sin reportar' },
