@@ -12,10 +12,13 @@ export default function LaboratoriosPage() {
   const { sedeActual, isAdmin } = useSede();
   const { session } = useAuth();
 
+  const isMedico = session?.rol === 'Médico' || session?.rol === 'Administrador';
+
   const [sedeFilter,  setSedeFilter]  = useState(sedeActual || null);
   const [showHistory, setShowHistory] = useState(false);
-  const [confirming,  setConfirming]  = useState(null);
   const [expanded,    setExpanded]    = useState(null); // pedido id
+  const [reportes,    setReportes]    = useState({});   // { [pedidoId]: text }
+  const [saving,      setSaving]      = useState(null); // pedido id being saved
 
   const sinReportar = useMemo(() =>
     pedidos
@@ -40,12 +43,19 @@ export default function LaboratoriosPage() {
     [pedidos, sedeFilter]);
 
   const handleReportar = async (p) => {
+    setSaving(p.id);
     await editPedido(p.id, {
       estado:          'Reportado',
       fecha_reportado: new Date().toISOString().split('T')[0],
       reportado_por:   session?.nombre || 'Desconocido',
+      reporte_medico:  reportes[p.id] || '',
     });
-    setConfirming(null);
+    setSaving(null);
+    setExpanded(null);
+  };
+
+  const toggleExpand = (id) => {
+    setExpanded(prev => prev === id ? null : id);
   };
 
   const sedesUsadas = [...new Set(pedidos.map(p => p.sede_id).filter(Boolean))];
@@ -122,13 +132,12 @@ export default function LaboratoriosPage() {
             <table style={{ width:'100%', borderCollapse:'collapse' }}>
               <thead>
                 <tr>
-                  <th style={{ ...thSt, width:32 }}></th>
                   <th style={thSt}>Fecha solicitado</th>
                   <th style={thSt}>Mascota</th>
                   <th style={thSt}>Examen</th>
                   <th style={thSt}>Procesamiento</th>
                   <th style={thSt}>Sede</th>
-                  <th style={{ ...thSt, textAlign:'center' }}>Acción</th>
+                  <th style={{ ...thSt, textAlign:'center' }}>Laboratorios</th>
                 </tr>
               </thead>
               <tbody>
@@ -137,19 +146,10 @@ export default function LaboratoriosPage() {
                   const isOpen   = expanded === p.id;
                   const labFiles = lab?.archivos?.length > 0 ? lab.archivos : lab?.file_url ? [{ name: 'PDF adjunto', url: lab.file_url }] : [];
                   const hasPDF   = labFiles.length > 0;
+                  const reporte  = reportes[p.id] ?? (p.reporte_medico || '');
                   return (
                     <Fragment key={p.id}>
-                      <tr style={{ background: confirming === p.id ? '#fff8e1' : isOpen ? '#f0fdf4' : 'transparent' }}>
-                        {/* Expand toggle */}
-                        <td style={{ ...tdSt, textAlign:'center', padding:'0.4rem' }}>
-                          <button
-                            onClick={() => setExpanded(isOpen ? null : p.id)}
-                            title={hasPDF ? 'Ver PDF' : 'Sin PDF adjunto'}
-                            style={{ background: hasPDF ? '#e8f5ee' : 'var(--color-bg)', border:`1px solid ${hasPDF ? '#2e7d50' : 'var(--color-border)'}`, borderRadius:'var(--radius-sm)', cursor: hasPDF ? 'pointer' : 'default', width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.8rem' }}
-                          >
-                            {hasPDF ? (isOpen ? '▲' : '▼') : '—'}
-                          </button>
-                        </td>
+                      <tr style={{ background: isOpen ? '#fff8f0' : 'transparent' }}>
                         <td style={tdSt}>{p.fecha_solicitado || '—'}</td>
                         <td style={{ ...tdSt, fontWeight:600 }}>{p.patient_name || '—'}</td>
                         <td style={tdSt}>{p.tipo_examen}</td>
@@ -160,59 +160,70 @@ export default function LaboratoriosPage() {
                         </td>
                         <td style={{ ...tdSt, color:'var(--color-text-muted)', fontSize:'0.78rem' }}>{sedeNombre(p.sede_id)}</td>
                         <td style={{ ...tdSt, textAlign:'center' }}>
-                          {confirming === p.id ? (
-                            <div style={{ display:'flex', gap:'0.35rem', justifyContent:'center' }}>
-                              <button onClick={() => handleReportar(p)}
-                                style={{ padding:'0.35rem 0.75rem', background:'#2e7d50', color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.78rem', fontWeight:700 }}>
-                                ✓ Confirmar
-                              </button>
-                              <button onClick={() => setConfirming(null)}
-                                style={{ padding:'0.35rem 0.6rem', background:'var(--color-bg)', color:'var(--color-text-muted)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.78rem' }}>
-                                Cancelar
-                              </button>
-                            </div>
-                          ) : (
-                            <button onClick={() => setConfirming(p.id)}
-                              style={{ padding:'0.35rem 0.85rem', background:'#e8f5ee', color:'#2e7d50', border:'1px solid #2e7d50', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.78rem', fontWeight:700 }}>
-                              ✓ Reportar
-                            </button>
-                          )}
+                          <button
+                            onClick={() => toggleExpand(p.id)}
+                            style={{
+                              padding:'0.35rem 0.85rem',
+                              background: isOpen ? '#fff3e0' : hasPDF ? '#e8f5ee' : 'var(--color-bg)',
+                              color: isOpen ? '#b45309' : hasPDF ? '#2e7d50' : 'var(--color-text-muted)',
+                              border: `1px solid ${isOpen ? '#f59e0b' : hasPDF ? '#2e7d50' : 'var(--color-border)'}`,
+                              borderRadius:'var(--radius-sm)',
+                              cursor: hasPDF ? 'pointer' : 'default',
+                              fontSize:'0.78rem',
+                              fontWeight:700,
+                              whiteSpace:'nowrap',
+                            }}
+                            disabled={!hasPDF}
+                            title={hasPDF ? 'Ver resultados y reportar' : 'Sin PDF adjunto aún'}
+                          >
+                            {hasPDF
+                              ? (isOpen ? '▲ Cerrar' : `👁 Ver laboratorios${labFiles.length > 1 ? ` (${labFiles.length})` : ''}`)
+                              : '⏳ Sin PDF'}
+                          </button>
                         </td>
                       </tr>
 
-                      {/* ── Expanded PDF viewer ── */}
-                      {isOpen && hasPDF && (
+                      {/* ── Panel expandido ── */}
+                      {isOpen && (
                         <tr>
-                          <td colSpan={7} style={{ padding:0, borderTop:'none' }}>
-                            <div style={{ padding:'1rem 1.25rem', background:'#f0fdf4', borderTop:'1px solid #c3e8d0', borderBottom:'1px solid #c3e8d0' }}>
+                          <td colSpan={6} style={{ padding:0, borderTop:'none' }}>
+                            <div style={{ padding:'1.25rem 1.5rem', background:'#fffbf0', borderTop:'2px solid #f59e0b', borderBottom:'1px solid #fde68a' }}>
+
                               {/* Meta info */}
-                              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.75rem' }}>
-                                <div style={{ fontSize:'0.78rem', color:'var(--color-text-muted)' }}>
-                                  📄 <strong style={{ color:'var(--color-text)' }}>{lab.tipo || p.tipo_examen}</strong>
-                                  {lab.fecha && ` · Subido el ${lab.fecha}`}
-                                  {lab.created_by && ` · por ${lab.created_by}`}
-                                  {labFiles.length > 1 && <span style={{ marginLeft:'0.5rem', background:'#2e7d50', color:'white', padding:'1px 8px', borderRadius:999, fontSize:'0.68rem', fontWeight:700 }}>{labFiles.length} PDFs</span>}
+                              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem', flexWrap:'wrap', gap:'0.5rem' }}>
+                                <div style={{ fontSize:'0.82rem', color:'var(--color-text-muted)' }}>
+                                  🧪 <strong style={{ color:'var(--color-text)' }}>{lab?.tipo || p.tipo_examen}</strong>
+                                  {lab?.fecha && ` · Subido el ${lab.fecha}`}
+                                  {lab?.created_by && ` · por ${lab.created_by}`}
+                                  {labFiles.length > 1 && (
+                                    <span style={{ marginLeft:'0.5rem', background:'#2e7d50', color:'white', padding:'1px 8px', borderRadius:999, fontSize:'0.68rem', fontWeight:700 }}>
+                                      {labFiles.length} PDFs
+                                    </span>
+                                  )}
                                 </div>
-                                <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', justifyContent:'flex-end' }}>
+                                <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap' }}>
                                   {labFiles.map((f, fi) => (
                                     <a key={fi} href={f.url} target="_blank" rel="noopener noreferrer"
                                       style={{ padding:'0.3rem 0.75rem', background:'#2e7d50', color:'white', borderRadius:'var(--radius-sm)', fontSize:'0.75rem', fontWeight:600, textDecoration:'none', whiteSpace:'nowrap' }}>
-                                      ↗ {labFiles.length > 1 ? f.name : 'Abrir en pestaña'}
+                                      ↗ {labFiles.length > 1 ? f.name : 'Abrir PDF'}
                                     </a>
                                   ))}
                                 </div>
                               </div>
-                              {/* Resultados text if any */}
-                              {lab.resultados && (
-                                <div style={{ background:'white', border:'1px solid #c3e8d0', borderRadius:'var(--radius-sm)', padding:'0.65rem 0.85rem', fontSize:'0.82rem', color:'var(--color-text)', marginBottom:'0.75rem', lineHeight:1.6 }}>
+
+                              {/* Resultados del microbiólogo */}
+                              {lab?.resultados && (
+                                <div style={{ background:'white', border:'1px solid #fde68a', borderRadius:'var(--radius-sm)', padding:'0.65rem 0.85rem', fontSize:'0.82rem', color:'var(--color-text)', marginBottom:'1rem', lineHeight:1.6 }}>
+                                  <div style={{ fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.04em', color:'#b45309', marginBottom:'0.3rem' }}>Resultados / Hallazgos (microbiólogo)</div>
                                   {lab.resultados}
                                 </div>
                               )}
-                              {/* PDF iframes — one per file */}
+
+                              {/* PDF iframes */}
                               {labFiles.map((f, fi) => (
-                                <div key={fi} style={{ border:'1px solid #c3e8d0', borderRadius:'var(--radius-md)', overflow:'hidden', background:'white', marginTop: fi > 0 ? '0.75rem' : 0 }}>
+                                <div key={fi} style={{ border:'1px solid #fde68a', borderRadius:'var(--radius-md)', overflow:'hidden', background:'white', marginBottom:'0.75rem' }}>
                                   {labFiles.length > 1 && (
-                                    <div style={{ padding:'0.4rem 0.85rem', background:'#e8f5ee', fontSize:'0.75rem', fontWeight:600, color:'#2e7d50', borderBottom:'1px solid #c3e8d0' }}>
+                                    <div style={{ padding:'0.4rem 0.85rem', background:'#fff3e0', fontSize:'0.75rem', fontWeight:600, color:'#b45309', borderBottom:'1px solid #fde68a' }}>
                                       📄 {f.name}
                                     </div>
                                   )}
@@ -223,6 +234,38 @@ export default function LaboratoriosPage() {
                                   />
                                 </div>
                               ))}
+
+                              {/* Reporte médico + botón reportar */}
+                              <div style={{ marginTop:'1rem', paddingTop:'1rem', borderTop:'1px solid #fde68a' }}>
+                                {isMedico ? (
+                                  <>
+                                    <label style={{ display:'block', fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.04em', color:'#b45309', marginBottom:'0.4rem' }}>
+                                      Reporte médico para el paciente *
+                                    </label>
+                                    <textarea
+                                      value={reporte}
+                                      onChange={e => setReportes(r => ({ ...r, [p.id]: e.target.value }))}
+                                      rows={4}
+                                      placeholder="Escriba aquí el reporte / interpretación médica que se entregará al propietario..."
+                                      style={{ width:'100%', padding:'0.65rem 0.85rem', border:'1px solid #f59e0b', borderRadius:'var(--radius-md)', fontFamily:'var(--font-body)', fontSize:'0.875rem', resize:'vertical', boxSizing:'border-box', marginBottom:'0.85rem' }}
+                                    />
+                                    <div style={{ display:'flex', justifyContent:'flex-end' }}>
+                                      <button
+                                        onClick={() => handleReportar(p)}
+                                        disabled={saving === p.id}
+                                        style={{ padding:'0.55rem 1.4rem', background: saving === p.id ? '#aaa' : '#2e7d50', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor: saving === p.id ? 'not-allowed' : 'pointer', fontSize:'0.875rem', fontWeight:700, fontFamily:'var(--font-body)' }}
+                                      >
+                                        {saving === p.id ? '⏳ Guardando...' : '✓ Marcar como Reportado'}
+                                      </button>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div style={{ background:'#fff3e0', border:'1px solid #fde68a', borderRadius:'var(--radius-sm)', padding:'0.75rem 1rem', fontSize:'0.82rem', color:'#b45309' }}>
+                                    ℹ️ Solo los médicos pueden escribir el reporte y marcar como reportado.
+                                  </div>
+                                )}
+                              </div>
+
                             </div>
                           </td>
                         </tr>
@@ -290,6 +333,7 @@ export default function LaboratoriosPage() {
                       <th style={thSt}>Examen</th>
                       <th style={thSt}>Fecha reportado</th>
                       <th style={thSt}>Reportado por</th>
+                      <th style={thSt}>Reporte</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -300,6 +344,12 @@ export default function LaboratoriosPage() {
                         <td style={tdSt}>{p.tipo_examen}</td>
                         <td style={{ ...tdSt, color:'#2e7d50', fontWeight:600 }}>{p.fecha_reportado || '—'}</td>
                         <td style={{ ...tdSt, color:'var(--color-text-muted)' }}>{p.reportado_por || '—'}</td>
+                        <td style={{ ...tdSt, color:'var(--color-text-muted)', maxWidth:220 }}>
+                          {p.reporte_medico
+                            ? <span style={{ fontSize:'0.78rem' }}>{p.reporte_medico.length > 80 ? p.reporte_medico.slice(0, 80) + '…' : p.reporte_medico}</span>
+                            : <span style={{ fontStyle:'italic', fontSize:'0.75rem' }}>Sin reporte</span>
+                          }
+                        </td>
                       </tr>
                     ))}
                   </tbody>
