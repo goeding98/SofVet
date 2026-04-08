@@ -3,12 +3,13 @@ import { useStore } from '../utils/useStore';
 import { useSede, SEDES } from '../utils/useSede';
 import { useAuth } from '../utils/useAuth';
 import Card from '../components/Card';
+import LaboratoriosModal from '../components/LaboratoriosModal';
 
 const sedeNombre = (id) => SEDES.find(s => s.id === id)?.nombre || `Sede ${id}`;
 
 export default function LaboratoriosPage() {
   const { items: pedidos,      edit: editPedido } = useStore('laboratorios_pedidos');
-  const { items: laboratorios }                   = useStore('laboratorios');
+  const { items: laboratorios, edit: editLaboratorio } = useStore('laboratorios');
   const { sedeActual, isAdmin } = useSede();
   const { session } = useAuth();
 
@@ -19,6 +20,8 @@ export default function LaboratoriosPage() {
   const [expanded,    setExpanded]    = useState(null); // pedido id
   const [reportes,    setReportes]    = useState({});   // { [pedidoId]: text }
   const [saving,      setSaving]      = useState(null); // pedido id being saved
+  const [editingLab,  setEditingLab]  = useState(null); // { lab, pedido } being edited
+  const [editModal,   setEditModal]   = useState(false);
 
   const sinReportar = useMemo(() =>
     pedidos
@@ -235,6 +238,18 @@ export default function LaboratoriosPage() {
                                 </div>
                               ))}
 
+                              {/* Botón editar resultado (microbiólogo) */}
+                              {lab && (
+                                <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:'0.5rem' }}>
+                                  <button
+                                    onClick={() => { setEditingLab({ lab, pedido: p }); setEditModal(true); }}
+                                    style={{ padding:'0.35rem 0.85rem', background:'white', border:'1px solid #b45309', color:'#b45309', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.78rem', fontWeight:700, fontFamily:'var(--font-body)' }}
+                                  >
+                                    ✏️ Editar resultado
+                                  </button>
+                                </div>
+                              )}
+
                               {/* Reporte médico + botón reportar */}
                               <div style={{ marginTop:'1rem', paddingTop:'1rem', borderTop:'1px solid #fde68a' }}>
                                 {isMedico ? (
@@ -359,6 +374,20 @@ export default function LaboratoriosPage() {
           </Card>
         )}
       </div>
+
+      {/* ── Modal editar resultado ── */}
+      {editModal && editingLab && (
+        <LaboratoriosModal
+          isOpen={editModal}
+          onClose={() => { setEditModal(false); setEditingLab(null); }}
+          onSave={() => {}}
+          onEdit={async (labId, changes) => { await editLaboratorio(labId, changes); setEditModal(false); setEditingLab(null); }}
+          pet={{ id: editingLab.pedido.patient_id, name: editingLab.pedido.patient_name, species: '' }}
+          pedidos={[]}
+          initialData={editingLab.lab}
+          labId={editingLab.lab.id}
+        />
+      )}
     </div>
   );
 }
