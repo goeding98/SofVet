@@ -82,6 +82,7 @@ export default function PortalPage() {
       supabase.from('laboratorios_pedidos').select('patient_id,tipo_examen,estado,fecha_solicitado').in('patient_id', ids).neq('estado','Solicitado').order('fecha_solicitado', { ascending: false }),
       supabase.from('appointments').select('patient_name,date,time,service,estado').in('patient_name', names).gte('date', tod).order('date', { ascending: true }).limit(20),
     ]);
+    alert(`DEBUG consultas: ids=${JSON.stringify(ids)}\nerror=${cR.error?.message}\ncount=${cR.data?.length}\nmuestra=${JSON.stringify(cR.data?.[0])}`);
 
     const vac=vR.data||[], con=cR.data||[], proc=pR.data||[], lab=lR.data||[], apt=aR.data||[];
 
