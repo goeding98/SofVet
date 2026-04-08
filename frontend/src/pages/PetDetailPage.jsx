@@ -230,7 +230,7 @@ export default function PetDetailPage() {
       { onError: (m) => { saveErr = m; } }
     );
     if (!result) {
-      alert('❌ Error al guardar laboratorio en DB:\n\n' + saveErr);
+      alert('❌ Error al guardar resultado:\n\n' + saveErr);
       return;
     }
     // Auto-link: if there's a 'Solicitado' pedido for this patient+tipo, advance to 'Subido SIN REPORTAR'
