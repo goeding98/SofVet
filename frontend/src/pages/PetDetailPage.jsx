@@ -16,6 +16,7 @@ import LaboratoriosSinReportarModal from '../components/LaboratoriosSinReportarM
 import HospitalizationReportModal from '../components/HospitalizationReportModal';
 import FormulasModal from '../components/FormulasModal';
 import VacunaModal from '../components/VacunaModal';
+import DesparasitarModal from '../components/DesparasitarModal';
 import documents from '../data/documents.js';
 
 const speciesIcon = s => ({ Perro: '🐶', Gato: '🐱', Conejo: '🐰', Ave: '🐦', Reptil: '🦎' }[s] || '🐾');
@@ -59,7 +60,8 @@ export default function PetDetailPage() {
   const [hospRepModal,   setHospRepModal]   = useState(false);
   const [formulasModal,  setFormulasModal]  = useState(false);
   const [editHCConfirm,  setEditHCConfirm]  = useState(false);
-  const [vacunaModal,    setVacunaModal]    = useState(false);
+  const [vacunaModal,      setVacunaModal]      = useState(false);
+  const [desparasitarModal,setDesparasitarModal] = useState(false);
   const [activeDoc,      setActiveDoc]      = useState(null);
   const [sedeFilter,     setSedeFilter]     = useState(null);
 
@@ -131,7 +133,8 @@ export default function PetDetailPage() {
   const quickActions = [
     { label: 'Nueva Consulta',   icon: '🩺', action: () => { setEditingConsult(null); setConsultModal(true); },                                                 color: 'var(--color-primary)', primary: true  },
     { label: isHospitalized ? 'Hospitalizado' : 'Hospitalizar', icon: '🏥', action: () => !isHospitalized && setHospModal(true), color: 'var(--color-danger)',  disabled: isHospitalized },
-    { label: 'Vacunar',          icon: '💉', action: () => setVacunaModal(true),                                                   color: 'var(--color-secondary)'               },
+    { label: 'Vacunar',          icon: '💉', action: () => setVacunaModal(true),       color: 'var(--color-secondary)'               },
+    { label: 'Desparasitar',     icon: '🪱', action: () => setDesparasitarModal(true), color: '#7c5cbf'                               },
     { label: 'Imagenología',     icon: '🔬', action: () => setImagingModal(true),                                                  color: '#1565c0'                               },
     { label: 'Procedimientos',   icon: '⚕️', action: () => setProcedModal(true),    color: '#c0392b'  },
     { label: 'Laboratorio',      icon: '🧪', action: () => setLabChoiceOpen(true),   color: '#2e7d50'  },
@@ -142,8 +145,17 @@ export default function PetDetailPage() {
   ];
 
   const handleSaveVacuna = async (data) => {
-    await addVaccine({ ...data, patient_id: petId, patient_name: pet.name });
+    let err = null;
+    await addVaccine({ ...data, patient_id: petId, patient_name: pet.name }, { onError: m => { err = m; } });
+    if (err) return alert('⚠️ Error al guardar vacuna:\n\n' + err);
     setVacunaModal(false);
+  };
+
+  const handleSaveDesparasitar = async (data) => {
+    let err = null;
+    await addVaccine({ ...data, patient_id: petId, patient_name: pet.name }, { onError: m => { err = m; } });
+    if (err) return alert('⚠️ Error al guardar desparasitación:\n\n' + err);
+    setDesparasitarModal(false);
   };
 
   const closeConsultModal = () => { setConsultModal(false); setEditingConsult(null); };
@@ -810,6 +822,7 @@ export default function PetDetailPage() {
 
       {/* Modals */}
       <VacunaModal isOpen={vacunaModal} onClose={() => setVacunaModal(false)} onSave={handleSaveVacuna} pet={pet} />
+      <DesparasitarModal isOpen={desparasitarModal} onClose={() => setDesparasitarModal(false)} onSave={handleSaveDesparasitar} pet={pet} />
       <ConsultationModal
         isOpen={consultModal}
         onClose={closeConsultModal}
