@@ -23,6 +23,7 @@ import DocumentsPage from './pages/DocumentsPage';
 import UsersPage from './pages/UsersPage';
 import ImportPage from './pages/ImportPage';
 import PrepagadaPage from './pages/PrepagadaPage';
+import PortalPage from './pages/PortalPage';
 
 function ProtectedLayout({ children }) {
   const { session } = useAuth();
@@ -50,15 +51,17 @@ function AppRoutes() {
   if (!session) {
     return (
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="*"      element={<Navigate to="/login" />} />
+        <Route path="/portal" element={<PortalPage />} />
+        <Route path="/login"  element={<LoginPage />} />
+        <Route path="*"       element={<Navigate to="/login" />} />
       </Routes>
     );
   }
 
   return (
     <Routes>
-      <Route path="/login" element={<Navigate to="/" />} />
+      <Route path="/portal" element={<PortalPage />} />
+      <Route path="/login"  element={<Navigate to="/" />} />
 
       <Route path="/"                  element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
       <Route path="/clients"           element={<ProtectedLayout><ClientsPage /></ProtectedLayout>} />
