@@ -75,15 +75,17 @@ export default function PortalPage() {
     const names = pets.map(p => p.name);
     const tod = today();
 
-    const [vR, cR, pR, lR, aR] = await Promise.all([
+    const [vR, cR, pR, lR, aR, iR, hR] = await Promise.all([
       supabase.from('vaccines').select('patient_id,vaccine_name,date_applied,next_dose').in('patient_id', ids).order('date_applied', { ascending: false }),
       supabase.from('consultations').select('patient_id,antecedentes,hallazgos,diagnostico_final,date,created_at').in('patient_id', ids).order('created_at', { ascending: false }),
       supabase.from('procedimientos').select('patient_id,tipo,descripcion,fecha,anestesia').in('patient_id', ids).order('fecha', { ascending: false }),
       supabase.from('laboratorios_pedidos').select('patient_id,tipo_examen,estado,fecha_solicitado').in('patient_id', ids).neq('estado','Solicitado').order('fecha_solicitado', { ascending: false }),
       supabase.from('appointments').select('patient_name,date,time,service,estado').in('patient_name', names).gte('date', tod).order('date', { ascending: true }).limit(20),
+      supabase.from('imaging').select('patient_id,tipo,resultado,date').in('patient_id', ids).order('date', { ascending: false }),
+      supabase.from('hospitalization').select('patient_id,motivo,diagnostico,ingreso_date,alta_date,status').in('patient_id', ids).order('ingreso_date', { ascending: false }),
     ]);
 
-    const vac=vR.data||[], con=cR.data||[], proc=pR.data||[], lab=lR.data||[], apt=aR.data||[];
+    const vac=vR.data||[], con=cR.data||[], proc=pR.data||[], lab=lR.data||[], apt=aR.data||[], img=iR.data||[], hosp=hR.data||[];
 
     setClient(cl);
     setData({ pets: pets.map(p => ({
@@ -94,6 +96,8 @@ export default function PortalPage() {
       procs:      proc.filter(x => x.patient_id===p.id),
       labs:       lab.filter(l => l.patient_id===p.id),
       agenda:     apt.filter(a => a.patient_name===p.name),
+      imaging:    img.filter(i => i.patient_id===p.id),
+      hosps:      hosp.filter(h => h.patient_id===p.id),
     }))});
   };
 
@@ -191,11 +195,13 @@ export default function PortalPage() {
           ) : data.pets.map(pet => {
             const activeTab = getTab(pet.id);
             const TABS = [
-              { key:'resumen',        label:'Resumen',       icon:'🏠' },
-              { key:'consultas',      label:'Consultas',     icon:'📋', count: pet.consults.length },
-              { key:'procedimientos', label:'Procedimientos',icon:'🔬', count: pet.procs.length },
-              { key:'laboratorios',   label:'Laboratorios',  icon:'🧪', count: pet.labs.length },
-              { key:'agenda',         label:'Agenda',        icon:'📅', count: pet.agenda.length },
+              { key:'resumen',          label:'Resumen',         icon:'🏠' },
+              { key:'consultas',        label:'Consultas',       icon:'📋', count: pet.consults.length },
+              { key:'procedimientos',   label:'Procedimientos',  icon:'⚕️', count: pet.procs.length },
+              { key:'laboratorios',     label:'Laboratorios',    icon:'🧪', count: pet.labs.length },
+              { key:'imagenologia',     label:'Imagenología',    icon:'🩻', count: pet.imaging.length },
+              { key:'hospitalizacion',  label:'Hospitalización', icon:'🏥', count: pet.hosps.length },
+              { key:'agenda',           label:'Agenda',          icon:'📅', count: pet.agenda.length },
             ];
             return (
               <div key={pet.id} style={{ background:'white', borderRadius:20, boxShadow:'0 2px 20px rgba(0,0,0,0.07)', marginBottom:'1.75rem', overflow:'hidden' }}>
@@ -345,6 +351,66 @@ export default function PortalPage() {
                                 <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
                                   <span style={{ fontSize:'0.72rem', color:C.muted }}>{fmt(l.fecha_solicitado)}</span>
                                   <span style={{ background:est.bg, color:est.color, fontSize:'0.68rem', fontWeight:700, padding:'2px 9px', borderRadius:999 }}>{est.label}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── IMAGENOLOGÍA ── */}
+                  {activeTab === 'imagenologia' && (
+                    <div>
+                      {pet.imaging.length === 0 ? <Empty label="Sin registros de imagenología" /> : (
+                        <div style={{ display:'flex', flexDirection:'column', gap:'0.85rem' }}>
+                          {pet.imaging.map((r, i) => (
+                            <div key={i} style={{ border:`1px solid ${C.border}`, borderRadius:14, overflow:'hidden' }}>
+                              <div style={{ background:C.cream, padding:'0.65rem 1rem', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:`1px solid ${C.border}` }}>
+                                <span style={{ fontWeight:700, fontSize:'0.85rem', color:C.tealDark }}>
+                                  {r.tipo === 'Radiografía' ? '🩻' : r.tipo === 'Ecografía' ? '📡' : '🔬'} {r.tipo}
+                                </span>
+                                <span style={{ fontSize:'0.72rem', color:C.muted }}>{fmt(r.date)}</span>
+                              </div>
+                              {r.resultado && (
+                                <div style={{ padding:'0.85rem 1rem', fontSize:'0.85rem', color:C.text, lineHeight:1.55 }}>
+                                  {r.resultado}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── HOSPITALIZACIÓN ── */}
+                  {activeTab === 'hospitalizacion' && (
+                    <div>
+                      {pet.hosps.length === 0 ? <Empty label="Sin hospitalizaciones registradas" /> : (
+                        <div style={{ display:'flex', flexDirection:'column', gap:'0.85rem' }}>
+                          {pet.hosps.map((h, i) => {
+                            const activa = h.status === 'activo';
+                            return (
+                              <div key={i} style={{ border:`1px solid ${activa ? '#fca5a5' : C.border}`, borderRadius:14, overflow:'hidden' }}>
+                                <div style={{ background: activa ? '#fef2f2' : C.cream, padding:'0.65rem 1rem', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:`1px solid ${activa ? '#fca5a5' : C.border}` }}>
+                                  <div style={{ display:'flex', alignItems:'center', gap:'0.6rem' }}>
+                                    <span style={{ fontWeight:700, fontSize:'0.85rem', color: activa ? '#c0392b' : C.tealDark }}>🏥 {h.motivo || 'Hospitalización'}</span>
+                                    {activa && <span style={{ background:'#fce4e4', color:'#c0392b', fontSize:'0.65rem', fontWeight:700, padding:'2px 8px', borderRadius:999 }}>En curso</span>}
+                                  </div>
+                                  <span style={{ fontSize:'0.72rem', color:C.muted }}>Ingreso: {fmt(h.ingreso_date)}</span>
+                                </div>
+                                <div style={{ padding:'0.85rem 1rem', display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+                                  {h.diagnostico && (
+                                    <div style={{ background:C.tealLight, border:`1px solid ${C.teal}30`, borderRadius:10, padding:'0.55rem 0.85rem' }}>
+                                      <div style={{ fontSize:'0.67rem', fontWeight:700, textTransform:'uppercase', color:C.teal, marginBottom:'0.2rem' }}>Diagnóstico</div>
+                                      <div style={{ fontSize:'0.85rem', fontWeight:600, color:C.tealDark }}>{h.diagnostico}</div>
+                                    </div>
+                                  )}
+                                  {h.alta_date && (
+                                    <div style={{ fontSize:'0.78rem', color:'#2e7d50', fontWeight:600 }}>✅ Alta: {fmt(h.alta_date)}</div>
+                                  )}
                                 </div>
                               </div>
                             );
