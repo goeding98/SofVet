@@ -37,7 +37,7 @@ export default function PetDetailPage() {
   const { items: imagingRecords, add: addImaging }     = useStore('imaging');
   const { items: formulas, add: addFormula }           = useStore('formulas_medicas');
   const { items: procedimientos, add: addProcedimiento } = useStore('procedimientos');
-  const { items: laboratorios, add: addLaboratorio }   = useStore('laboratorios');
+  const { items: laboratorios, add: addLaboratorio, edit: editLaboratorio } = useStore('laboratorios');
   const { items: hospReports, add: addHospReport }     = useStore('hospitalization_reports');
   const { items: hospitalization }                     = useStore('hospitalization');
   const { items: signedDocs }  = useStore('signedDocuments');
@@ -54,6 +54,7 @@ export default function PetDetailPage() {
   const [labModal,       setLabModal]       = useState(false);
   const [labSolModal,    setLabSolModal]    = useState(false);
   const [labChoiceOpen,  setLabChoiceOpen]  = useState(false);
+  const [editingLab,     setEditingLab]     = useState(null); // { lab record } being edited
   const [labSRModal,     setLabSRModal]     = useState(false);
   const [hospRepModal,   setHospRepModal]   = useState(false);
   const [formulasModal,  setFormulasModal]  = useState(false);
@@ -245,6 +246,12 @@ export default function PetDetailPage() {
         fecha_subido:  new Date().toISOString().split('T')[0],
       });
     }
+    setLabModal(false);
+  };
+
+  const handleEditLaboratorio = async (labId, changes) => {
+    await editLaboratorio(labId, changes);
+    setEditingLab(null);
     setLabModal(false);
   };
 
@@ -659,15 +666,25 @@ export default function PetDetailPage() {
                     {/* PDF result if available */}
                     {labResult && (
                       <div style={{ marginTop:'0.5rem', paddingTop:'0.5rem', borderTop:'1px solid #c3e8d0' }}>
-                        {labResult.resultados && (
-                          <p style={{ fontSize:'0.8rem', color:'var(--color-text)', margin:'0 0 0.3rem', lineHeight:1.5 }}>{labResult.resultados}</p>
-                        )}
-                        {(labResult.archivos?.length > 0 ? labResult.archivos : labResult.file_url ? [{ name: 'Ver PDF adjunto', url: labResult.file_url }] : []).map((f, fi) => (
-                          <a key={fi} href={f.url} target="_blank" rel="noopener noreferrer"
-                            style={{ display:'inline-block', marginRight:'0.5rem', fontSize:'0.78rem', color:'#2e7d50', fontWeight:600, textDecoration:'none' }}>
-                            📄 {f.name}
-                          </a>
-                        ))}
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'0.5rem', flexWrap:'wrap' }}>
+                          <div style={{ flex:1 }}>
+                            {labResult.resultados && (
+                              <p style={{ fontSize:'0.8rem', color:'var(--color-text)', margin:'0 0 0.3rem', lineHeight:1.5 }}>{labResult.resultados}</p>
+                            )}
+                            {(labResult.archivos?.length > 0 ? labResult.archivos : labResult.file_url ? [{ name: 'Ver PDF adjunto', url: labResult.file_url }] : []).map((f, fi) => (
+                              <a key={fi} href={f.url} target="_blank" rel="noopener noreferrer"
+                                style={{ display:'inline-block', marginRight:'0.5rem', fontSize:'0.78rem', color:'#2e7d50', fontWeight:600, textDecoration:'none' }}>
+                                📄 {f.name}
+                              </a>
+                            ))}
+                          </div>
+                          <button
+                            onClick={() => { setEditingLab(labResult); setLabModal(true); }}
+                            style={{ padding:'0.25rem 0.7rem', background:'white', border:'1px solid #b45309', color:'#b45309', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.72rem', fontWeight:600, fontFamily:'var(--font-body)', flexShrink:0 }}
+                          >
+                            ✏️ Editar
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -809,7 +826,16 @@ export default function PetDetailPage() {
 
       <ProcedimientosModal isOpen={procedModal} onClose={() => setProcedModal(false)} onSave={handleSaveProcedimiento} pet={pet} />
 
-      <LaboratoriosModal isOpen={labModal} onClose={() => setLabModal(false)} onSave={handleSaveLaboratorio} pet={pet} pedidos={labPedidos.filter(p => p.patient_id === petId)} />
+      <LaboratoriosModal
+        isOpen={labModal}
+        onClose={() => { setLabModal(false); setEditingLab(null); }}
+        onSave={handleSaveLaboratorio}
+        onEdit={handleEditLaboratorio}
+        pet={pet}
+        pedidos={labPedidos.filter(p => p.patient_id === petId)}
+        initialData={editingLab}
+        labId={editingLab?.id || null}
+      />
 
       <SolicitarLabModal isOpen={labSolModal} onClose={() => setLabSolModal(false)} onSave={handleSolicitarLab} pet={pet} />
 
