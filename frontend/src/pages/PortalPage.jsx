@@ -77,12 +77,11 @@ export default function PortalPage() {
 
     const [vR, cR, pR, lR, aR] = await Promise.all([
       supabase.from('vaccines').select('patient_id,vaccine_name,date_applied,next_dose').in('patient_id', ids).order('date_applied', { ascending: false }),
-      supabase.from('consultations').select('patient_id,motivo,anamnesis,diagnostico_final,created_at').in('patient_id', ids).order('created_at', { ascending: false }),
+      supabase.from('consultations').select('patient_id,antecedentes,hallazgos,diagnostico_final,date,created_at').in('patient_id', ids).order('created_at', { ascending: false }),
       supabase.from('procedimientos').select('patient_id,tipo,descripcion,fecha,anestesia').in('patient_id', ids).order('fecha', { ascending: false }),
       supabase.from('laboratorios_pedidos').select('patient_id,tipo_examen,estado,fecha_solicitado').in('patient_id', ids).neq('estado','Solicitado').order('fecha_solicitado', { ascending: false }),
       supabase.from('appointments').select('patient_name,date,time,service,estado').in('patient_name', names).gte('date', tod).order('date', { ascending: true }).limit(20),
     ]);
-    alert(`DEBUG consultas: ids=${JSON.stringify(ids)}\nerror=${cR.error?.message}\ncount=${cR.data?.length}\nmuestra=${JSON.stringify(cR.data?.[0])}`);
 
     const vac=vR.data||[], con=cR.data||[], proc=pR.data||[], lab=lR.data||[], apt=aR.data||[];
 
@@ -269,14 +268,20 @@ export default function PortalPage() {
                           {pet.consults.map((c, i) => (
                             <div key={i} style={{ border:`1px solid ${C.border}`, borderRadius:14, overflow:'hidden' }}>
                               <div style={{ background:C.cream, padding:'0.7rem 1rem', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:`1px solid ${C.border}` }}>
-                                <span style={{ fontWeight:700, fontSize:'0.85rem', color:C.tealDark }}>📋 {c.motivo || 'Consulta general'}</span>
-                                <span style={{ fontSize:'0.72rem', color:C.muted }}>{fmt(c.created_at)}</span>
+                                <span style={{ fontWeight:700, fontSize:'0.85rem', color:C.tealDark }}>📋 Consulta</span>
+                                <span style={{ fontSize:'0.72rem', color:C.muted }}>{fmt(c.date || c.created_at)}</span>
                               </div>
                               <div style={{ padding:'0.9rem 1rem', display:'flex', flexDirection:'column', gap:'0.65rem' }}>
-                                {c.anamnesis && (
+                                {c.antecedentes && (
                                   <div>
-                                    <div style={{ fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:C.muted, marginBottom:'0.3rem' }}>Motivo de consulta</div>
-                                    <div style={{ fontSize:'0.85rem', color:C.text, lineHeight:1.55 }}>{c.anamnesis}</div>
+                                    <div style={{ fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:C.muted, marginBottom:'0.3rem' }}>Antecedentes</div>
+                                    <div style={{ fontSize:'0.85rem', color:C.text, lineHeight:1.55 }}>{c.antecedentes}</div>
+                                  </div>
+                                )}
+                                {c.hallazgos && (
+                                  <div>
+                                    <div style={{ fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:C.muted, marginBottom:'0.3rem' }}>Hallazgos clínicos</div>
+                                    <div style={{ fontSize:'0.85rem', color:C.text, lineHeight:1.55 }}>{c.hallazgos}</div>
                                   </div>
                                 )}
                                 {c.diagnostico_final && (
