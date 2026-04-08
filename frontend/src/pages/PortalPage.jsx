@@ -28,6 +28,33 @@ const icon = (sp) => {
 };
 const today = () => new Date().toISOString().split('T')[0];
 
+// ── Booking helpers ───────────────────────────────────────────────────────────
+const BOOKING_SEDES = [
+  { id: 2, nombre: 'Colseguros' },
+  { id: 3, nombre: 'Ciudad Jardín' },
+  { id: 1, nombre: 'Santa Mónica' },
+];
+const SLOTS_GEN = [8,9,10,11,12,13,14,15,16,17,18].map(h=>`${String(h).padStart(2,'0')}:00`);
+const SLOTS_CTL = [8,9,10,11,12,13,14,15,16,17].map(h=>`${String(h).padStart(2,'0')}:40`);
+const DUR = { 'Consulta General': 40, 'Control': 20 };
+
+const tmins = t => { const [h,m]=t.split(':').map(Number); return h*60+m; };
+const addMin = (t, m) => { const tot=tmins(t)+m; return `${String(Math.floor(tot/60)%24).padStart(2,'0')}:${String(tot%60).padStart(2,'0')}`; };
+const isBlocked = (slotT, dur, apts) => {
+  const s=tmins(slotT), e=s+dur;
+  return apts.some(a => {
+    if (!a.time) return false;
+    const as=tmins(a.time);
+    const ae=as+(a.time_end ? tmins(a.time_end)-as : (a.service==='Control'?20:40));
+    return as<e && s<ae;
+  });
+};
+const fmt12h = t => {
+  if (!t) return '—';
+  const [h,m]=t.split(':').map(Number);
+  return `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`;
+};
+
 export default function PortalPage() {
   const [cedula,    setCedula]    = useState('');
   const [password,  setPassword]  = useState('');
@@ -46,6 +73,19 @@ export default function PortalPage() {
   const [pwOk,      setPwOk]      = useState(false);
   const [solModal,  setSolModal]  = useState(false);
   const [solPet,    setSolPet]    = useState(null);
+
+  // ── Booking ──────────────────────────────────────────────────────────────
+  const [agOpen,   setAgOpen]   = useState(false);
+  const [agStep,   setAgStep]   = useState(1);
+  const [agPet,    setAgPet]    = useState(null);
+  const [agTipo,   setAgTipo]   = useState(null);
+  const [agSede,   setAgSede]   = useState(null);
+  const [agDate,   setAgDate]   = useState('');
+  const [agSlots,  setAgSlots]  = useState(null);
+  const [agTime,   setAgTime]   = useState(null);
+  const [agSaving, setAgSaving] = useState(false);
+  const [agOk,     setAgOk]     = useState(false);
+  const [agErr,    setAgErr]    = useState('');
 
   const getTab = (pid) => tabs[pid] || 'resumen';
   const setTab = (pid, t) => setTabs(prev => ({ ...prev, [pid]: t }));
@@ -120,6 +160,40 @@ export default function PortalPage() {
   const logout = () => { setClient(null); setData(null); setCedula(''); setPassword(''); setFirstLogin(false); };
   const openPw = () => { setNewPw(''); setNewPw2(''); setPwError(''); setPwOk(false); setPwModal(true); };
 
+  const openAgendar = () => {
+    setAgOpen(true); setAgStep(1); setAgErr(''); setAgOk(false); setAgSaving(false);
+    setAgPet(data?.pets?.length === 1 ? data.pets[0] : null);
+    setAgTipo(null); setAgSede(null); setAgDate(''); setAgSlots(null); setAgTime(null);
+  };
+
+  const loadAgSlots = async (date, sedeId, tipo) => {
+    setAgSlots(null);
+    const { data: apts } = await supabase.from('appointments')
+      .select('time,time_end,service').eq('date', date).eq('sede_id', sedeId).neq('status','cancelada');
+    const dur = DUR[tipo];
+    const rawSlots = tipo === 'Consulta General' ? SLOTS_GEN : SLOTS_CTL;
+    setAgSlots(rawSlots.map(t => ({ time: t, blocked: isBlocked(t, dur, apts||[]) })));
+  };
+
+  const handleSubmitAgendar = async () => {
+    if (!agPet || !agTipo || !agSede || !agDate || !agTime) return;
+    setAgSaving(true); setAgErr('');
+    const { error } = await supabase.from('appointments').insert({
+      patient_name: agPet.name,
+      owner:        client.name,
+      service:      agTipo,
+      date:         agDate,
+      time:         agTime,
+      time_end:     addMin(agTime, DUR[agTipo]),
+      status:       'pendiente',
+      sede_id:      agSede,
+    });
+    setAgSaving(false);
+    if (error) return setAgErr('Error al agendar: ' + error.message);
+    setAgOk(true);
+    await loadData(client);
+  };
+
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight:'100vh', background:C.bg, fontFamily:"'Inter','Segoe UI',sans-serif", color:C.text }}>
@@ -187,6 +261,58 @@ export default function PortalPage() {
             </div>
           </div>
 
+          {/* ── AGENDA SECTION ── */}
+          {(() => {
+            const allAppts = data.pets.flatMap(p => p.agenda.map(a => ({ ...a, petName: p.name }))).sort((a,b) => a.date.localeCompare(b.date));
+            return (
+              <div style={{ background:'white', borderRadius:18, boxShadow:'0 2px 20px rgba(0,0,0,0.07)', marginBottom:'1.75rem', overflow:'hidden' }}>
+                <div style={{ background:`linear-gradient(135deg,${C.teal},${C.tealDark})`, padding:'1rem 1.5rem', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:'0.7rem' }}>
+                    <span style={{ fontSize:'1.4rem' }}>📅</span>
+                    <div>
+                      <div style={{ color:'white', fontWeight:800, fontSize:'0.95rem' }}>Mis Citas</div>
+                      <div style={{ color:'rgba(255,255,255,0.65)', fontSize:'0.72rem' }}>Próximas citas agendadas</div>
+                    </div>
+                  </div>
+                  <button onClick={openAgendar} style={{ background:'white', color:C.teal, border:'none', borderRadius:12, padding:'0.55rem 1.1rem', fontWeight:800, fontSize:'0.8rem', cursor:'pointer', fontFamily:'inherit', boxShadow:'0 2px 8px rgba(0,0,0,0.12)' }}>
+                    + Agendar cita
+                  </button>
+                </div>
+                <div style={{ padding:'1rem 1.5rem' }}>
+                  {allAppts.length === 0 ? (
+                    <div style={{ textAlign:'center', padding:'1.25rem 0', color:C.muted, fontSize:'0.85rem' }}>
+                      No tienes citas próximas agendadas.
+                    </div>
+                  ) : (
+                    <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+                      {allAppts.map((a, i) => (
+                        <div key={i} style={{ display:'flex', alignItems:'center', gap:'1rem', padding:'0.75rem 1rem', border:`1px solid ${C.border}`, borderRadius:12, background:C.cream }}>
+                          <div style={{ textAlign:'center', minWidth:44, background:`linear-gradient(135deg,${C.teal},${C.tealDark})`, borderRadius:10, padding:'0.4rem 0' }}>
+                            <div style={{ fontSize:'0.6rem', fontWeight:700, textTransform:'uppercase', color:'rgba(255,255,255,0.7)' }}>
+                              {new Date(a.date+'T12:00').toLocaleDateString('es-CO',{month:'short'})}
+                            </div>
+                            <div style={{ fontSize:'1.3rem', fontWeight:800, color:'white', lineHeight:1 }}>
+                              {new Date(a.date+'T12:00').getDate()}
+                            </div>
+                          </div>
+                          <div style={{ flex:1 }}>
+                            <div style={{ fontWeight:700, fontSize:'0.88rem', color:C.tealDark }}>{a.service}</div>
+                            <div style={{ fontSize:'0.73rem', color:C.muted, marginTop:'0.15rem' }}>
+                              🐾 {a.petName} · 🕐 {fmt12h(a.time)}
+                            </div>
+                          </div>
+                          <span style={{ background:C.tealLight, color:C.teal, fontSize:'0.67rem', fontWeight:700, padding:'2px 9px', borderRadius:999, whiteSpace:'nowrap' }}>
+                            {a.estado || 'Pendiente'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           {data.pets.length === 0 ? (
             <div style={{ background:'white', borderRadius:16, padding:'3rem', textAlign:'center', color:C.muted }}>
               <div style={{ fontSize:'3rem', marginBottom:'0.5rem' }}>🐾</div>
@@ -201,7 +327,6 @@ export default function PortalPage() {
               { key:'laboratorios',     label:'Laboratorios',    icon:'🧪', count: pet.labs.length },
               { key:'imagenologia',     label:'Imagenología',    icon:'🩻', count: pet.imaging.length },
               { key:'hospitalizacion',  label:'Hospitalización', icon:'🏥', count: pet.hosps.length },
-              { key:'agenda',           label:'Agenda',          icon:'📅', count: pet.agenda.length },
             ];
             return (
               <div key={pet.id} style={{ background:'white', borderRadius:20, boxShadow:'0 2px 20px rgba(0,0,0,0.07)', marginBottom:'1.75rem', overflow:'hidden' }}>
@@ -420,34 +545,6 @@ export default function PortalPage() {
                     </div>
                   )}
 
-                  {/* ── AGENDA ── */}
-                  {activeTab === 'agenda' && (
-                    <div>
-                      {pet.agenda.length === 0 ? <Empty label="Sin citas próximas agendadas" /> : (
-                        <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
-                          {pet.agenda.map((a, i) => (
-                            <div key={i} style={{ display:'flex', alignItems:'center', gap:'1rem', padding:'0.85rem 1rem', border:`1px solid ${C.border}`, borderRadius:12, background:C.cream }}>
-                              <div style={{ textAlign:'center', minWidth:48 }}>
-                                <div style={{ fontSize:'0.65rem', fontWeight:700, textTransform:'uppercase', color:C.muted }}>
-                                  {new Date(a.date+'T12:00').toLocaleDateString('es-CO',{month:'short'})}
-                                </div>
-                                <div style={{ fontSize:'1.4rem', fontWeight:800, color:C.tealDark, lineHeight:1 }}>
-                                  {new Date(a.date+'T12:00').getDate()}
-                                </div>
-                              </div>
-                              <div style={{ flex:1 }}>
-                                <div style={{ fontWeight:700, fontSize:'0.88rem', color:C.tealDark }}>{a.service}</div>
-                                <div style={{ fontSize:'0.75rem', color:C.muted, marginTop:'0.15rem' }}>🕐 {a.time || '—'}</div>
-                              </div>
-                              {a.estado && (
-                                <span style={{ background:C.tealLight, color:C.teal, fontSize:'0.68rem', fontWeight:700, padding:'2px 9px', borderRadius:999 }}>{a.estado}</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
 
                 </div>
 
@@ -482,6 +579,112 @@ export default function PortalPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal: agendar cita */}
+      {agOpen && (
+        <div onClick={() => !agSaving && !agOk && setAgOpen(false)} style={{ position:'fixed', inset:0, background:'rgba(30,78,84,0.45)', zIndex:300, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem', backdropFilter:'blur(3px)' }}>
+          <div onClick={e=>e.stopPropagation()} style={{ background:'white', borderRadius:22, maxWidth:460, width:'100%', boxShadow:'0 24px 60px rgba(0,0,0,0.22)', overflow:'hidden', maxHeight:'90vh', display:'flex', flexDirection:'column' }}>
+
+            {/* Header */}
+            <div style={{ background:`linear-gradient(135deg,${C.teal},${C.tealDark})`, padding:'1.1rem 1.5rem', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
+              <div style={{ color:'white', fontWeight:800, fontSize:'0.95rem' }}>📅 Agendar cita</div>
+              {!agSaving && <button onClick={()=>setAgOpen(false)} style={{ background:'rgba(255,255,255,0.15)', border:'none', color:'white', borderRadius:8, padding:'0.3rem 0.7rem', cursor:'pointer', fontSize:'0.85rem', fontFamily:'inherit' }}>✕</button>}
+            </div>
+
+            {/* Body */}
+            <div style={{ overflowY:'auto', padding:'1.5rem', flex:1 }}>
+              {agOk ? (
+                <div style={{ textAlign:'center', padding:'2rem 0' }}>
+                  <div style={{ fontSize:'3rem', marginBottom:'0.5rem' }}>✅</div>
+                  <div style={{ fontWeight:800, color:C.tealDark, fontSize:'1.05rem', marginBottom:'0.4rem' }}>¡Cita agendada!</div>
+                  <div style={{ color:C.muted, fontSize:'0.83rem', lineHeight:1.6, marginBottom:'1.5rem' }}>
+                    Tu cita para <strong>{agPet?.name}</strong> quedó registrada el <strong>{fmt(agDate)}</strong> a las <strong>{fmt12h(agTime)}</strong> en <strong>{BOOKING_SEDES.find(s=>s.id===agSede)?.nombre}</strong>.<br/>
+                    Estado: <strong>Pendiente de confirmación.</strong>
+                  </div>
+                  <button onClick={()=>setAgOpen(false)} style={{ padding:'0.65rem 2rem', background:`linear-gradient(135deg,${C.teal},${C.tealDark})`, color:'white', border:'none', borderRadius:12, cursor:'pointer', fontWeight:700, fontFamily:'inherit' }}>Cerrar</button>
+                </div>
+              ) : (
+                <>
+                  {/* Disclaimer */}
+                  <div style={{ background:'#fff8e1', border:'1px solid #f0c040', borderRadius:12, padding:'0.85rem 1rem', marginBottom:'1.25rem', fontSize:'0.78rem', color:'#7a5c00', lineHeight:1.6 }}>
+                    ⚠️ <strong>Antes de agendar:</strong> si tienes una <strong>urgencia</strong>, requieres una <strong>especialidad</strong> o tienes una <strong>remisión para procedimiento específico</strong>, te pedimos comunicarte primero con nosotros para orientarte mejor.
+                  </div>
+
+                  {/* Step 1: Pet + Tipo */}
+                  <div style={{ marginBottom:'1rem' }}>
+                    <label style={{ display:'block', fontSize:'0.7rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:C.muted, marginBottom:'0.4rem' }}>Mascota</label>
+                    <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
+                      {data.pets.map(p => (
+                        <button key={p.id} onClick={()=>setAgPet(p)} style={{ padding:'0.5rem 0.9rem', border:`2px solid ${agPet?.id===p.id?C.teal:C.border}`, borderRadius:10, background:agPet?.id===p.id?C.tealLight:'white', color:agPet?.id===p.id?C.teal:C.text, cursor:'pointer', fontFamily:'inherit', fontSize:'0.83rem', fontWeight:agPet?.id===p.id?700:400 }}>
+                          {icon(p.species)} {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom:'1rem' }}>
+                    <label style={{ display:'block', fontSize:'0.7rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:C.muted, marginBottom:'0.4rem' }}>Tipo de cita</label>
+                    <div style={{ display:'flex', gap:'0.5rem' }}>
+                      {['Consulta General','Control'].map(t => (
+                        <button key={t} onClick={()=>{ setAgTipo(t); setAgTime(null); setAgSlots(null); if(agSede&&agDate) loadAgSlots(agDate,agSede,t); }} style={{ flex:1, padding:'0.6rem 0.5rem', border:`2px solid ${agTipo===t?C.teal:C.border}`, borderRadius:10, background:agTipo===t?C.tealLight:'white', color:agTipo===t?C.teal:C.text, cursor:'pointer', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:agTipo===t?700:400, textAlign:'center' }}>
+                          {t === 'Consulta General' ? '🩺 Consulta General' : '🔁 Control'}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ fontSize:'0.72rem', color:C.muted, marginTop:'0.4rem' }}>
+                      💰 Valor: <strong style={{ color:C.tealDark }}>$70.000</strong> — pagadero en la clínica antes de pasar a consulta.
+                    </div>
+                  </div>
+
+                  {/* Step 2: Sede + Fecha */}
+                  <div style={{ marginBottom:'1rem' }}>
+                    <label style={{ display:'block', fontSize:'0.7rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:C.muted, marginBottom:'0.4rem' }}>Sede</label>
+                    <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
+                      {BOOKING_SEDES.map(s => (
+                        <button key={s.id} onClick={()=>{ setAgSede(s.id); setAgTime(null); setAgSlots(null); if(agDate&&agTipo) loadAgSlots(agDate,s.id,agTipo); }} style={{ flex:1, padding:'0.55rem 0.5rem', border:`2px solid ${agSede===s.id?C.teal:C.border}`, borderRadius:10, background:agSede===s.id?C.tealLight:'white', color:agSede===s.id?C.teal:C.text, cursor:'pointer', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:agSede===s.id?700:400, textAlign:'center' }}>
+                          📍 {s.nombre}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom:'1.25rem' }}>
+                    <label style={{ display:'block', fontSize:'0.7rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:C.muted, marginBottom:'0.4rem' }}>Fecha</label>
+                    <input type="date" value={agDate} min={today()} onChange={e=>{ setAgDate(e.target.value); setAgTime(null); setAgSlots(null); if(agSede&&agTipo&&e.target.value) loadAgSlots(e.target.value,agSede,agTipo); }} style={{ width:'100%', padding:'0.7rem 1rem', border:`1.5px solid ${C.border}`, borderRadius:10, fontSize:'0.9rem', fontFamily:'inherit', boxSizing:'border-box' }} />
+                  </div>
+
+                  {/* Step 3: Horarios */}
+                  {agTipo && agSede && agDate && (
+                    <div style={{ marginBottom:'1rem' }}>
+                      <label style={{ display:'block', fontSize:'0.7rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:C.muted, marginBottom:'0.5rem' }}>Horario disponible</label>
+                      {agSlots === null ? (
+                        <div style={{ textAlign:'center', color:C.muted, fontSize:'0.82rem', padding:'1rem 0' }}>Cargando horarios…</div>
+                      ) : (
+                        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'0.4rem' }}>
+                          {agSlots.map(sl => (
+                            <button key={sl.time} disabled={sl.blocked} onClick={()=>setAgTime(sl.time)} style={{ padding:'0.5rem 0.3rem', border:`2px solid ${agTime===sl.time?C.teal:sl.blocked?'#e0e0e0':C.border}`, borderRadius:9, background:agTime===sl.time?C.teal:sl.blocked?'#f5f5f5':'white', color:agTime===sl.time?'white':sl.blocked?'#c0c0c0':C.text, cursor:sl.blocked?'not-allowed':'pointer', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:agTime===sl.time?700:400 }}>
+                              {sl.blocked ? <s>{fmt12h(sl.time)}</s> : fmt12h(sl.time)}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {agErr && <div style={{ color:C.danger, fontSize:'0.78rem', background:C.dangerBg, borderRadius:8, padding:'0.5rem 0.75rem', marginBottom:'0.75rem' }}>⚠️ {agErr}</div>}
+
+                  <button
+                    onClick={handleSubmitAgendar}
+                    disabled={agSaving || !agPet || !agTipo || !agSede || !agDate || !agTime}
+                    style={{ width:'100%', padding:'0.85rem', background:(agSaving||!agPet||!agTipo||!agSede||!agDate||!agTime)?'#ccc':`linear-gradient(135deg,${C.teal},${C.tealDark})`, color:'white', border:'none', borderRadius:12, cursor:(agSaving||!agPet||!agTipo||!agSede||!agDate||!agTime)?'not-allowed':'pointer', fontWeight:700, fontSize:'0.92rem', fontFamily:'inherit' }}>
+                    {agSaving ? 'Agendando…' : 'Confirmar cita'}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
