@@ -77,7 +77,7 @@ export default function PortalPage() {
 
     const [vR, cR, pR, lR, aR] = await Promise.all([
       supabase.from('vaccines').select('patient_id,vaccine_name,date_applied,next_dose').in('patient_id', ids).order('date_applied', { ascending: false }),
-      supabase.from('consultations').select('patient_id,motivo,anamnesis,diagnostico_final,created_at').in('patient_id', ids).eq('estado','completada').order('created_at', { ascending: false }),
+      supabase.from('consultations').select('patient_id,motivo,anamnesis,diagnostico_final,created_at').in('patient_id', ids).order('created_at', { ascending: false }),
       supabase.from('procedimientos').select('patient_id,tipo,descripcion,fecha,anestesia').in('patient_id', ids).order('fecha', { ascending: false }),
       supabase.from('laboratorios_pedidos').select('patient_id,tipo_examen,estado,fecha_solicitado').in('patient_id', ids).neq('estado','Solicitado').order('fecha_solicitado', { ascending: false }),
       supabase.from('appointments').select('patient_name,date,time,service,estado').in('patient_name', names).gte('date', tod).order('date', { ascending: true }).limit(20),
