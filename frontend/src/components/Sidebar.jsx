@@ -27,8 +27,13 @@ export default function Sidebar() {
 
   useEffect(() => {
     if (session?.rol !== 'Administrador') return;
-    supabase.from('hc_requests').select('id', { count:'exact', head:true }).eq('status','pendiente')
-      .then(({ count }) => setHcPending(count || 0));
+    const fetchCount = () => {
+      supabase.from('hc_requests').select('id', { count:'exact', head:true }).eq('status','pendiente')
+        .then(({ count }) => setHcPending(count || 0));
+    };
+    fetchCount();
+    const interval = setInterval(fetchCount, 30000);
+    return () => clearInterval(interval);
   }, [session]);
 
   return (
