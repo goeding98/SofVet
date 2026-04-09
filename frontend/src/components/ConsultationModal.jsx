@@ -12,6 +12,7 @@ import { TIPOS_LAB } from '../utils/labTypes';
 const makeEmpty = () => ({
   date: new Date().toISOString().split('T')[0],
   time: new Date().toTimeString().slice(0, 5),
+  motivo_consulta: '',
   antecedentes: '',
   temperatura: '', frecuencia_cardiaca: '', frecuencia_respiratoria: '',
   peso: '', condicion_corporal: '', mucosas: '',
@@ -181,6 +182,12 @@ export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft
             <input readOnly value={SEDES.find(s=>s.id===sedeId)?.nombre||'—'} style={{ ...iSt, background:'var(--color-bg)', color:'var(--color-text-muted)' }} />
           )}
         </div>
+      </div>
+
+      {/* ── Motivo de consulta (visible al cliente) ── */}
+      <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:'var(--radius-md)', padding:'0.85rem 1rem', marginBottom:'1rem' }}>
+        <label style={{ ...lSt, color:'#15803d' }}>📋 Motivo de consulta <span style={{ fontSize:'0.65rem', fontWeight:500, textTransform:'none', letterSpacing:0 }}>(visible al propietario en el portal)</span></label>
+        <input value={form.motivo_consulta||''} onChange={e=>set('motivo_consulta',e.target.value)} placeholder="Ej: Control post-operatorio, Vómito y decaimiento, Vacunación…" style={{ ...iSt, marginTop:'0.1rem' }} />
       </div>
 
       {/* ── Anamnesis ── */}

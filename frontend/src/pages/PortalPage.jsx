@@ -117,7 +117,7 @@ export default function PortalPage() {
 
     const [vR, cR, pR, lR, aR, iR, hR] = await Promise.all([
       supabase.from('vaccines').select('patient_id,vaccine_name,date_applied,next_dose').in('patient_id', ids).order('date_applied', { ascending: false }),
-      supabase.from('consultations').select('patient_id,antecedentes,hallazgos,diagnostico_final,date,created_at').in('patient_id', ids).order('created_at', { ascending: false }),
+      supabase.from('consultations').select('patient_id,motivo_consulta,diagnostico_final,date,created_at').in('patient_id', ids).order('created_at', { ascending: false }),
       supabase.from('procedimientos').select('patient_id,tipo,descripcion,fecha,anestesia').in('patient_id', ids).order('fecha', { ascending: false }),
       supabase.from('laboratorios_pedidos').select('patient_id,tipo_examen,estado,fecha_solicitado').in('patient_id', ids).neq('estado','Solicitado').order('fecha_solicitado', { ascending: false }),
       supabase.from('appointments').select('patient_name,date,time,service,status').in('patient_name', names).gte('date', tod).order('date', { ascending: true }).limit(20),
@@ -172,7 +172,19 @@ export default function PortalPage() {
       .select('time,time_end,service').eq('date', date).eq('sede_id', sedeId).neq('status','cancelada');
     const dur = DUR[tipo];
     const rawSlots = tipo === 'Consulta General' ? SLOTS_GEN : SLOTS_CTL;
-    setAgSlots(rawSlots.map(t => ({ time: t, blocked: isBlocked(t, dur, apts||[]) })));
+    // Colseguros (id=2): 2 consultorios de 14:00 en adelante → slot bloqueado solo si ya hay 2+ citas en ese horario
+    setAgSlots(rawSlots.map(t => {
+      const slotH = parseInt(t.split(':')[0]);
+      const capacity = (sedeId === 2 && slotH >= 14) ? 2 : 1;
+      const s = tmins(t), e = s + dur;
+      const overlapping = (apts||[]).filter(a => {
+        if (!a.time) return false;
+        const as = tmins(a.time);
+        const ae = as + (a.time_end ? tmins(a.time_end) - as : (a.service==='Control'?20:40));
+        return as < e && s < ae;
+      }).length;
+      return { time: t, blocked: overlapping >= capacity };
+    }));
   };
 
   const handleSubmitAgendar = async () => {
@@ -221,7 +233,7 @@ export default function PortalPage() {
           <div style={{ width:'100%', maxWidth:420 }}>
             <div style={{ background:'white', borderRadius:20, boxShadow:'0 4px 40px rgba(49,109,116,0.12)', overflow:'hidden' }}>
               <div style={{ background:`linear-gradient(135deg, ${C.teal}, ${C.tealDark})`, padding:'2rem', textAlign:'center' }}>
-                <img src="/logos/pp-02.svg" alt="Logo" style={{ height:60, filter:'brightness(0) invert(1)', marginBottom:'1rem' }} />
+                <img src="/logos/pp-02.svg" alt="Logo" style={{ height:60, filter:'brightness(0) invert(1)', marginBottom:'1rem', display:'block', margin:'0 auto 1rem' }} />
                 <h1 style={{ color:'white', fontWeight:800, fontSize:'1.2rem', margin:'0 0 0.25rem' }}>Portal de Propietarios</h1>
                 <p style={{ color:'rgba(255,255,255,0.72)', fontSize:'0.8rem', margin:0 }}>Consulta la información de tu mascota</p>
               </div>
@@ -399,29 +411,17 @@ export default function PortalPage() {
                           {pet.consults.map((c, i) => (
                             <div key={i} style={{ border:`1px solid ${C.border}`, borderRadius:14, overflow:'hidden' }}>
                               <div style={{ background:C.cream, padding:'0.7rem 1rem', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:`1px solid ${C.border}` }}>
-                                <span style={{ fontWeight:700, fontSize:'0.85rem', color:C.tealDark }}>📋 Consulta</span>
+                                <span style={{ fontWeight:700, fontSize:'0.85rem', color:C.tealDark }}>📋 {c.motivo_consulta || 'Consulta'}</span>
                                 <span style={{ fontSize:'0.72rem', color:C.muted }}>{fmt(c.date || c.created_at)}</span>
                               </div>
-                              <div style={{ padding:'0.9rem 1rem', display:'flex', flexDirection:'column', gap:'0.65rem' }}>
-                                {c.antecedentes && (
-                                  <div>
-                                    <div style={{ fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:C.muted, marginBottom:'0.3rem' }}>Antecedentes</div>
-                                    <div style={{ fontSize:'0.85rem', color:C.text, lineHeight:1.55 }}>{c.antecedentes}</div>
-                                  </div>
-                                )}
-                                {c.hallazgos && (
-                                  <div>
-                                    <div style={{ fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:C.muted, marginBottom:'0.3rem' }}>Hallazgos clínicos</div>
-                                    <div style={{ fontSize:'0.85rem', color:C.text, lineHeight:1.55 }}>{c.hallazgos}</div>
-                                  </div>
-                                )}
-                                {c.diagnostico_final && (
-                                  <div style={{ background:C.tealLight, border:`1px solid ${C.teal}30`, borderRadius:10, padding:'0.6rem 0.85rem' }}>
-                                    <div style={{ fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:C.teal, marginBottom:'0.25rem' }}>Diagnóstico</div>
+                              {c.diagnostico_final && (
+                                <div style={{ padding:'0.75rem 1rem' }}>
+                                  <div style={{ background:C.tealLight, border:`1px solid ${C.teal}30`, borderRadius:10, padding:'0.55rem 0.85rem' }}>
+                                    <div style={{ fontSize:'0.67rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:C.teal, marginBottom:'0.2rem' }}>Diagnóstico</div>
                                     <div style={{ fontSize:'0.88rem', fontWeight:600, color:C.tealDark }}>{c.diagnostico_final}</div>
                                   </div>
-                                )}
-                              </div>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
