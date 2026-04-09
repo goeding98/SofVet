@@ -117,7 +117,7 @@ export default function PortalPage() {
 
     const [vR, cR, pR, lR, aR, iR, hR] = await Promise.all([
       supabase.from('vaccines').select('patient_id,vaccine_name,date_applied,next_dose').in('patient_id', ids).order('date_applied', { ascending: false }),
-      supabase.from('consultations').select('patient_id,motivo_consulta,diagnostico_final,date,created_at').in('patient_id', ids).order('created_at', { ascending: false }),
+      supabase.from('consultations').select('patient_id,motivo_consulta,date,created_at').in('patient_id', ids).order('created_at', { ascending: false }),
       supabase.from('procedimientos').select('patient_id,tipo,descripcion,fecha,anestesia').in('patient_id', ids).order('fecha', { ascending: false }),
       supabase.from('laboratorios_pedidos').select('patient_id,tipo_examen,estado,fecha_solicitado').in('patient_id', ids).neq('estado','Solicitado').order('fecha_solicitado', { ascending: false }),
       supabase.from('appointments').select('patient_name,date,time,service,status').in('patient_name', names).gte('date', tod).order('date', { ascending: true }).limit(20),
@@ -414,14 +414,6 @@ export default function PortalPage() {
                                 <span style={{ fontWeight:700, fontSize:'0.85rem', color:C.tealDark }}>📋 {c.motivo_consulta || 'Consulta'}</span>
                                 <span style={{ fontSize:'0.72rem', color:C.muted }}>{fmt(c.date || c.created_at)}</span>
                               </div>
-                              {c.diagnostico_final && (
-                                <div style={{ padding:'0.75rem 1rem' }}>
-                                  <div style={{ background:C.tealLight, border:`1px solid ${C.teal}30`, borderRadius:10, padding:'0.55rem 0.85rem' }}>
-                                    <div style={{ fontSize:'0.67rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:C.teal, marginBottom:'0.2rem' }}>Diagnóstico</div>
-                                    <div style={{ fontSize:'0.88rem', fontWeight:600, color:C.tealDark }}>{c.diagnostico_final}</div>
-                                  </div>
-                                </div>
-                              )}
                             </div>
                           ))}
                         </div>
