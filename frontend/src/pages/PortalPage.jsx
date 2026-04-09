@@ -120,7 +120,7 @@ export default function PortalPage() {
       supabase.from('consultations').select('patient_id,antecedentes,hallazgos,diagnostico_final,date,created_at').in('patient_id', ids).order('created_at', { ascending: false }),
       supabase.from('procedimientos').select('patient_id,tipo,descripcion,fecha,anestesia').in('patient_id', ids).order('fecha', { ascending: false }),
       supabase.from('laboratorios_pedidos').select('patient_id,tipo_examen,estado,fecha_solicitado').in('patient_id', ids).neq('estado','Solicitado').order('fecha_solicitado', { ascending: false }),
-      supabase.from('appointments').select('patient_name,date,time,service,estado').in('patient_name', names).gte('date', tod).order('date', { ascending: true }).limit(20),
+      supabase.from('appointments').select('patient_name,date,time,service,status').in('patient_name', names).gte('date', tod).order('date', { ascending: true }).limit(20),
       supabase.from('imaging').select('patient_id,tipo,resultado,date').in('patient_id', ids).order('date', { ascending: false }),
       supabase.from('hospitalization').select('patient_id,motivo,diagnostico,ingreso_date,alta_date,status').in('patient_id', ids).order('ingreso_date', { ascending: false }),
     ]);
@@ -302,7 +302,7 @@ export default function PortalPage() {
                             </div>
                           </div>
                           <span style={{ background:C.tealLight, color:C.teal, fontSize:'0.67rem', fontWeight:700, padding:'2px 9px', borderRadius:999, whiteSpace:'nowrap' }}>
-                            {a.estado || 'Pendiente'}
+                            {a.status || 'pendiente'}
                           </span>
                         </div>
                       ))}
