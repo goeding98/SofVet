@@ -1,5 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../utils/useAuth';
+import { useState, useEffect } from 'react';
+import { supabase } from '../utils/supabaseClient';
 
 const generalItems = [
   { path: '/',        label: 'Dashboard', icon: '▦'  },
@@ -21,6 +23,13 @@ const otrosItems = [
 
 export default function Sidebar() {
   const { session, logout } = useAuth();
+  const [hcPending, setHcPending] = useState(0);
+
+  useEffect(() => {
+    if (session?.rol !== 'Administrador') return;
+    supabase.from('hc_requests').select('id', { count:'exact', head:true }).eq('status','pendiente')
+      .then(({ count }) => setHcPending(count || 0));
+  }, [session]);
 
   return (
     <aside style={{
@@ -74,8 +83,9 @@ export default function Sidebar() {
         {session?.rol === 'Administrador' && (
           <>
             <SectionLabel>Administración</SectionLabel>
-            <MenuItem item={{ path: '/users',  label: 'Usuarios',        icon: '👥' }} />
-            <MenuItem item={{ path: '/import', label: 'Importar datos',  icon: '⬇️' }} />
+            <MenuItem item={{ path: '/users',      label: 'Usuarios',       icon: '👥' }} />
+            <MenuItem item={{ path: '/import',     label: 'Importar datos', icon: '⬇️' }} />
+            <MenuItem item={{ path: '/hc-requests', label: 'Hist. Clínicas', icon: '📄' }} badge={hcPending} />
           </>
         )}
       </nav>
@@ -123,7 +133,7 @@ function SectionLabel({ children }) {
   );
 }
 
-function MenuItem({ item }) {
+function MenuItem({ item, badge }) {
   return (
     <NavLink
       to={item.path}
@@ -144,7 +154,12 @@ function MenuItem({ item }) {
       })}
     >
       <span style={{ fontSize: '0.9rem', minWidth: 18, textAlign: 'center' }}>{item.icon}</span>
-      <span>{item.label}</span>
+      <span style={{ flex: 1 }}>{item.label}</span>
+      {badge > 0 && (
+        <span style={{ background: '#f5c842', color: '#7a5c00', borderRadius: 999, fontSize: '0.65rem', fontWeight: 800, padding: '1px 7px', minWidth: 18, textAlign: 'center' }}>
+          {badge}
+        </span>
+      )}
     </NavLink>
   );
 }

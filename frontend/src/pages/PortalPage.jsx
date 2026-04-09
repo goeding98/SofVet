@@ -125,7 +125,7 @@ export default function PortalPage() {
     const names = pets.map(p => p.name);
     const tod = today();
 
-    const [vR, cR, pR, lR, aR, iR, hR] = await Promise.all([
+    const [vR, cR, pR, lR, aR, iR, hR, hrR] = await Promise.all([
       supabase.from('vaccines').select('patient_id,vaccine_name,date_applied,next_dose').in('patient_id', ids).order('date_applied', { ascending: false }),
       supabase.from('consultations').select('patient_id,motivo_consulta,date,created_at').in('patient_id', ids).order('created_at', { ascending: false }),
       supabase.from('procedimientos').select('patient_id,tipo,descripcion,fecha,anestesia').in('patient_id', ids).order('fecha', { ascending: false }),
@@ -133,9 +133,10 @@ export default function PortalPage() {
       supabase.from('appointments').select('id,patient_name,date,time,service,status').in('patient_name', names).gte('date', tod).neq('status','cancelada').order('date', { ascending: true }).limit(20),
       supabase.from('imaging').select('patient_id,tipo,resultado,date').in('patient_id', ids).order('date', { ascending: false }),
       supabase.from('hospitalization').select('patient_id,motivo,diagnostico,ingreso_date,alta_date,status').in('patient_id', ids).order('ingreso_date', { ascending: false }),
+      supabase.from('hc_requests').select('*').eq('client_id', cl.id),
     ]);
 
-    const vac=vR.data||[], con=cR.data||[], proc=pR.data||[], lab=lR.data||[], apt=aR.data||[], img=iR.data||[], hosp=hR.data||[];
+    const vac=vR.data||[], con=cR.data||[], proc=pR.data||[], lab=lR.data||[], apt=aR.data||[], img=iR.data||[], hosp=hR.data||[], hcReqs=hrR.data||[];
 
     setClient(cl);
     setData({ pets: pets.map(p => ({
@@ -148,6 +149,7 @@ export default function PortalPage() {
       agenda:     apt.filter(a => a.patient_name===p.name),
       imaging:    img.filter(i => i.patient_id===p.id),
       hosps:      hosp.filter(h => h.patient_id===p.id),
+      hcReq:      hcReqs.find(r => r.patient_id===p.id) || null,
     }))});
   };
 
@@ -169,6 +171,98 @@ export default function PortalPage() {
 
   const logout = () => { setClient(null); setData(null); setCedula(''); setPassword(''); setFirstLogin(false); };
   const openPw = () => { setNewPw(''); setNewPw2(''); setPwError(''); setPwOk(false); setPwModal(true); };
+
+  // ── HC Request ────────────────────────────────────────────────────────────
+  const handleSolicitarHC = async (pet) => {
+    const existing = pet.hcReq;
+    if (existing?.status === 'pendiente') return; // ya solicitó
+    // Si hay una aprobada expirada o no hay nada, crear nueva
+    const { error } = await supabase.from('hc_requests').insert({
+      client_id:    client.id,
+      patient_id:   pet.id,
+      client_name:  client.name,
+      patient_name: pet.name,
+      status:       'pendiente',
+    });
+    if (error) return alert('Error al enviar solicitud: ' + error.message);
+    setSolModal(true);
+    await loadData(client);
+  };
+
+  // ── HC Download ───────────────────────────────────────────────────────────
+  const handleDownloadHC = async (pet) => {
+    const pid = pet.id;
+    const SEDES_MAP = { 1:'Santa Mónica', 2:'Consultorios Colseguros', 3:'Ciudad Jardín', 4:'Domicilio' };
+    const sn = (sid) => SEDES_MAP[sid] || '—';
+
+    const [cR, vR, iR, pR, lR, hR, fR] = await Promise.all([
+      supabase.from('consultations').select('*').eq('patient_id', pid).order('date', { ascending: false }),
+      supabase.from('vaccines').select('*').eq('patient_id', pid).order('date_applied', { ascending: false }),
+      supabase.from('imaging').select('*').eq('patient_id', pid).order('date', { ascending: false }),
+      supabase.from('procedimientos').select('*').eq('patient_id', pid).order('fecha', { ascending: false }),
+      supabase.from('laboratorios_pedidos').select('*').eq('patient_id', pid).order('fecha_solicitado', { ascending: false }),
+      supabase.from('hospitalization').select('*').eq('patient_id', pid).order('ingreso_date', { ascending: false }),
+      supabase.from('formulas_medicas').select('*').eq('patient_id', pid),
+    ]);
+    const cons=cR.data||[], vacs=vR.data||[], imgs=iR.data||[], procs=pR.data||[], labs=lR.data||[], hosps=hR.data||[], forms=fR.data||[];
+
+    const fld = (label, value) => {
+      if (!value || value.toString().trim() === '') return '';
+      return `<div style="display:flex;gap:8px;margin-bottom:5px;font-size:11px;line-height:1.5"><span style="font-weight:700;color:#444;min-width:170px;flex-shrink:0">${label}:</span><span style="color:#222">${value}</span></div>`;
+    };
+
+    const allEvents = [];
+    cons.forEach(c => {
+      const meds = Array.isArray(c.medicamentos_aplicados) ? c.medicamentos_aplicados.filter(m => m.medicamento) : [];
+      const formula = forms.find(fx => fx.fecha === c.date);
+      const fxProds = formula && Array.isArray(formula.productos) ? formula.productos.filter(p => p.producto) : [];
+      allEvents.push({ sortKey: `${c.date||'0000'}T${c.time||'00:00'}`, type:'consulta', c, meds, fxProds });
+    });
+    vacs.forEach(v => allEvents.push({ sortKey:`${v.date_applied||v.date||'0000'}T00:00`, type:'vacuna', v }));
+    imgs.forEach(r => allEvents.push({ sortKey:`${r.date||'0000'}T00:00`, type:'imagen', r }));
+    procs.forEach(p => allEvents.push({ sortKey:`${p.fecha||'0000'}T00:00`, type:'proced', p }));
+    labs.forEach(l => allEvents.push({ sortKey:`${l.fecha_subido||l.fecha_solicitado||'0000'}T00:00`, type:'lab', l }));
+    hosps.filter(h => h.alta_date).forEach(h => {
+      const meds = Array.isArray(h.tratamiento) ? h.tratamiento.filter(m => m.medicamento) : [];
+      allEvents.push({ sortKey:`${h.alta_date}T${h.alta_time||'00:00'}`, type:'hosp', h, meds });
+    });
+    allEvents.sort((a, b) => b.sortKey.localeCompare(a.sortKey));
+
+    const renderEvent = (ev) => {
+      if (ev.type === 'consulta') {
+        const { c, meds, fxProds } = ev;
+        const efCells = [['Temp (°C)',c.temperatura],['FC (bpm)',c.frecuencia_cardiaca],['FR (rpm)',c.frecuencia_respiratoria],['Pulso',c.pulso],['Peso (kg)',c.peso],['CC',c.condicion_corporal],['Mucosas',c.mucosas],['TLC',c.tiempo_llenado_capilar],['Glicemia',c.glicemia],['Presión',c.presion_arterial]].filter(([,v])=>v);
+        return `<div style="margin-bottom:20px;border-left:4px solid #2e5cbf"><div style="background:#dbeafe;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#1d4ed8;font-size:12px">🩺 CONSULTA — ${c.date||'—'}${c.time?' · '+c.time:''}</div><div style="font-size:10px;color:#555">${sn(c.sede_id)}${c.veterinario?' · Vet: '+c.veterinario:''}</div></div><div style="padding:10px 14px">${fld('Antecedentes',c.antecedentes)}${fld('Hallazgos',c.hallazgos)}${efCells.length>0?`<div style="background:#f0f8ff;border:1px solid #bfdbfe;border-radius:4px;padding:8px;margin:8px 0"><div style="font-size:9px;font-weight:700;color:#2e5cbf;text-transform:uppercase;margin-bottom:6px">Examen Físico</div><div style="display:flex;flex-wrap:wrap;gap:4px">${efCells.map(([lbl,val])=>`<div style="flex:1;min-width:80px;text-align:center;background:white;border-radius:3px;padding:4px 6px;border:1px solid #dbeafe"><div style="font-size:8px;color:#888;font-weight:700">${lbl}</div><div style="font-size:12px;font-weight:600;color:#1e3a8a">${val}</div></div>`).join('')}</div></div>`:''}${meds.length>0?`<div style="margin:8px 0"><div style="font-size:9px;font-weight:700;color:#316d74;text-transform:uppercase;margin-bottom:4px">Medicamentos aplicados</div><table style="width:100%;border-collapse:collapse;font-size:10px;border:1px solid #99d6d6"><thead><tr style="background:#e0f5f5"><th style="padding:3px 6px;text-align:left">Producto</th><th style="padding:3px 6px;width:100px">Dosis</th><th style="padding:3px 6px;width:70px">Vía</th></tr></thead><tbody>${meds.map(m=>`<tr style="border-top:1px solid #c8ecec"><td style="padding:2px 6px">${m.medicamento}</td><td style="padding:2px 6px">${m.dosis||'—'}</td><td style="padding:2px 6px">${m.via||'—'}</td></tr>`).join('')}</tbody></table></div>`:''}${fxProds.length>0?`<div style="margin:8px 0"><div style="font-size:9px;font-weight:700;color:#a6785b;text-transform:uppercase;margin-bottom:4px">Fórmula médica</div><table style="width:100%;border-collapse:collapse;font-size:10px;border:1px solid #e5c4aa"><thead><tr style="background:#fdf3ec"><th style="padding:3px 6px;text-align:left">Producto</th><th style="padding:3px 6px;width:110px">Cantidad</th><th style="padding:3px 6px">Instrucciones</th></tr></thead><tbody>${fxProds.map(p=>`<tr style="border-top:1px solid #f5e0cc"><td style="padding:2px 6px">${p.producto}</td><td style="padding:2px 6px">${p.cantidad||'—'}</td><td style="padding:2px 6px">${p.instrucciones||'—'}</td></tr>`).join('')}</tbody></table></div>`:''}${c.diagnostico_final?`<div style="margin:8px 0;padding:6px 10px;background:#dcfce7;border-left:3px solid #16a34a;font-size:11px"><span style="font-weight:700;color:#15803d">Diagnóstico final: </span><span style="font-weight:600;color:#14532d">${c.diagnostico_final}</span></div>`:''}${fld('Plan diagnóstico',c.plan_diagnostico)}${fld('Observaciones',c.observaciones)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+      }
+      if (ev.type === 'vacuna') {
+        const {v} = ev;
+        return `<div style="margin-bottom:20px;border-left:4px solid #15803d"><div style="background:#dcfce7;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#15803d;font-size:12px">💉 ${(v.vaccine_name||'').toLowerCase().includes('desparasit')?'DESPARASITACIÓN':'VACUNA'} — ${v.date_applied||v.date||'—'}</div><div style="font-size:10px;color:#555">${v.vet||''}</div></div><div style="padding:10px 14px">${fld('Producto',v.vaccine_name||v.vaccine)}${v.batch?fld('Lote',v.batch):''}${v.next_dose?fld('Próxima dosis',v.next_dose):''}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+      }
+      if (ev.type === 'imagen') {
+        const {r} = ev;
+        return `<div style="margin-bottom:20px;border-left:4px solid #1565c0"><div style="background:#e8f0ff;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#1565c0;font-size:12px">🔬 IMAGENOLOGÍA — ${r.date||'—'}</div><div style="font-size:10px;color:#555">${sn(r.sede_id)}</div></div><div style="padding:10px 14px">${fld('Tipo',r.tipo)}${fld('Resultado',r.resultado)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+      }
+      if (ev.type === 'proced') {
+        const {p} = ev;
+        return `<div style="margin-bottom:20px;border-left:4px solid #b91c1c"><div style="background:#fee2e2;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#b91c1c;font-size:12px">⚕️ PROCEDIMIENTO — ${p.fecha||'—'}</div><div style="font-size:10px;color:#555">${sn(p.sede_id)}</div></div><div style="padding:10px 14px">${fld('Tipo',p.tipo)}${fld('Descripción',p.descripcion)}${fld('Anestesia',p.anestesia)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+      }
+      if (ev.type === 'lab') {
+        const {l} = ev;
+        return `<div style="margin-bottom:20px;border-left:4px solid #065f46"><div style="background:#d1fae5;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#065f46;font-size:12px">🧪 LABORATORIO — ${l.fecha_solicitado||'—'}</div><div style="font-size:10px;color:#555">${sn(l.sede_id)}</div></div><div style="padding:10px 14px">${fld('Tipo de examen',l.tipo_examen)}${fld('Estado',l.estado)}${l.reporte_medico?fld('Reporte médico',l.reporte_medico):''}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+      }
+      if (ev.type === 'hosp') {
+        const {h, meds} = ev;
+        return `<div style="margin-bottom:20px;border-left:4px solid #991b1b"><div style="background:#fee2e2;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#991b1b;font-size:12px">🏥 HOSPITALIZACIÓN — Alta: ${h.alta_date||'—'}</div><div style="font-size:10px;color:#555">${sn(h.sede_id)}</div></div><div style="padding:10px 14px">${fld('Motivo',h.motivo)}${fld('Diagnóstico',h.diagnostico)}${fld('Ingreso',h.ingreso_date)}${fld('Alta',h.alta_date)}${meds.length>0?`<div style="margin:8px 0"><div style="font-size:9px;font-weight:700;color:#991b1b;text-transform:uppercase;margin-bottom:4px">Tratamiento</div><table style="width:100%;border-collapse:collapse;font-size:10px;border:1px solid #fca5a5"><thead><tr style="background:#fee2e2"><th style="padding:3px 6px;text-align:left">Medicamento</th><th style="padding:3px 6px;width:80px">Dosis</th><th style="padding:3px 6px">Frecuencia</th></tr></thead><tbody>${meds.map(m=>`<tr style="border-top:1px solid #fecaca"><td style="padding:2px 6px">${m.medicamento}</td><td style="padding:2px 6px">${m.dosis||'—'}</td><td style="padding:2px 6px">${m.frecuencia||'—'}</td></tr>`).join('')}</tbody></table></div>`:''}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+      }
+      return '';
+    };
+
+    const bodyContent = `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;border-bottom:3px solid #2e5cbf;padding-bottom:14px"><div><div style="font-size:20px;font-weight:bold;color:#2e5cbf">🐾 Pets&amp;Pets Veterinaria</div><div style="font-size:11px;color:#666;margin-top:3px">Historia Clínica Completa · Generada el ${new Date().toLocaleDateString('es-CO')}</div></div><div style="text-align:right"><div style="font-weight:bold;font-size:16px">${pet.name}</div><div style="font-size:11px;color:#666">${pet.species||''}${pet.breed?' · '+pet.breed:''}</div><div style="font-size:11px;color:#666">👤 ${client.name}${client.phone?' · '+client.phone:''}</div></div></div>${allEvents.length===0?'<p style="text-align:center;color:#999;padding:30px">Sin eventos registrados.</p>':allEvents.map(renderEvent).join('')}<div style="margin-top:32px;padding-top:10px;border-top:1px solid #ddd;font-size:10px;color:#aaa;text-align:center">Historia Clínica generada por SofVet · Pets&amp;Pets Veterinaria · Cali, Colombia</div>`;
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Historia Clínica — ${pet.name}</title><style>*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#333;margin:0;padding:24px 28px}@media print{body{padding:10px 14px}}</style></head><body>${bodyContent}<script>window.onload=()=>{window.print()}</script></body></html>`;
+    const w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
+  };
 
   const openAgendar = () => {
     setAgOpen(true); setAgStep(1); setAgErr(''); setAgOk(false); setAgSaving(false);
@@ -568,12 +662,33 @@ export default function PortalPage() {
 
                 </div>
 
-                {/* Footer */}
-                <div style={{ padding:'0 1.5rem 1.5rem', textAlign:'right' }}>
-                  <button onClick={() => { setSolPet(pet); setSolModal(true); }} style={{ padding:'0.55rem 1.1rem', background:'white', border:`2px solid ${C.teal}`, color:C.teal, borderRadius:12, cursor:'pointer', fontWeight:700, fontSize:'0.78rem', fontFamily:'inherit' }}>
-                    📄 Solicitar Historia Clínica
-                  </button>
-                </div>
+                {/* Footer — HC request */}
+                {(() => {
+                  const req = pet.hcReq;
+                  const isApproved = req?.status === 'aprobada' && req?.expires_at && new Date(req.expires_at) > new Date();
+                  const isPending  = req?.status === 'pendiente';
+                  const daysLeft   = isApproved ? Math.ceil((new Date(req.expires_at) - new Date()) / 86400000) : 0;
+                  return (
+                    <div style={{ padding:'0 1.5rem 1.5rem', display:'flex', justifyContent:'flex-end', gap:'0.6rem', alignItems:'center' }}>
+                      {isApproved ? (
+                        <>
+                          <span style={{ fontSize:'0.72rem', color:'#15803d' }}>✅ Disponible {daysLeft} día{daysLeft!==1?'s':''} más</span>
+                          <button onClick={() => handleDownloadHC(pet)} style={{ padding:'0.55rem 1.1rem', background:'#15803d', border:'none', color:'white', borderRadius:12, cursor:'pointer', fontWeight:700, fontSize:'0.78rem', fontFamily:'inherit' }}>
+                            ⬇️ Descargar Historia Clínica
+                          </button>
+                        </>
+                      ) : isPending ? (
+                        <span style={{ padding:'0.55rem 1.1rem', background:'#fff8e1', border:'1px solid #f5c842', color:'#7a5c00', borderRadius:12, fontSize:'0.78rem', fontWeight:600 }}>
+                          ⏳ Solicitud enviada — esperando aprobación
+                        </span>
+                      ) : (
+                        <button onClick={() => handleSolicitarHC(pet)} style={{ padding:'0.55rem 1.1rem', background:'white', border:`2px solid ${C.teal}`, color:C.teal, borderRadius:12, cursor:'pointer', fontWeight:700, fontSize:'0.78rem', fontFamily:'inherit' }}>
+                          📄 Solicitar Historia Clínica
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
@@ -716,7 +831,7 @@ export default function PortalPage() {
             <div style={{ width:56, height:56, borderRadius:'50%', background:`linear-gradient(135deg,${C.teal},${C.tealDark})`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.6rem', margin:'0 auto 1rem' }}>✅</div>
             <h3 style={{ fontWeight:800, color:C.tealDark, fontSize:'1.05rem', margin:'0 0 0.5rem' }}>¡Solicitud enviada!</h3>
             <p style={{ color:C.muted, fontSize:'0.83rem', lineHeight:1.6, marginBottom:'1.5rem' }}>
-              Recibimos tu solicitud de historia clínica para <strong style={{ color:C.text }}>{solPet?.name}</strong>. El equipo de <strong>Pets &amp; Pets</strong> se comunicará contigo pronto.
+              Recibimos tu solicitud de historia clínica. El equipo de <strong>Pets &amp; Pets</strong> la revisará y cuando esté lista te aparecerá el botón para descargarla. Disponible por 7 días.
             </p>
             <button onClick={()=>setSolModal(false)} style={{ padding:'0.65rem 2rem', background:`linear-gradient(135deg,${C.teal},${C.tealDark})`, color:'white', border:'none', borderRadius:12, cursor:'pointer', fontWeight:700, fontSize:'0.88rem', fontFamily:'inherit' }}>Entendido</button>
           </div>
