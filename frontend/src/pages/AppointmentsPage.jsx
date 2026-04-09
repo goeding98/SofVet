@@ -215,7 +215,7 @@ export default function AppointmentsPage() {
 
 
   const filteredApts = useMemo(() =>
-    sedeFilter === null ? apts : apts.filter(a => a.sede_id === sedeFilter),
+    apts.filter(a => a.status !== 'cancelada' && (sedeFilter === null || a.sede_id === sedeFilter)),
     [apts, sedeFilter]);
 
   const aptsByDate = useMemo(() => {

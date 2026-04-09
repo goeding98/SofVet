@@ -78,7 +78,7 @@ export default function PortalPage() {
   const [cancelingId, setCancelingId] = useState(null); // id being confirmed
 
   const handleCancelAppointment = async (id) => {
-    const { error } = await supabase.from('appointments').delete().eq('id', id);
+    const { error } = await supabase.from('appointments').update({ status: 'cancelada' }).eq('id', id);
     if (error) return alert('Error al cancelar: ' + error.message);
     setCancelingId(null);
     await loadData(client);
