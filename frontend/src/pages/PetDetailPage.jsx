@@ -539,9 +539,6 @@ export default function PetDetailPage() {
         title={`Historia Clínica (${petConsults.length} consultas · ${petImaging.length} imág · ${petProcedimientos.length} proced · ${petLabPedidos.length} labs)`}
         action={
           <div style={{ display:'flex', gap:'0.5rem' }}>
-            <button onClick={() => setEditHCConfirm(true)} style={{ padding:'0.4rem 0.85rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, color:'var(--color-text-muted)', display:'flex', alignItems:'center', gap:'0.35rem' }}>
-              ✏️ Editar HC
-            </button>
             <button onClick={handleDownloadPDF} style={{ padding:'0.4rem 0.85rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, color:'var(--color-text-muted)', display:'flex', alignItems:'center', gap:'0.35rem' }}>
               📄 Descargar PDF
             </button>
@@ -591,7 +588,7 @@ export default function PetDetailPage() {
             <table style={{ width:'100%', borderCollapse:'collapse' }}>
               <thead>
                 <tr style={{ borderBottom:'2px solid var(--color-border)' }}>
-                  {['Fecha','Hora','Sede','Diagnóstico final','Plan diagnóstico','Meds'].map(h => (
+                  {['Fecha','Hora','Sede','Diagnóstico final','Plan diagnóstico','Meds',''].map(h => (
                     <th key={h} style={{ padding:'0.65rem 1rem', textAlign:'left', fontSize:'0.72rem', fontWeight:600, color:'var(--color-text-muted)', textTransform:'uppercase', letterSpacing:'0.05em', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -623,6 +620,9 @@ export default function PetDetailPage() {
                           ? <span style={{ background:'var(--color-info-bg)', color:'var(--color-primary)', padding:'2px 8px', borderRadius:999, fontSize:'0.72rem', fontWeight:600 }}>{c.medicamentos_aplicados.length}</span>
                           : <span style={{ color:'var(--color-text-muted)' }}>—</span>
                         }
+                      </td>
+                      <td style={{ padding:'0.85rem 1rem' }}>
+                        <span style={{ fontSize:'0.72rem', color:'var(--color-primary)', fontWeight:600 }}>✏️ Editar</span>
                       </td>
                     </tr>
                   );
