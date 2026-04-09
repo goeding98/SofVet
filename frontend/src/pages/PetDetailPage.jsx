@@ -613,7 +613,7 @@ export default function PetDetailPage() {
             <table style={{ width:'100%', borderCollapse:'collapse' }}>
               <thead>
                 <tr style={{ borderBottom:'2px solid var(--color-border)' }}>
-                  {['Fecha','Hora','Sede','Diagnóstico final','Plan diagnóstico','Meds',''].map(h => (
+                  {['Fecha','Hora','Sede','Motivo','Diagnóstico final','Plan diagnóstico','Meds',''].map(h => (
                     <th key={h} style={{ padding:'0.65rem 1rem', textAlign:'left', fontSize:'0.72rem', fontWeight:600, color:'var(--color-text-muted)', textTransform:'uppercase', letterSpacing:'0.05em', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -631,6 +631,9 @@ export default function PetDetailPage() {
                       <td style={{ padding:'0.85rem 1rem', fontSize:'0.875rem', whiteSpace:'nowrap', fontWeight:500 }}>{c.date}</td>
                       <td style={{ padding:'0.85rem 1rem', fontSize:'0.875rem', color:'var(--color-text-muted)', whiteSpace:'nowrap' }}>{c.time || '—'}</td>
                       <td style={{ padding:'0.85rem 1rem', fontSize:'0.875rem', whiteSpace:'nowrap' }}>{sedeBadge(c.sede_id)}</td>
+                      <td style={{ padding:'0.85rem 1rem', fontSize:'0.875rem', maxWidth:180 }}>
+                        <div style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'var(--color-text-muted)' }}>{c.motivo_consulta || '—'}</div>
+                      </td>
                       <td style={{ padding:'0.85rem 1rem', fontSize:'0.875rem', maxWidth:240 }}>
                         {isIncomplete
                           ? <span style={{ background:'#fff3cd', color:'#856404', padding:'2px 10px', borderRadius:999, fontSize:'0.72rem', fontWeight:700 }}>⏸ Incompleta</span>
