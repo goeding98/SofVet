@@ -34,8 +34,8 @@ const BOOKING_SEDES = [
   { id: 3, nombre: 'Ciudad Jardín' },
   { id: 1, nombre: 'Santa Mónica' },
 ];
-const SLOTS_GEN = [8,9,10,11,12,13,14,15,16,17,18].map(h=>`${String(h).padStart(2,'0')}:00`);
-const SLOTS_CTL = [8,9,10,11,12,13,14,15,16,17].map(h=>`${String(h).padStart(2,'0')}:40`);
+const SLOTS_GEN = [10,11,12,13,14,15,16,17,18].map(h=>`${String(h).padStart(2,'0')}:00`);
+const SLOTS_CTL = [10,11,12,13,14,15,16,17].map(h=>`${String(h).padStart(2,'0')}:40`);
 const DUR = { 'Consulta General': 40, 'Control': 20 };
 
 const tmins = t => { const [h,m]=t.split(':').map(Number); return h*60+m; };
@@ -602,7 +602,7 @@ export default function PortalPage() {
                   <div style={{ fontWeight:800, color:C.tealDark, fontSize:'1.05rem', marginBottom:'0.4rem' }}>¡Cita agendada!</div>
                   <div style={{ color:C.muted, fontSize:'0.83rem', lineHeight:1.6, marginBottom:'1.5rem' }}>
                     Tu cita para <strong>{agPet?.name}</strong> quedó registrada el <strong>{fmt(agDate)}</strong> a las <strong>{fmt12h(agTime)}</strong> en <strong>{BOOKING_SEDES.find(s=>s.id===agSede)?.nombre}</strong>.<br/>
-                    Estado: <strong>Pendiente de confirmación.</strong>
+                    El equipo de Pets &amp; Pets te confirmará la cita pronto.
                   </div>
                   <button onClick={()=>setAgOpen(false)} style={{ padding:'0.65rem 2rem', background:`linear-gradient(135deg,${C.teal},${C.tealDark})`, color:'white', border:'none', borderRadius:12, cursor:'pointer', fontWeight:700, fontFamily:'inherit' }}>Cerrar</button>
                 </div>
