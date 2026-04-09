@@ -74,6 +74,16 @@ export default function PortalPage() {
   const [solModal,  setSolModal]  = useState(false);
   const [solPet,    setSolPet]    = useState(null);
 
+  // ── Cancel appointment ────────────────────────────────────────────────────
+  const [cancelingId, setCancelingId] = useState(null); // id being confirmed
+
+  const handleCancelAppointment = async (id) => {
+    const { error } = await supabase.from('appointments').update({ status: 'cancelada' }).eq('id', id);
+    if (error) return alert('Error al cancelar: ' + error.message);
+    setCancelingId(null);
+    await loadData(client);
+  };
+
   // ── Booking ──────────────────────────────────────────────────────────────
   const [agOpen,   setAgOpen]   = useState(false);
   const [agStep,   setAgStep]   = useState(1);
@@ -120,7 +130,7 @@ export default function PortalPage() {
       supabase.from('consultations').select('patient_id,motivo_consulta,date,created_at').in('patient_id', ids).order('created_at', { ascending: false }),
       supabase.from('procedimientos').select('patient_id,tipo,descripcion,fecha,anestesia').in('patient_id', ids).order('fecha', { ascending: false }),
       supabase.from('laboratorios_pedidos').select('patient_id,tipo_examen,estado,fecha_solicitado').in('patient_id', ids).neq('estado','Solicitado').order('fecha_solicitado', { ascending: false }),
-      supabase.from('appointments').select('patient_name,date,time,service,status').in('patient_name', names).gte('date', tod).order('date', { ascending: true }).limit(20),
+      supabase.from('appointments').select('id,patient_name,date,time,service,status').in('patient_name', names).gte('date', tod).neq('status','cancelada').order('date', { ascending: true }).limit(20),
       supabase.from('imaging').select('patient_id,tipo,resultado,date').in('patient_id', ids).order('date', { ascending: false }),
       supabase.from('hospitalization').select('patient_id,motivo,diagnostico,ingreso_date,alta_date,status').in('patient_id', ids).order('ingreso_date', { ascending: false }),
     ]);
@@ -298,24 +308,42 @@ export default function PortalPage() {
                   ) : (
                     <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
                       {allAppts.map((a, i) => (
-                        <div key={i} style={{ display:'flex', alignItems:'center', gap:'1rem', padding:'0.75rem 1rem', border:`1px solid ${C.border}`, borderRadius:12, background:C.cream }}>
-                          <div style={{ textAlign:'center', minWidth:44, background:`linear-gradient(135deg,${C.teal},${C.tealDark})`, borderRadius:10, padding:'0.4rem 0' }}>
-                            <div style={{ fontSize:'0.6rem', fontWeight:700, textTransform:'uppercase', color:'rgba(255,255,255,0.7)' }}>
-                              {new Date(a.date+'T12:00').toLocaleDateString('es-CO',{month:'short'})}
+                        <div key={i} style={{ border:`1px solid ${C.border}`, borderRadius:12, background:C.cream, overflow:'hidden' }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:'1rem', padding:'0.75rem 1rem' }}>
+                            <div style={{ textAlign:'center', minWidth:44, background:`linear-gradient(135deg,${C.teal},${C.tealDark})`, borderRadius:10, padding:'0.4rem 0', flexShrink:0 }}>
+                              <div style={{ fontSize:'0.6rem', fontWeight:700, textTransform:'uppercase', color:'rgba(255,255,255,0.7)' }}>
+                                {new Date(a.date+'T12:00').toLocaleDateString('es-CO',{month:'short'})}
+                              </div>
+                              <div style={{ fontSize:'1.3rem', fontWeight:800, color:'white', lineHeight:1 }}>
+                                {new Date(a.date+'T12:00').getDate()}
+                              </div>
                             </div>
-                            <div style={{ fontSize:'1.3rem', fontWeight:800, color:'white', lineHeight:1 }}>
-                              {new Date(a.date+'T12:00').getDate()}
+                            <div style={{ flex:1 }}>
+                              <div style={{ fontWeight:700, fontSize:'0.88rem', color:C.tealDark }}>{a.service}</div>
+                              <div style={{ fontSize:'0.73rem', color:C.muted, marginTop:'0.15rem' }}>
+                                🐾 {a.petName} · 🕐 {fmt12h(a.time)}
+                              </div>
+                            </div>
+                            <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'0.35rem' }}>
+                              <span style={{ background:C.tealLight, color:C.teal, fontSize:'0.67rem', fontWeight:700, padding:'2px 9px', borderRadius:999, whiteSpace:'nowrap' }}>
+                                {a.status || 'pendiente'}
+                              </span>
+                              {cancelingId === a.id ? null : (
+                                <button onClick={()=>setCancelingId(a.id)} style={{ background:'white', border:`1px solid ${C.danger}60`, color:C.danger, borderRadius:8, padding:'2px 9px', fontSize:'0.67rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                                  Cancelar
+                                </button>
+                              )}
                             </div>
                           </div>
-                          <div style={{ flex:1 }}>
-                            <div style={{ fontWeight:700, fontSize:'0.88rem', color:C.tealDark }}>{a.service}</div>
-                            <div style={{ fontSize:'0.73rem', color:C.muted, marginTop:'0.15rem' }}>
-                              🐾 {a.petName} · 🕐 {fmt12h(a.time)}
+                          {cancelingId === a.id && (
+                            <div style={{ background:'#fff0ee', borderTop:`1px solid ${C.danger}30`, padding:'0.6rem 1rem', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'0.5rem' }}>
+                              <span style={{ fontSize:'0.78rem', color:C.danger, fontWeight:600 }}>¿Confirmar cancelación?</span>
+                              <div style={{ display:'flex', gap:'0.5rem' }}>
+                                <button onClick={()=>setCancelingId(null)} style={{ padding:'0.3rem 0.75rem', background:'white', border:`1px solid ${C.border}`, borderRadius:8, cursor:'pointer', fontSize:'0.75rem', fontFamily:'inherit', color:C.muted }}>No</button>
+                                <button onClick={()=>handleCancelAppointment(a.id)} style={{ padding:'0.3rem 0.75rem', background:C.danger, border:'none', borderRadius:8, cursor:'pointer', fontSize:'0.75rem', fontFamily:'inherit', color:'white', fontWeight:700 }}>Sí, cancelar</button>
+                              </div>
                             </div>
-                          </div>
-                          <span style={{ background:C.tealLight, color:C.teal, fontSize:'0.67rem', fontWeight:700, padding:'2px 9px', borderRadius:999, whiteSpace:'nowrap' }}>
-                            {a.status || 'pendiente'}
-                          </span>
+                          )}
                         </div>
                       ))}
                     </div>
