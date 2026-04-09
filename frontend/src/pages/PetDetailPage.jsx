@@ -35,10 +35,10 @@ export default function PetDetailPage() {
   const { items: clients }     = useStore('clients');
   const { items: prepagada }   = useStore('prepagada');
   const { items: consultations, add: addConsultation, edit: editConsultation } = useStore('consultations');
-  const { items: vaccines, add: addVaccine } = useStore('vaccines');
+  const { items: vaccines, add: addVaccine, edit: editVaccine } = useStore('vaccines');
   const { items: imagingRecords, add: addImaging }     = useStore('imaging');
   const { items: formulas, add: addFormula }           = useStore('formulas_medicas');
-  const { items: procedimientos, add: addProcedimiento } = useStore('procedimientos');
+  const { items: procedimientos, add: addProcedimiento, edit: editProcedimiento } = useStore('procedimientos');
   const { items: laboratorios, add: addLaboratorio, edit: editLaboratorio } = useStore('laboratorios');
   const { items: hospReports, add: addHospReport }     = useStore('hospitalization_reports');
   const { items: hospitalization }                     = useStore('hospitalization');
@@ -63,6 +63,10 @@ export default function PetDetailPage() {
   const [editHCConfirm,  setEditHCConfirm]  = useState(false);
   const [vacunaModal,      setVacunaModal]      = useState(false);
   const [desparasitarModal,setDesparasitarModal] = useState(false);
+  const [editingVacuna,    setEditingVacuna]    = useState(null);
+  const [editingDesparasitar, setEditingDesparasitar] = useState(null);
+  const [editingProced,    setEditingProced]    = useState(null);
+  const [editingHosp,      setEditingHosp]      = useState(null);
   const [activeDoc,      setActiveDoc]      = useState(null);
   const [sedeFilter,     setSedeFilter]     = useState(null);
 
@@ -108,6 +112,9 @@ export default function PetDetailPage() {
     .sort((a, b) => b.fecha_solicitado?.localeCompare(a.fecha_solicitado));
 
   const activeHosp = hospitalization.find(h => h.patient_id === petId && h.status === 'activo');
+  const petHospitals = hospitalization
+    .filter(h => h.patient_id === petId)
+    .sort((a, b) => (b.ingreso_date || '').localeCompare(a.ingreso_date || ''));
 
   // Labs sin reportar para toda la sede (global badge)
   const labsSinReportar = useMemo(() =>
@@ -159,17 +166,29 @@ export default function PetDetailPage() {
   ];
 
   const handleSaveVacuna = async (data) => {
-    let err = null;
-    await addVaccine({ ...data, patient_id: petId, patient_name: pet.name }, { onError: m => { err = m; } });
-    if (err) return alert('⚠️ Error al guardar vacuna:\n\n' + err);
+    if (data.id) {
+      const { id, ...rest } = data;
+      await editVaccine(id, rest);
+    } else {
+      let err = null;
+      await addVaccine({ ...data, patient_id: petId, patient_name: pet.name }, { onError: m => { err = m; } });
+      if (err) return alert('⚠️ Error al guardar vacuna:\n\n' + err);
+    }
     setVacunaModal(false);
+    setEditingVacuna(null);
   };
 
   const handleSaveDesparasitar = async (data) => {
-    let err = null;
-    await addVaccine({ ...data, patient_id: petId, patient_name: pet.name }, { onError: m => { err = m; } });
-    if (err) return alert('⚠️ Error al guardar desparasitación:\n\n' + err);
+    if (data.id) {
+      const { id, ...rest } = data;
+      await editVaccine(id, rest);
+    } else {
+      let err = null;
+      await addVaccine({ ...data, patient_id: petId, patient_name: pet.name }, { onError: m => { err = m; } });
+      if (err) return alert('⚠️ Error al guardar desparasitación:\n\n' + err);
+    }
     setDesparasitarModal(false);
+    setEditingDesparasitar(null);
   };
 
   const closeConsultModal = () => { setConsultModal(false); setEditingConsult(null); };
@@ -241,13 +260,19 @@ export default function PetDetailPage() {
   };
 
   const handleSaveProcedimiento = async (data) => {
-    let err = null;
-    const result = await addProcedimiento(
-      { ...data, patient_id: petId },
-      { onError: (msg) => { err = msg; } }
-    );
-    if (!result) { alert('❌ Error al guardar procedimiento:\n\n' + err); return; }
+    if (data.id) {
+      const { id, ...rest } = data;
+      await editProcedimiento(id, rest);
+    } else {
+      let err = null;
+      const result = await addProcedimiento(
+        { ...data, patient_id: petId },
+        { onError: (msg) => { err = msg; } }
+      );
+      if (!result) { alert('❌ Error al guardar procedimiento:\n\n' + err); return; }
+    }
     setProcedModal(false);
+    setEditingProced(null);
   };
 
   const handleSaveLaboratorio = async (data) => {
@@ -654,7 +679,13 @@ export default function PetDetailPage() {
                         <span style={{ background:tipoBg, color:tipoCl, padding:'2px 9px', borderRadius:999, fontSize:'0.7rem', fontWeight:700 }}>{p.tipo}</span>
                         {p.sede_id && sedeBadge(p.sede_id)}
                       </div>
-                      <span style={{ fontSize:'0.72rem', color:'var(--color-text-muted)' }}>{p.fecha} · {p.veterinario || p.created_by || ''}</span>
+                      <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
+                        <span style={{ fontSize:'0.72rem', color:'var(--color-text-muted)' }}>{p.fecha} · {p.veterinario || p.created_by || ''}</span>
+                        <button
+                          onClick={() => { setEditingProced(p); setProcedModal(true); }}
+                          style={{ padding:'2px 8px', background:'white', border:`1px solid ${tipoCl}`, color:tipoCl, borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)' }}
+                        >✏️ Editar</button>
+                      </div>
                     </div>
                     <p style={{ fontSize:'0.82rem', color:'var(--color-text)', margin:'0 0 0.2rem', fontWeight:600 }}>{p.descripcion}</p>
                     {p.anestesia && <p style={{ fontSize:'0.78rem', color:'var(--color-text-muted)', margin:0 }}>💉 Anestesia: {p.anestesia}</p>}
@@ -779,16 +810,26 @@ export default function PetDetailPage() {
                   const vNext = v.next_dose || v.next_date || v.proxima_vacuna || null;
                   const vVet  = v.vet || v.veterinario || null;
                   const vLote = v.batch || v.lote || null;
+                  const isDesp = vName?.toLowerCase().includes('desparasit');
                   return (
                     <div key={v.id} style={{ border:'1px solid #bbf7d0', borderRadius:'var(--radius-md)', padding:'0.75rem 1rem', background:'#f0fdf4' }}>
                       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'0.4rem' }}>
                         <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
-                          <span style={{ fontWeight:700, fontSize:'0.875rem', color:'#15803d' }}>💉 {vName}</span>
+                          <span style={{ fontWeight:700, fontSize:'0.875rem', color:'#15803d' }}>{isDesp ? '🪱' : '💉'} {vName}</span>
                           {vLote && <span style={{ background:'#dcfce7', color:'#166534', padding:'1px 7px', borderRadius:999, fontSize:'0.68rem', fontWeight:600 }}>Lote: {vLote}</span>}
                         </div>
-                        <span style={{ fontSize:'0.72rem', color:'var(--color-text-muted)', whiteSpace:'nowrap' }}>
-                          {vDate}{vVet ? ` · ${vVet}` : ''}
-                        </span>
+                        <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
+                          <span style={{ fontSize:'0.72rem', color:'var(--color-text-muted)', whiteSpace:'nowrap' }}>
+                            {vDate}{vVet ? ` · ${vVet}` : ''}
+                          </span>
+                          <button
+                            onClick={() => {
+                              if (isDesp) { setEditingDesparasitar(v); setDesparasitarModal(true); }
+                              else        { setEditingVacuna(v);       setVacunaModal(true); }
+                            }}
+                            style={{ padding:'2px 8px', background:'white', border:'1px solid #15803d', color:'#15803d', borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)' }}
+                          >✏️ Editar</button>
+                        </div>
                       </div>
                       {vNext && (
                         <p style={{ fontSize:'0.78rem', color:'#2e7d50', margin:'0.3rem 0 0', fontWeight:500 }}>
@@ -802,6 +843,45 @@ export default function PetDetailPage() {
             </div>
           );
         })()}
+
+        {/* Hospitalizaciones */}
+        {petHospitals.length > 0 && (
+          <div style={{ marginTop:'1.5rem', borderTop:'2px solid #fce4e4', paddingTop:'1.25rem' }}>
+            <div style={{ fontSize:'0.8rem', fontWeight:700, color:'var(--color-danger)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:'0.85rem' }}>
+              🏥 Hospitalizaciones ({petHospitals.length})
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:'0.6rem' }}>
+              {petHospitals.map(h => {
+                const isActive = h.status === 'activo';
+                return (
+                  <div key={h.id} style={{ border:`1px solid ${isActive ? '#fca5a5' : 'var(--color-border)'}`, borderRadius:'var(--radius-md)', padding:'0.75rem 1rem', background: isActive ? '#fff5f5' : 'var(--color-white)' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'0.5rem', flexWrap:'wrap' }}>
+                      <div style={{ display:'flex', gap:'0.5rem', alignItems:'center', flexWrap:'wrap' }}>
+                        <span style={{ background: isActive ? '#fce4e4' : '#f3f4f6', color: isActive ? 'var(--color-danger)' : '#6b7280', padding:'2px 9px', borderRadius:999, fontSize:'0.7rem', fontWeight:700 }}>
+                          {isActive ? '🔴 Activo' : '✅ Alta'}
+                        </span>
+                        {h.sede_id && sedeBadge(h.sede_id)}
+                        <span style={{ fontSize:'0.75rem', color:'var(--color-text-muted)' }}>
+                          Ingreso: {h.ingreso_date} {h.ingreso_time || ''}
+                          {h.alta_date && ` · Alta: ${h.alta_date}`}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => { setEditingHosp(h); setHospModal(true); }}
+                        style={{ padding:'2px 8px', background:'white', border:'1px solid var(--color-danger)', color:'var(--color-danger)', borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)', flexShrink:0 }}
+                      >✏️ Editar</button>
+                    </div>
+                    <p style={{ fontSize:'0.82rem', color:'var(--color-text)', margin:'0.4rem 0 0.15rem', fontWeight:600 }}>
+                      {h.motivo}
+                    </p>
+                    {h.diagnostico && <p style={{ fontSize:'0.78rem', color:'var(--color-text-muted)', margin:0 }}>Dx: {h.diagnostico}</p>}
+                    {h.responsible_vet && <p style={{ fontSize:'0.72rem', color:'var(--color-text-muted)', margin:'0.2rem 0 0' }}>👨‍⚕️ {h.responsible_vet}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* ── Documents section ── */}
@@ -844,8 +924,8 @@ export default function PetDetailPage() {
       </Card>
 
       {/* Modals */}
-      <VacunaModal isOpen={vacunaModal} onClose={() => setVacunaModal(false)} onSave={handleSaveVacuna} pet={pet} />
-      <DesparasitarModal isOpen={desparasitarModal} onClose={() => setDesparasitarModal(false)} onSave={handleSaveDesparasitar} pet={pet} />
+      <VacunaModal isOpen={vacunaModal} onClose={() => { setVacunaModal(false); setEditingVacuna(null); }} onSave={handleSaveVacuna} pet={pet} initialData={editingVacuna} />
+      <DesparasitarModal isOpen={desparasitarModal} onClose={() => { setDesparasitarModal(false); setEditingDesparasitar(null); }} onSave={handleSaveDesparasitar} pet={pet} initialData={editingDesparasitar} />
       <ConsultationModal
         isOpen={consultModal}
         onClose={closeConsultModal}
@@ -856,11 +936,11 @@ export default function PetDetailPage() {
         mode={editingConsult ? (editingConsult.estado === 'incompleta' ? 'incomplete' : 'edit') : 'new'}
       />
 
-      <HospitalizationModal isOpen={hospModal} onClose={() => setHospModal(false)} pet={pet} client={client} />
+      <HospitalizationModal isOpen={hospModal} onClose={() => { setHospModal(false); setEditingHosp(null); }} pet={pet} client={client} initialData={editingHosp} />
 
       <ImagingModal isOpen={imagingModal} onClose={() => setImagingModal(false)} onSave={handleSaveImaging} pet={pet} />
 
-      <ProcedimientosModal isOpen={procedModal} onClose={() => setProcedModal(false)} onSave={handleSaveProcedimiento} pet={pet} />
+      <ProcedimientosModal isOpen={procedModal} onClose={() => { setProcedModal(false); setEditingProced(null); }} onSave={handleSaveProcedimiento} pet={pet} initialData={editingProced} />
 
       <LaboratoriosModal
         isOpen={labModal}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
@@ -9,18 +9,33 @@ const UNIDADES    = ['ml', 'tabletas', 'paquetes', 'mg', 'comprimidos', 'gotas',
 const FRECUENCIAS = ['Cada 2 horas', 'Cada 4 horas', 'Cada 6 horas', 'Cada 8 horas', 'Cada 12 horas', 'Cada 24 horas', 'Una sola vez'];
 const VIAS        = ['IV', 'IM', 'VO', 'SC', 'Tópica', 'Inhalada', 'Oftálmica', 'Ótica'];
 
-export default function HospitalizationModal({ isOpen, onClose, pet, client }) {
+export default function HospitalizationModal({ isOpen, onClose, pet, client, initialData }) {
   const navigate = useNavigate();
   const { session } = useAuth();
   const { sedeActual, isAdmin } = useSede();
-  const { add: addHosp }              = useStore('hospitalization');
+  const { add: addHosp, edit: editHosp } = useStore('hospitalization');
   const { items: patients, edit: editPatient } = useStore('patients');
+  const isEditing = !!initialData?.id;
 
   const [motivo,      setMotivo]      = useState('');
   const [diagnostico, setDiagnostico] = useState('');
   const [meds,        setMeds]        = useState([{ ...EMPTY_MED }]);
   const [sedeId,      setSedeId]      = useState(sedeActual || 1);
   const [error,       setError]       = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialData) {
+        setMotivo(initialData.motivo || '');
+        setDiagnostico(initialData.diagnostico || '');
+        setMeds(initialData.tratamiento?.length ? initialData.tratamiento : [{ ...EMPTY_MED }]);
+        setSedeId(initialData.sede_id || sedeActual || 1);
+      } else {
+        setMotivo(''); setDiagnostico(''); setMeds([{ ...EMPTY_MED }]); setSedeId(sedeActual || 1);
+      }
+      setError('');
+    }
+  }, [isOpen, initialData, sedeActual]);
 
   if (!isOpen || !pet) return null;
 
@@ -31,6 +46,17 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client }) {
   const handleSave = () => {
     setError('');
     if (!motivo.trim()) return setError('El motivo de hospitalización es requerido.');
+
+    if (isEditing) {
+      editHosp(initialData.id, {
+        motivo,
+        diagnostico,
+        tratamiento: meds.filter(m => m.medicamento.trim()),
+        sede_id: sedeId,
+      });
+      onClose();
+      return;
+    }
 
     const now = new Date();
     addHosp({
@@ -75,7 +101,7 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client }) {
         {/* Header */}
         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-danger-bg)' }}>
           <div>
-            <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-danger)', fontSize: '1.1rem', margin: 0 }}>🏥 Nueva Hospitalización</h3>
+            <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-danger)', fontSize: '1.1rem', margin: 0 }}>{isEditing ? '✏️ Editar Hospitalización' : '🏥 Nueva Hospitalización'}</h3>
             <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
               {pet.name} · {pet.species} {pet.breed ? `(${pet.breed})` : ''} · {pet.weight} kg · {pet.age} años
             </p>
@@ -187,7 +213,7 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client }) {
               Cancelar
             </button>
             <button onClick={handleSave} style={{ padding: '0.6rem 1.5rem', background: 'var(--color-danger)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600 }}>
-              🏥 Guardar y Hospitalizar
+              {isEditing ? '💾 Guardar cambios' : '🏥 Guardar y Hospitalizar'}
             </button>
           </div>
         </div>

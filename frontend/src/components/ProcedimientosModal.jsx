@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../utils/useAuth';
 import { useSede, SEDES } from '../utils/useSede';
 
@@ -11,15 +11,31 @@ const taSt = { ...iSt, resize:'vertical' };
 const TIPO_ICON = { 'Cirugía':'🔪', 'Profilaxis':'🛡️', 'Procedimiento General':'⚕️' };
 const TIPO_COLOR = { 'Cirugía':'#c0392b', 'Profilaxis':'#2e7d50', 'Procedimiento General':'#2e5cbf' };
 
-export default function ProcedimientosModal({ isOpen, onClose, onSave, pet }) {
+export default function ProcedimientosModal({ isOpen, onClose, onSave, pet, initialData }) {
   const { session } = useAuth();
   const { sedeActual, isAdmin } = useSede();
+  const isEditing = !!initialData?.id;
   const [tipo, setTipo]         = useState('Cirugía');
   const [descripcion, setDesc]  = useState('');
   const [anestesia, setAnest]   = useState('');
   const [observaciones, setObs] = useState('');
   const [sedeId, setSedeId]     = useState(sedeActual || 1);
   const [error, setError]       = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialData) {
+        setTipo(initialData.tipo || 'Cirugía');
+        setDesc(initialData.descripcion || '');
+        setAnest(initialData.anestesia || '');
+        setObs(initialData.observaciones || '');
+        setSedeId(initialData.sede_id || sedeActual || 1);
+      } else {
+        setTipo('Cirugía'); setDesc(''); setAnest(''); setObs(''); setSedeId(sedeActual || 1);
+      }
+      setError('');
+    }
+  }, [isOpen, initialData, sedeActual]);
 
   if (!isOpen || !pet) return null;
 
@@ -29,10 +45,11 @@ export default function ProcedimientosModal({ isOpen, onClose, onSave, pet }) {
   const handleSave = () => {
     if (!descripcion.trim()) { setError('La descripción es requerida.'); return; }
     onSave({
+      ...(isEditing ? { id: initialData.id } : {}),
       tipo, descripcion, anestesia, observaciones,
       sede_id: sedeId,
       veterinario: session?.nombre || 'Desconocido',
-      fecha: new Date().toISOString().split('T')[0],
+      ...(!isEditing ? { fecha: new Date().toISOString().split('T')[0] } : {}),
     });
     reset(); onClose();
   };
@@ -46,7 +63,7 @@ export default function ProcedimientosModal({ isOpen, onClose, onSave, pet }) {
         {/* Header */}
         <div style={{ padding:'1.25rem 1.5rem', borderBottom:'1px solid var(--color-border)', background:'#f5f8ff', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <div>
-            <h3 style={{ fontFamily:'var(--font-title)', color:'#2e5cbf', fontSize:'1.1rem', margin:0 }}>⚕️ Nuevo Procedimiento</h3>
+            <h3 style={{ fontFamily:'var(--font-title)', color:'#2e5cbf', fontSize:'1.1rem', margin:0 }}>{isEditing ? '✏️ Editar Procedimiento' : '⚕️ Nuevo Procedimiento'}</h3>
             <p style={{ margin:'0.2rem 0 0', fontSize:'0.8rem', color:'var(--color-text-muted)' }}>{pet.name} · {pet.species}{pet.breed?` (${pet.breed})`:''}</p>
           </div>
           <button onClick={handleClose} style={{ width:32, height:32, background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-full)', cursor:'pointer', fontSize:'1rem', display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
@@ -113,7 +130,7 @@ export default function ProcedimientosModal({ isOpen, onClose, onSave, pet }) {
           <div style={{ display:'flex', gap:'0.75rem', justifyContent:'flex-end' }}>
             <button onClick={handleClose} style={{ padding:'0.6rem 1.25rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', color:'var(--color-text-muted)' }}>Cancelar</button>
             <button onClick={handleSave} style={{ padding:'0.6rem 1.5rem', background:color, color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', fontWeight:600 }}>
-              {TIPO_ICON[tipo]} Guardar procedimiento
+              {isEditing ? '💾 Guardar cambios' : `${TIPO_ICON[tipo]} Guardar procedimiento`}
             </button>
           </div>
         </div>

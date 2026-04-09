@@ -19,9 +19,10 @@ const iSt = {
   fontFamily: 'var(--font-body)', fontSize: '0.85rem',
 };
 
-export default function DesparasitarModal({ isOpen, onClose, onSave, pet }) {
+export default function DesparasitarModal({ isOpen, onClose, onSave, pet, initialData }) {
   const { sedeActual, isAdmin } = useSede();
   const opciones = PRODUCTOS[pet?.species] || PRODUCTOS.Perro;
+  const isEditing = !!initialData?.id;
 
   const [selected, setSelected] = useState(null);
   const [fecha,    setFecha]    = useState('');
@@ -32,19 +33,30 @@ export default function DesparasitarModal({ isOpen, onClose, onSave, pet }) {
 
   useEffect(() => {
     if (isOpen) {
-      setSelected(null);
-      setFecha(new Date().toISOString().split('T')[0]);
-      setProxima('');
-      setLote('');
-      setVet('');
-      setSedeId(sedeActual || 1);
+      if (initialData) {
+        const productName = initialData.vaccine_name?.replace('Desparasitación - ', '') || null;
+        setSelected(productName);
+        setFecha(initialData.date_applied || new Date().toISOString().split('T')[0]);
+        setProxima(initialData.next_dose || '');
+        setLote(initialData.batch || '');
+        setVet(initialData.vet || '');
+        setSedeId(initialData.sede_id || sedeActual || 1);
+      } else {
+        setSelected(null);
+        setFecha(new Date().toISOString().split('T')[0]);
+        setProxima('');
+        setLote('');
+        setVet('');
+        setSedeId(sedeActual || 1);
+      }
     }
-  }, [isOpen, sedeActual]);
+  }, [isOpen, sedeActual, initialData]);
 
   const handleSave = () => {
     if (!selected) return alert('Selecciona un producto.');
     if (!fecha)    return alert('La fecha es requerida.');
     onSave({
+      ...(isEditing ? { id: initialData.id } : {}),
       vaccine_name: `Desparasitación - ${selected}`,
       date_applied: fecha,
       next_dose:    proxima || null,
@@ -62,9 +74,9 @@ export default function DesparasitarModal({ isOpen, onClose, onSave, pet }) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`🪱 Desparasitar — ${pet?.name || ''}`}
+      title={isEditing ? `✏️ Editar Desparasitación — ${pet?.name || ''}` : `🪱 Desparasitar — ${pet?.name || ''}`}
       onSave={selected ? handleSave : null}
-      saveLabel="Registrar desparasitación"
+      saveLabel={isEditing ? 'Guardar cambios' : 'Registrar desparasitación'}
       size="sm"
     >
       <div style={{ marginBottom: '1.25rem' }}>

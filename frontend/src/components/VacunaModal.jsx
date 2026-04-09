@@ -19,9 +19,10 @@ const iSt = {
   fontFamily: 'var(--font-body)', fontSize: '0.85rem',
 };
 
-export default function VacunaModal({ isOpen, onClose, onSave, pet }) {
+export default function VacunaModal({ isOpen, onClose, onSave, pet, initialData }) {
   const { sedeActual, isAdmin } = useSede();
   const opciones = VACUNAS[pet?.species] || [];
+  const isEditing = !!initialData?.id;
 
   const [selected, setSelected] = useState(null);
   const [fecha,    setFecha]    = useState('');
@@ -32,19 +33,29 @@ export default function VacunaModal({ isOpen, onClose, onSave, pet }) {
 
   useEffect(() => {
     if (isOpen) {
-      setSelected(null);
-      setFecha(new Date().toISOString().split('T')[0]);
-      setProxima('');
-      setLote('');
-      setVet('');
-      setSedeId(sedeActual || 1);
+      if (initialData) {
+        setSelected(initialData.vaccine_name || null);
+        setFecha(initialData.date_applied || new Date().toISOString().split('T')[0]);
+        setProxima(initialData.next_dose || '');
+        setLote(initialData.batch || '');
+        setVet(initialData.vet || '');
+        setSedeId(initialData.sede_id || sedeActual || 1);
+      } else {
+        setSelected(null);
+        setFecha(new Date().toISOString().split('T')[0]);
+        setProxima('');
+        setLote('');
+        setVet('');
+        setSedeId(sedeActual || 1);
+      }
     }
-  }, [isOpen, sedeActual]);
+  }, [isOpen, sedeActual, initialData]);
 
   const handleSave = () => {
     if (!selected)     return alert('Selecciona una vacuna.');
     if (!fecha)        return alert('La fecha es requerida.');
     onSave({
+      ...(isEditing ? { id: initialData.id } : {}),
       vaccine_name: selected,
       date_applied: fecha,
       next_dose:    proxima || null,
@@ -62,9 +73,9 @@ export default function VacunaModal({ isOpen, onClose, onSave, pet }) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`💉 Vacunar — ${pet?.name || ''}`}
+      title={isEditing ? `✏️ Editar Vacuna — ${pet?.name || ''}` : `💉 Vacunar — ${pet?.name || ''}`}
       onSave={selected ? handleSave : null}
-      saveLabel="Registrar vacuna"
+      saveLabel={isEditing ? 'Guardar cambios' : 'Registrar vacuna'}
       size="sm"
     >
       {/* Opciones de vacuna */}
