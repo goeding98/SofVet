@@ -40,7 +40,7 @@ export default function PetDetailPage() {
   const { items: formulas, add: addFormula }           = useStore('formulas_medicas');
   const { items: procedimientos, add: addProcedimiento, edit: editProcedimiento } = useStore('procedimientos');
   const { items: laboratorios, add: addLaboratorio, edit: editLaboratorio } = useStore('laboratorios');
-  const { items: hospReports, add: addHospReport }     = useStore('hospitalization_reports');
+  const { items: hospReports, add: addHospReport, edit: editHospReport } = useStore('hospitalization_reports');
   const { items: hospitalization }                     = useStore('hospitalization');
   const { items: signedDocs }  = useStore('signedDocuments');
   const { items: labPedidos, edit: editLabPedido, add: addLabPedido } = useStore('laboratorios_pedidos');
@@ -59,6 +59,7 @@ export default function PetDetailPage() {
   const [editingLab,     setEditingLab]     = useState(null); // { lab record } being edited
   const [labSRModal,     setLabSRModal]     = useState(false);
   const [hospRepModal,   setHospRepModal]   = useState(false);
+  const [editingReport,  setEditingReport]  = useState(null);
   const [formulasModal,  setFormulasModal]  = useState(false);
   const [editHCConfirm,  setEditHCConfirm]  = useState(false);
   const [vacunaModal,      setVacunaModal]      = useState(false);
@@ -307,7 +308,13 @@ export default function PetDetailPage() {
   };
 
   const handleSaveHospReport = (data) => {
-    addHospReport({ ...data, patient_id: petId });
+    if (data.id) {
+      const { id, ...changes } = data;
+      editHospReport(id, changes);
+    } else {
+      addHospReport({ ...data, patient_id: petId });
+    }
+    setEditingReport(null);
     setHospRepModal(false);
   };
 
@@ -879,6 +886,44 @@ export default function PetDetailPage() {
                     </p>
                     {h.diagnostico && <p style={{ fontSize:'0.78rem', color:'var(--color-text-muted)', margin:0 }}>Dx: {h.diagnostico}</p>}
                     {h.responsible_vet && <p style={{ fontSize:'0.72rem', color:'var(--color-text-muted)', margin:'0.2rem 0 0' }}>👨‍⚕️ {h.responsible_vet}</p>}
+
+                    {/* Reportes de esta hospitalización */}
+                    {(() => {
+                      const reps = hospReports
+                        .filter(r => r.hospitalization_id === h.id)
+                        .sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''));
+                      if (!reps.length) return null;
+                      return (
+                        <div style={{ marginTop:'0.75rem', borderTop:`1px dashed ${isActive ? '#fca5a5' : 'var(--color-border)'}`, paddingTop:'0.65rem', display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+                          <div style={{ fontSize:'0.65rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', color: isActive ? '#c0392b' : 'var(--color-text-muted)', marginBottom:'0.1rem' }}>
+                            📋 Reportes ({reps.length})
+                          </div>
+                          {reps.map(r => (
+                            <div key={r.id} style={{ background: isActive ? 'white' : 'var(--color-bg)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', padding:'0.6rem 0.75rem', position:'relative' }}>
+                              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'0.5rem', marginBottom:'0.3rem' }}>
+                                <span style={{ fontSize:'0.68rem', color:'var(--color-text-muted)', fontWeight:600 }}>
+                                  📅 {r.fecha} {r.veterinario ? `· 👨‍⚕️ ${r.veterinario}` : ''}
+                                </span>
+                                <button
+                                  onClick={() => { setEditingReport(r); setHospRepModal(true); }}
+                                  style={{ padding:'1px 7px', background:'white', border:'1px solid var(--color-border)', color:'var(--color-text-muted)', borderRadius:5, cursor:'pointer', fontSize:'0.65rem', fontWeight:600, fontFamily:'var(--font-body)', flexShrink:0 }}
+                                >✏️ Editar</button>
+                              </div>
+                              <p style={{ fontSize:'0.8rem', color:'var(--color-text)', margin:0, whiteSpace:'pre-wrap', lineHeight:1.5 }}>{r.contenido}</p>
+                              {r.fotos?.length > 0 && (
+                                <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', marginTop:'0.4rem' }}>
+                                  {r.fotos.map((f, fi) => f.url && (
+                                    <a key={fi} href={f.url} target="_blank" rel="noreferrer">
+                                      <img src={f.url} alt={f.name} style={{ width:54, height:54, objectFit:'cover', borderRadius:4, border:'1px solid var(--color-border)' }} />
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })}
@@ -997,7 +1042,7 @@ export default function PetDetailPage() {
         isAdmin={isAdminUser}
       />
 
-      <HospitalizationReportModal isOpen={hospRepModal} onClose={() => setHospRepModal(false)} onSave={handleSaveHospReport} pet={pet} hospitalizationId={activeHosp?.id} />
+      <HospitalizationReportModal isOpen={hospRepModal} onClose={() => { setHospRepModal(false); setEditingReport(null); }} onSave={handleSaveHospReport} pet={pet} hospitalizationId={editingReport?.hospitalization_id || activeHosp?.id} initialData={editingReport} />
 
       <FormulasModal isOpen={formulasModal} onClose={() => setFormulasModal(false)} pet={pet} client={client} formulas={formulas} />
 

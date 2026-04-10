@@ -1,18 +1,31 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../utils/useAuth';
 import { supabase } from '../utils/supabaseClient';
 
 const lSt = { display:'block', fontSize:'0.72rem', fontWeight:700, marginBottom:'0.3rem', textTransform:'uppercase', letterSpacing:'0.04em', color:'var(--color-text)' };
-const iSt = { width:'100%', padding:'0.55rem 0.75rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.875rem' };
 
-export default function HospitalizationReportModal({ isOpen, onClose, onSave, pet, hospitalizationId }) {
+export default function HospitalizationReportModal({ isOpen, onClose, onSave, pet, hospitalizationId, initialData }) {
   const { session } = useAuth();
   const fileRef    = useRef(null);
+  const isEditing  = !!initialData?.id;
 
   const [contenido,  setContenido] = useState('');
   const [files,      setFiles]     = useState([]);
   const [uploading,  setUploading] = useState(false);
   const [error,      setError]     = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialData) {
+        setContenido(initialData.contenido || '');
+        setFiles([]);
+      } else {
+        setContenido('');
+        setFiles([]);
+      }
+      setError('');
+    }
+  }, [isOpen, initialData]);
 
   if (!isOpen || !pet) return null;
 
@@ -41,12 +54,17 @@ export default function HospitalizationReportModal({ isOpen, onClose, onSave, pe
     }
 
     setUploading(false);
+    // En edición conservamos las fotos existentes + las nuevas
+    const fotosFinales = isEditing
+      ? [...(initialData.fotos || []), ...fotos]
+      : fotos;
     onSave({
+      ...(isEditing ? { id: initialData.id } : {}),
       hospitalization_id: hospitalizationId,
       contenido,
-      fotos,
+      fotos: fotosFinales,
       veterinario: session?.nombre || 'Desconocido',
-      fecha: new Date().toISOString().split('T')[0],
+      fecha: isEditing ? initialData.fecha : new Date().toISOString().split('T')[0],
     });
     reset(); onClose();
   };
@@ -57,7 +75,7 @@ export default function HospitalizationReportModal({ isOpen, onClose, onSave, pe
 
         <div style={{ padding:'1.25rem 1.5rem', borderBottom:'1px solid var(--color-border)', background:'#fdecea', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <div>
-            <h3 style={{ fontFamily:'var(--font-title)', color:'#c0392b', fontSize:'1.1rem', margin:0 }}>🏥 Reporte de Hospitalización</h3>
+            <h3 style={{ fontFamily:'var(--font-title)', color:'#c0392b', fontSize:'1.1rem', margin:0 }}>{isEditing ? '✏️ Editar Reporte' : '🏥 Reporte de Hospitalización'}</h3>
             <p style={{ margin:'0.2rem 0 0', fontSize:'0.8rem', color:'var(--color-text-muted)' }}>{pet.name} · {pet.species}</p>
           </div>
           <button onClick={handleClose} style={{ width:32, height:32, background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-full)', cursor:'pointer', fontSize:'1rem', display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
@@ -100,7 +118,7 @@ export default function HospitalizationReportModal({ isOpen, onClose, onSave, pe
           <div style={{ display:'flex', gap:'0.75rem', justifyContent:'flex-end' }}>
             <button onClick={handleClose} style={{ padding:'0.6rem 1.25rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', color:'var(--color-text-muted)' }}>Cancelar</button>
             <button onClick={handleSave} disabled={uploading} style={{ padding:'0.6rem 1.5rem', background:'#c0392b', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:uploading?'not-allowed':'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', fontWeight:600, opacity:uploading?0.7:1 }}>
-              {uploading ? '⏳ Subiendo fotos...' : '🏥 Guardar reporte'}
+              {uploading ? '⏳ Subiendo fotos...' : isEditing ? '💾 Guardar cambios' : '🏥 Guardar reporte'}
             </button>
           </div>
         </div>
