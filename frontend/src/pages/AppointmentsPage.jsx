@@ -19,7 +19,8 @@ const DAYS_FULL    = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function toStr(y, m, d) { return `${y}-${pad2(m+1)}-${pad2(d)}`; }
-function addDays(ds, n) { const d = new Date(ds+'T12:00:00'); d.setDate(d.getDate()+n); return d.toISOString().split('T')[0]; }
+function localDateStr(d) { return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+function addDays(ds, n) { const d = new Date(ds+'T12:00:00'); d.setDate(d.getDate()+n); return localDateStr(d); }
 function getMondayOf(ds) { const d = new Date(ds+'T12:00:00'); const wd = d.getDay(); return addDays(ds, wd===0?-6:1-wd); }
 function weekDays(mon)   { return Array.from({length:7}, (_,i) => addDays(mon, i)); }
 function getDaysInMonth(y,m)  { return new Date(y,m+1,0).getDate(); }
@@ -202,7 +203,7 @@ export default function AppointmentsPage() {
 
   const isAdminUser = session?.rol === 'Administrador';
   const today       = new Date();
-  const todayStr    = today.toISOString().split('T')[0];
+  const todayStr    = localDateStr(today);
 
   const [viewMode,   setViewMode]   = useState('week');
   const [anchor,     setAnchor]     = useState(todayStr);

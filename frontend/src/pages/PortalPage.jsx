@@ -26,7 +26,7 @@ const icon = (sp) => {
   const s = (sp||'').toLowerCase();
   return s.includes('perro')||s.includes('canino') ? '🐶' : s.includes('gato')||s.includes('felino') ? '🐱' : '🐾';
 };
-const today = () => new Date().toISOString().split('T')[0];
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 
 // ── Booking helpers ───────────────────────────────────────────────────────────
 const BOOKING_SEDES = [
