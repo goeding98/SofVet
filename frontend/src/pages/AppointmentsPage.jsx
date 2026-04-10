@@ -193,7 +193,7 @@ function TimeGrid({ days, aptsByDate, todayStr, isAdmin, onCellClick, onEdit, on
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function AppointmentsPage() {
-  const { items: apts, add, edit, remove } = useStore('appointments');
+  const { items: apts, add, edit, remove, refresh: refreshApts } = useStore('appointments');
   const { items: clients }  = useStore('clients');
   const { items: patients } = useStore('patients');
   const { session } = useAuth();
@@ -257,6 +257,14 @@ export default function AppointmentsPage() {
   }, [viewMode, anchor, calMonth, calYear]);
 
   // ── Modal ───────────────────────────────────────────────────────────────
+  // Auto-refresh appointments on mount and every 60s (picks up portal/guest bookings)
+  useEffect(() => {
+    refreshApts();
+    const iv = setInterval(refreshApts, 60000);
+    return () => clearInterval(iv);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Auto-open new form if navigated from pet dashboard
   useEffect(() => {
     if (navState?.patient_name && isAdminUser) {
@@ -458,6 +466,7 @@ export default function AppointmentsPage() {
           <div style={{fontFamily:'var(--font-title)',fontWeight:700,fontSize:'0.9rem',color:'var(--color-text)',minWidth:180,textAlign:'center'}}>{periodLabel}</div>
           <button onClick={()=>nav(1)}  style={{width:30,height:30,border:'1px solid var(--color-border)',borderRadius:'var(--radius-sm)',background:'var(--color-white)',cursor:'pointer',fontSize:'1rem',display:'flex',alignItems:'center',justifyContent:'center'}}>›</button>
           <button onClick={goToday} style={{padding:'0.28rem 0.7rem',border:'1px solid var(--color-border)',borderRadius:'var(--radius-sm)',background:'var(--color-white)',cursor:'pointer',fontFamily:'var(--font-body)',fontSize:'0.75rem',color:'var(--color-text-muted)'}}>Hoy</button>
+          <button onClick={refreshApts} title="Actualizar citas" style={{width:30,height:30,border:'1px solid var(--color-border)',borderRadius:'var(--radius-sm)',background:'var(--color-white)',cursor:'pointer',fontSize:'0.85rem',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--color-text-muted)'}}>🔄</button>
           {isAdminUser&&(
             <button onClick={()=>openAdd(viewMode==='day'?anchor:todayStr)} style={{padding:'0.38rem 1rem',background:'var(--color-primary)',color:'white',border:'none',borderRadius:'var(--radius-sm)',cursor:'pointer',fontFamily:'var(--font-body)',fontSize:'0.82rem',fontWeight:700}}>
               + Nueva cita
