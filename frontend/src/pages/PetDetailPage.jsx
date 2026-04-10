@@ -40,7 +40,7 @@ export default function PetDetailPage() {
   const { items: formulas, add: addFormula }           = useStore('formulas_medicas');
   const { items: procedimientos, add: addProcedimiento, edit: editProcedimiento } = useStore('procedimientos');
   const { items: laboratorios, add: addLaboratorio, edit: editLaboratorio } = useStore('laboratorios');
-  const { items: hospReports, add: addHospReport, edit: editHospReport } = useStore('hospitalization_reports');
+  const { items: hospReports, add: addHospReport, edit: editHospReport, remove: removeHospReport } = useStore('hospitalization_reports');
   const { items: hospitalization }                     = useStore('hospitalization');
   const { items: signedDocs }  = useStore('signedDocuments');
   const { items: labPedidos, edit: editLabPedido, add: addLabPedido } = useStore('laboratorios_pedidos');
@@ -1042,7 +1042,7 @@ export default function PetDetailPage() {
         isAdmin={isAdminUser}
       />
 
-      <HospitalizationReportModal isOpen={hospRepModal} onClose={() => { setHospRepModal(false); setEditingReport(null); }} onSave={handleSaveHospReport} pet={pet} hospitalizationId={editingReport?.hospitalization_id || activeHosp?.id} initialData={editingReport} />
+      <HospitalizationReportModal isOpen={hospRepModal} onClose={() => { setHospRepModal(false); setEditingReport(null); }} onSave={handleSaveHospReport} onDelete={(id) => { removeHospReport(id); setHospRepModal(false); setEditingReport(null); }} pet={pet} hospitalizationId={editingReport?.hospitalization_id || activeHosp?.id} initialData={editingReport} />
 
       <FormulasModal isOpen={formulasModal} onClose={() => setFormulasModal(false)} pet={pet} client={client} formulas={formulas} />
 

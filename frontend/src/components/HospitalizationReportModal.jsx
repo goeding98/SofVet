@@ -4,15 +4,16 @@ import { supabase } from '../utils/supabaseClient';
 
 const lSt = { display:'block', fontSize:'0.72rem', fontWeight:700, marginBottom:'0.3rem', textTransform:'uppercase', letterSpacing:'0.04em', color:'var(--color-text)' };
 
-export default function HospitalizationReportModal({ isOpen, onClose, onSave, pet, hospitalizationId, initialData }) {
+export default function HospitalizationReportModal({ isOpen, onClose, onSave, onDelete, pet, hospitalizationId, initialData }) {
   const { session } = useAuth();
-  const fileRef    = useRef(null);
-  const isEditing  = !!initialData?.id;
+  const fileRef       = useRef(null);
+  const isEditing     = !!initialData?.id;
 
-  const [contenido,  setContenido] = useState('');
-  const [files,      setFiles]     = useState([]);
-  const [uploading,  setUploading] = useState(false);
-  const [error,      setError]     = useState('');
+  const [contenido,   setContenido]   = useState('');
+  const [files,       setFiles]       = useState([]);
+  const [uploading,   setUploading]   = useState(false);
+  const [error,       setError]       = useState('');
+  const [confirmDel,  setConfirmDel]  = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -29,7 +30,7 @@ export default function HospitalizationReportModal({ isOpen, onClose, onSave, pe
 
   if (!isOpen || !pet) return null;
 
-  const reset = () => { setContenido(''); setFiles([]); setError(''); setUploading(false); };
+  const reset = () => { setContenido(''); setFiles([]); setError(''); setUploading(false); setConfirmDel(false); };
   const handleClose = () => { reset(); onClose(); };
 
   const handleFiles = (e) => {
@@ -114,6 +115,28 @@ export default function HospitalizationReportModal({ isOpen, onClose, onSave, pe
           </div>
 
           {error && <div style={{ background:'var(--color-danger-bg)', border:'1px solid var(--color-danger)', borderRadius:'var(--radius-sm)', padding:'0.6rem 0.9rem', color:'var(--color-danger)', fontSize:'0.8rem', marginBottom:'1rem' }}>⚠️ {error}</div>}
+
+          {/* Eliminar — solo en modo edición */}
+          {isEditing && (
+            <div style={{ marginBottom:'1rem' }}>
+              {!confirmDel ? (
+                <button
+                  onClick={() => setConfirmDel(true)}
+                  style={{ width:'100%', padding:'0.55rem', background:'none', border:'1px solid #e8c0bb', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.82rem', color:'#c0392b', fontWeight:500 }}
+                >
+                  🗑️ Eliminar este reporte
+                </button>
+              ) : (
+                <div style={{ background:'#fdecea', border:'1px solid #f5c6c2', borderRadius:'var(--radius-md)', padding:'0.75rem 1rem', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'0.75rem' }}>
+                  <span style={{ fontSize:'0.82rem', color:'#c0392b', fontWeight:600 }}>¿Confirmar eliminación?</span>
+                  <div style={{ display:'flex', gap:'0.5rem', flexShrink:0 }}>
+                    <button onClick={() => setConfirmDel(false)} style={{ padding:'0.35rem 0.85rem', background:'white', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.8rem', color:'var(--color-text-muted)' }}>No</button>
+                    <button onClick={() => onDelete(initialData.id)} style={{ padding:'0.35rem 0.85rem', background:'#c0392b', color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.8rem', fontWeight:700 }}>Sí, eliminar</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{ display:'flex', gap:'0.75rem', justifyContent:'flex-end' }}>
             <button onClick={handleClose} style={{ padding:'0.6rem 1.25rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', color:'var(--color-text-muted)' }}>Cancelar</button>
