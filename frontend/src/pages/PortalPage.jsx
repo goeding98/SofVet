@@ -125,7 +125,7 @@ export default function PortalPage() {
     const names = pets.map(p => p.name);
     const tod = today();
 
-    const [vR, cR, pR, lR, aR, iR, hR, hrR] = await Promise.all([
+    const [vR, cR, pR, lR, aR, iR, hR, hrR, ppR] = await Promise.all([
       supabase.from('vaccines').select('patient_id,vaccine_name,date_applied,next_dose').in('patient_id', ids).order('date_applied', { ascending: false }),
       supabase.from('consultations').select('patient_id,motivo_consulta,date,created_at').in('patient_id', ids).order('created_at', { ascending: false }),
       supabase.from('procedimientos').select('patient_id,tipo,descripcion,fecha,anestesia').in('patient_id', ids).order('fecha', { ascending: false }),
@@ -134,9 +134,10 @@ export default function PortalPage() {
       supabase.from('imaging').select('patient_id,tipo,resultado,date').in('patient_id', ids).order('date', { ascending: false }),
       supabase.from('hospitalization').select('patient_id,motivo,diagnostico,ingreso_date,alta_date,status').in('patient_id', ids).order('ingreso_date', { ascending: false }),
       supabase.from('hc_requests').select('*').eq('client_id', cl.id),
+      supabase.from('prepagada').select('patient_id,status,paid_until').in('patient_id', ids).neq('status','baja'),
     ]);
 
-    const vac=vR.data||[], con=cR.data||[], proc=pR.data||[], lab=lR.data||[], apt=aR.data||[], img=iR.data||[], hosp=hR.data||[], hcReqs=hrR.data||[];
+    const vac=vR.data||[], con=cR.data||[], proc=pR.data||[], lab=lR.data||[], apt=aR.data||[], img=iR.data||[], hosp=hR.data||[], hcReqs=hrR.data||[], prep=ppR.data||[];
 
     setClient(cl);
     setData({ pets: pets.map(p => ({
@@ -150,6 +151,7 @@ export default function PortalPage() {
       imaging:    img.filter(i => i.patient_id===p.id),
       hosps:      hosp.filter(h => h.patient_id===p.id),
       hcReq:      hcReqs.find(r => r.patient_id===p.id) || null,
+      prepagada:  prep.find(x => x.patient_id===p.id) || null,
     }))});
   };
 
@@ -478,9 +480,17 @@ export default function PortalPage() {
                       </div>
                     </div>
                   </div>
-                  {pet.status === 'hospitalizado' && (
-                    <span style={{ background:'#fce4e4', color:'#c0392b', fontSize:'0.68rem', fontWeight:700, padding:'3px 10px', borderRadius:999 }}>🏥 Hospitalizado</span>
-                  )}
+                  <div style={{ display:'flex', gap:'0.4rem', alignItems:'center', flexWrap:'wrap' }}>
+                    {pet.status === 'hospitalizado' && (
+                      <span style={{ background:'#fce4e4', color:'#c0392b', fontSize:'0.68rem', fontWeight:700, padding:'3px 10px', borderRadius:999 }}>🏥 Hospitalizado</span>
+                    )}
+                    {pet.prepagada && new Date(pet.prepagada.paid_until + 'T23:59:59') >= new Date() && (
+                      <span style={{ background:'#e8f0ff', color:'#2e5cbf', fontSize:'0.68rem', fontWeight:700, padding:'3px 10px', borderRadius:999 }}>💳 Afiliado</span>
+                    )}
+                    {pet.prepagada && new Date(pet.prepagada.paid_until + 'T23:59:59') < new Date() && (
+                      <span style={{ background:'#fff8e1', color:'#b8860b', fontSize:'0.68rem', fontWeight:700, padding:'3px 10px', borderRadius:999 }}>⚠️ Plan en Mora</span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Tabs */}
