@@ -56,6 +56,9 @@ const fmt12h = t => {
 };
 
 export default function PortalPage() {
+  // ── Landing view: 'choice' | 'login' | 'guest' ───────────────────────────
+  const [portalView, setPortalView] = useState('choice');
+
   const [cedula,    setCedula]    = useState('');
   const [password,  setPassword]  = useState('');
   const [loading,   setLoading]   = useState(false);
@@ -64,6 +67,20 @@ export default function PortalPage() {
   const [data,      setData]      = useState(null);
   const [firstLogin,setFirstLogin]= useState(false);
   const [tabs,      setTabs]      = useState({});   // { petId: activeTab }
+
+  // ── Guest booking ────────────────────────────────────────────────────────
+  const [gStep,    setGStep]    = useState(1);
+  const [gCedula,  setGCedula]  = useState('');
+  const [gNombre,  setGNombre]  = useState('');
+  const [gMascota, setGMascota] = useState('');
+  const [gMotivo,  setGMotivo]  = useState('');
+  const [gSede,    setGSede]    = useState(null);
+  const [gDate,    setGDate]    = useState('');
+  const [gSlots,   setGSlots]   = useState(null);
+  const [gTime,    setGTime]    = useState(null);
+  const [gSaving,  setGSaving]  = useState(false);
+  const [gOk,      setGOk]      = useState(false);
+  const [gErr,     setGErr]     = useState('');
 
   const [pwModal,   setPwModal]   = useState(false);
   const [newPw,     setNewPw]     = useState('');
@@ -266,6 +283,46 @@ export default function PortalPage() {
     w.document.close();
   };
 
+  // ── Guest booking helpers ─────────────────────────────────────────────────
+  const resetGuest = () => { setGStep(1); setGCedula(''); setGNombre(''); setGMascota(''); setGMotivo(''); setGSede(null); setGDate(''); setGSlots(null); setGTime(null); setGSaving(false); setGOk(false); setGErr(''); };
+
+  const loadGuestSlots = async (date, sedeId) => {
+    setGSlots(null); setGTime(null);
+    const { data: apts } = await supabase.from('appointments')
+      .select('time,time_end,service').eq('date', date).eq('sede_id', sedeId).neq('status','cancelada');
+    setGSlots(SLOTS_GEN.map(t => {
+      const slotH = parseInt(t.split(':')[0]);
+      const capacity = (sedeId === 2 && slotH >= 14) ? 2 : 1;
+      const s = tmins(t), e = s + 40;
+      const overlapping = (apts||[]).filter(a => {
+        if (!a.time) return false;
+        const as = tmins(a.time);
+        const ae = as + (a.time_end ? tmins(a.time_end) - as : (a.service==='Control'?20:40));
+        return as < e && s < ae;
+      }).length;
+      return { time: t, blocked: overlapping >= capacity };
+    }));
+  };
+
+  const handleGuestBook = async () => {
+    if (!gCedula.trim() || !gNombre.trim() || !gMascota.trim() || !gSede || !gDate || !gTime) return;
+    setGSaving(true); setGErr('');
+    const { error } = await supabase.from('appointments').insert({
+      patient_name: gMascota.trim(),
+      owner:        gNombre.trim(),
+      service:      'Consulta General',
+      date:         gDate,
+      time:         gTime,
+      time_end:     addMin(gTime, 40),
+      status:       'pendiente',
+      sede_id:      gSede,
+      notes:        `Motivo: ${gMotivo.trim()} | Cédula: ${gCedula.trim()}`,
+    });
+    setGSaving(false);
+    if (error) return setGErr('Error al agendar: ' + error.message);
+    setGOk(true);
+  };
+
   const openAgendar = () => {
     setAgOpen(true); setAgStep(1); setAgErr(''); setAgOk(false); setAgSaving(false);
     setAgPet(data?.pets?.length === 1 ? data.pets[0] : null);
@@ -333,10 +390,60 @@ export default function PortalPage() {
         )}
       </nav>
 
-      {/* LOGIN */}
-      {!client && (
+      {/* ── CHOICE SCREEN ── */}
+      {!client && portalView === 'choice' && (
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'2.5rem 1rem', minHeight:'calc(100vh - 62px)' }}>
+          <div style={{ width:'100%', maxWidth:560 }}>
+            <div style={{ textAlign:'center', marginBottom:'2rem' }}>
+              <img src="/logos/pp-02.svg" alt="Logo" style={{ height:52, filter:`invert(35%) sepia(40%) saturate(500%) hue-rotate(145deg)`, marginBottom:'1rem', display:'block', margin:'0 auto 1rem' }} />
+              <h1 style={{ fontWeight:900, fontSize:'1.6rem', color:C.tealDark, margin:'0 0 0.4rem' }}>Bienvenido a Pets &amp; Pets</h1>
+              <p style={{ color:C.muted, fontSize:'0.9rem', margin:0 }}>¿Cómo podemos ayudarte hoy?</p>
+            </div>
+
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem' }}>
+              {/* Soy cliente */}
+              <button
+                onClick={() => setPortalView('login')}
+                style={{ background:'white', border:`2px solid ${C.teal}`, borderRadius:20, padding:'2rem 1.25rem', cursor:'pointer', fontFamily:'inherit', textAlign:'center', boxShadow:'0 4px 24px rgba(49,109,116,0.1)', transition:'all 0.18s' }}
+                onMouseEnter={e => { e.currentTarget.style.transform='translateY(-3px)'; e.currentTarget.style.boxShadow='0 8px 32px rgba(49,109,116,0.18)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 4px 24px rgba(49,109,116,0.1)'; }}
+              >
+                <div style={{ fontSize:'2.8rem', marginBottom:'0.75rem' }}>🐾</div>
+                <div style={{ fontWeight:800, fontSize:'1rem', color:C.tealDark, marginBottom:'0.4rem' }}>Soy cliente</div>
+                <div style={{ fontSize:'0.78rem', color:C.muted, lineHeight:1.5 }}>Ingresa a tu portal para ver la historia clínica de tus mascotas y gestionar citas</div>
+                <div style={{ marginTop:'1.25rem', background:`linear-gradient(135deg,${C.teal},${C.tealDark})`, color:'white', borderRadius:10, padding:'0.6rem', fontWeight:700, fontSize:'0.85rem' }}>
+                  Ingresar al portal →
+                </div>
+              </button>
+
+              {/* No soy cliente */}
+              <button
+                onClick={() => { resetGuest(); setPortalView('guest'); }}
+                style={{ background:'white', border:`2px solid ${C.gold}`, borderRadius:20, padding:'2rem 1.25rem', cursor:'pointer', fontFamily:'inherit', textAlign:'center', boxShadow:'0 4px 24px rgba(184,135,58,0.1)', transition:'all 0.18s' }}
+                onMouseEnter={e => { e.currentTarget.style.transform='translateY(-3px)'; e.currentTarget.style.boxShadow='0 8px 32px rgba(184,135,58,0.18)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 4px 24px rgba(184,135,58,0.1)'; }}
+              >
+                <div style={{ fontSize:'2.8rem', marginBottom:'0.75rem' }}>📅</div>
+                <div style={{ fontWeight:800, fontSize:'1rem', color:'#7a5c00', marginBottom:'0.4rem' }}>No soy cliente</div>
+                <div style={{ fontSize:'0.78rem', color:C.muted, lineHeight:1.5 }}>Agenda tu primera consulta general con nosotros de forma rápida y sencilla</div>
+                <div style={{ marginTop:'1.25rem', background:`linear-gradient(135deg,${C.gold},#8a6200)`, color:'white', borderRadius:10, padding:'0.6rem', fontWeight:700, fontSize:'0.85rem' }}>
+                  Agendar cita →
+                </div>
+              </button>
+            </div>
+
+            <p style={{ textAlign:'center', color:C.muted, fontSize:'0.7rem', marginTop:'1.5rem' }}>© Pets &amp; Pets · Cali, Colombia</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── LOGIN SCREEN ── */}
+      {!client && portalView === 'login' && (
         <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'3rem 1rem', minHeight:'calc(100vh - 62px)' }}>
           <div style={{ width:'100%', maxWidth:420 }}>
+            <button onClick={() => setPortalView('choice')} style={{ background:'none', border:'none', color:C.teal, cursor:'pointer', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:600, marginBottom:'1rem', display:'flex', alignItems:'center', gap:'0.3rem' }}>
+              ← Volver
+            </button>
             <div style={{ background:'white', borderRadius:20, boxShadow:'0 4px 40px rgba(49,109,116,0.12)', overflow:'hidden' }}>
               <div style={{ background:`linear-gradient(135deg, ${C.teal}, ${C.tealDark})`, padding:'2rem', textAlign:'center' }}>
                 <img src="/logos/pp-02.svg" alt="Logo" style={{ height:60, filter:'brightness(0) invert(1)', marginBottom:'1rem', display:'block', margin:'0 auto 1rem' }} />
@@ -365,6 +472,155 @@ export default function PortalPage() {
           </div>
         </div>
       )}
+
+      {/* ── GUEST BOOKING SCREEN ── */}
+      {!client && portalView === 'guest' && (() => {
+        const todayLocal = today();
+        const gStep1Ok = gCedula.trim() && gNombre.trim() && gMascota.trim() && gMotivo.trim();
+        const gStep2Ok = gSede && gDate;
+
+        if (gOk) return (
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'3rem 1rem', minHeight:'calc(100vh - 62px)' }}>
+            <div style={{ width:'100%', maxWidth:480, textAlign:'center', background:'white', borderRadius:24, padding:'3rem 2rem', boxShadow:'0 4px 40px rgba(0,0,0,0.08)' }}>
+              <div style={{ fontSize:'4rem', marginBottom:'1rem' }}>🎉</div>
+              <h2 style={{ fontWeight:900, color:C.tealDark, margin:'0 0 0.5rem' }}>¡Cita agendada!</h2>
+              <p style={{ color:C.muted, fontSize:'0.9rem', lineHeight:1.6, marginBottom:'1.5rem' }}>
+                Hemos registrado tu cita para <strong>{gMascota}</strong> el <strong>{gDate}</strong> a las <strong>{fmt12h(gTime)}</strong> en <strong>{BOOKING_SEDES.find(s=>s.id===gSede)?.nombre}</strong>.
+                <br/><br/>Pronto recibirás confirmación. Valor a cancelar: <strong style={{color:C.teal}}>$70.000</strong>.
+              </p>
+              <button onClick={() => setPortalView('choice')} style={{ background:`linear-gradient(135deg,${C.teal},${C.tealDark})`, color:'white', border:'none', borderRadius:12, padding:'0.85rem 2rem', fontWeight:700, fontSize:'0.92rem', cursor:'pointer', fontFamily:'inherit' }}>
+                Volver al inicio
+              </button>
+            </div>
+          </div>
+        );
+
+        return (
+          <div style={{ maxWidth:600, margin:'0 auto', padding:'2rem 1rem 3rem' }}>
+            <button onClick={() => setPortalView('choice')} style={{ background:'none', border:'none', color:C.teal, cursor:'pointer', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:600, marginBottom:'1rem', display:'flex', alignItems:'center', gap:'0.3rem' }}>
+              ← Volver
+            </button>
+
+            {/* Hero banner */}
+            <div style={{ background:`linear-gradient(135deg,${C.teal},${C.tealDark})`, borderRadius:20, padding:'1.5rem 1.75rem', marginBottom:'1.25rem', color:'white' }}>
+              <div style={{ fontWeight:900, fontSize:'1.25rem', marginBottom:'0.3rem' }}>📅 Agenda tu primera consulta</div>
+              <div style={{ fontSize:'0.82rem', opacity:0.85, lineHeight:1.6 }}>Consulta General · $70.000 · Lunes a Sábado · 10 AM – 6 PM</div>
+            </div>
+
+            {/* Alert banner */}
+            <div style={{ background:'#fff8e1', border:'1.5px solid #f5c842', borderRadius:14, padding:'0.95rem 1.2rem', marginBottom:'1.5rem', display:'flex', gap:'0.75rem', alignItems:'flex-start' }}>
+              <span style={{ fontSize:'1.4rem', flexShrink:0 }}>⚠️</span>
+              <div style={{ fontSize:'0.8rem', color:'#7a5c00', lineHeight:1.65 }}>
+                <strong>Esta opción es solo para Consultas Generales.</strong><br/>
+                Si tienes una <strong>urgencia</strong>, necesitas un <strong>especialista</strong> o traes una <strong>remisión</strong>, comunícate directamente con nosotros antes de agendar.
+              </div>
+            </div>
+
+            {/* Step 1: Personal data */}
+            <div style={{ background:'white', borderRadius:18, boxShadow:'0 2px 20px rgba(0,0,0,0.07)', marginBottom:'1rem', overflow:'hidden' }}>
+              <div style={{ background: gStep >= 1 ? `linear-gradient(135deg,${C.teal},${C.tealDark})` : C.cream, padding:'0.9rem 1.25rem', display:'flex', alignItems:'center', gap:'0.6rem' }}>
+                <div style={{ width:26, height:26, borderRadius:'50%', background:'rgba(255,255,255,0.25)', color:'white', fontWeight:800, fontSize:'0.78rem', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>1</div>
+                <span style={{ fontWeight:700, color:'white', fontSize:'0.9rem' }}>Tus datos</span>
+              </div>
+              <div style={{ padding:'1.25rem 1.5rem', display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.85rem' }}>
+                <div style={{ gridColumn:'1/-1' }}>
+                  <label style={{ display:'block', fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.muted, marginBottom:'0.35rem' }}>Número de cédula *</label>
+                  <input value={gCedula} onChange={e=>setGCedula(e.target.value)} placeholder="Ej: 16662784" inputMode="numeric" style={{ ...inp, borderColor: gCedula ? C.teal : undefined }} />
+                </div>
+                <div style={{ gridColumn:'1/-1' }}>
+                  <label style={{ display:'block', fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.muted, marginBottom:'0.35rem' }}>Nombre completo *</label>
+                  <input value={gNombre} onChange={e=>setGNombre(e.target.value)} placeholder="Tu nombre y apellido" style={{ ...inp, borderColor: gNombre ? C.teal : undefined }} />
+                </div>
+                <div>
+                  <label style={{ display:'block', fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.muted, marginBottom:'0.35rem' }}>Nombre de la mascota *</label>
+                  <input value={gMascota} onChange={e=>setGMascota(e.target.value)} placeholder="Ej: Firulais" style={{ ...inp, borderColor: gMascota ? C.teal : undefined }} />
+                </div>
+                <div>
+                  <label style={{ display:'block', fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.muted, marginBottom:'0.35rem' }}>Motivo de consulta *</label>
+                  <input value={gMotivo} onChange={e=>setGMotivo(e.target.value)} placeholder="¿Por qué la traes?" style={{ ...inp, borderColor: gMotivo ? C.teal : undefined }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2: Sede + Date — only show when step 1 is filled */}
+            {gStep1Ok && (
+              <div style={{ background:'white', borderRadius:18, boxShadow:'0 2px 20px rgba(0,0,0,0.07)', marginBottom:'1rem', overflow:'hidden' }}>
+                <div style={{ background:`linear-gradient(135deg,${C.teal},${C.tealDark})`, padding:'0.9rem 1.25rem', display:'flex', alignItems:'center', gap:'0.6rem' }}>
+                  <div style={{ width:26, height:26, borderRadius:'50%', background:'rgba(255,255,255,0.25)', color:'white', fontWeight:800, fontSize:'0.78rem', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>2</div>
+                  <span style={{ fontWeight:700, color:'white', fontSize:'0.9rem' }}>Sede y fecha</span>
+                </div>
+                <div style={{ padding:'1.25rem 1.5rem' }}>
+                  <label style={{ display:'block', fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.muted, marginBottom:'0.5rem' }}>Selecciona la sede</label>
+                  <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap', marginBottom:'1rem' }}>
+                    {BOOKING_SEDES.map(s => (
+                      <button key={s.id} onClick={() => { setGSede(s.id); setGDate(''); setGSlots(null); setGTime(null); }}
+                        style={{ padding:'0.5rem 1.1rem', borderRadius:999, fontSize:'0.82rem', fontWeight:600, cursor:'pointer', fontFamily:'inherit', border:`2px solid ${gSede===s.id ? C.teal : C.border}`, background: gSede===s.id ? C.tealLight : 'white', color: gSede===s.id ? C.tealDark : C.text, transition:'all 0.15s' }}>
+                        📍 {s.nombre}
+                      </button>
+                    ))}
+                  </div>
+                  {gSede && (
+                    <>
+                      <label style={{ display:'block', fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.muted, marginBottom:'0.35rem' }}>Fecha de la cita</label>
+                      <input type="date" min={todayLocal} value={gDate}
+                        onChange={e => {
+                          const d = new Date(e.target.value + 'T12:00:00');
+                          if (d.getDay() === 0) { setGDate(''); setGSlots(null); setGTime(null); alert('Los domingos no atendemos. Por favor elige otro día.'); return; }
+                          setGDate(e.target.value); loadGuestSlots(e.target.value, gSede);
+                        }}
+                        style={{ ...inp, maxWidth:240 }}
+                      />
+                      {gDate && <div style={{ fontSize:'0.72rem', color:C.muted, marginTop:'0.35rem' }}>Los domingos no se atiende. Horario: 10:00 AM – 6:00 PM.</div>}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Time slots */}
+            {gStep1Ok && gStep2Ok && (
+              <div style={{ background:'white', borderRadius:18, boxShadow:'0 2px 20px rgba(0,0,0,0.07)', marginBottom:'1rem', overflow:'hidden' }}>
+                <div style={{ background:`linear-gradient(135deg,${C.teal},${C.tealDark})`, padding:'0.9rem 1.25rem', display:'flex', alignItems:'center', gap:'0.6rem' }}>
+                  <div style={{ width:26, height:26, borderRadius:'50%', background:'rgba(255,255,255,0.25)', color:'white', fontWeight:800, fontSize:'0.78rem', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>3</div>
+                  <span style={{ fontWeight:700, color:'white', fontSize:'0.9rem' }}>Hora disponible</span>
+                </div>
+                <div style={{ padding:'1.25rem 1.5rem' }}>
+                  {!gSlots ? (
+                    <div style={{ textAlign:'center', padding:'1rem', color:C.muted, fontSize:'0.85rem' }}>Cargando horarios…</div>
+                  ) : (
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(90px, 1fr))', gap:'0.5rem' }}>
+                      {gSlots.map(({ time, blocked }) => (
+                        <button key={time} disabled={blocked} onClick={() => setGTime(time)}
+                          style={{ padding:'0.55rem', borderRadius:10, fontSize:'0.82rem', fontWeight:600, cursor:blocked?'not-allowed':'pointer', fontFamily:'inherit', border:`2px solid ${gTime===time ? C.teal : blocked ? '#e5e7eb' : C.border}`, background: gTime===time ? C.tealLight : blocked ? '#f9fafb' : 'white', color: gTime===time ? C.tealDark : blocked ? '#d1d5db' : C.text, transition:'all 0.12s', opacity:blocked?0.5:1 }}>
+                          {fmt12h(time)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Confirm button */}
+            {gStep1Ok && gStep2Ok && gTime && (
+              <div style={{ background:'white', borderRadius:18, boxShadow:'0 2px 20px rgba(0,0,0,0.07)', padding:'1.25rem 1.5rem' }}>
+                <div style={{ background:C.cream, borderRadius:12, padding:'1rem', marginBottom:'1rem', fontSize:'0.82rem', color:C.text, lineHeight:1.7 }}>
+                  <strong>Resumen:</strong><br/>
+                  🐾 <strong>{gMascota}</strong> · Consulta General<br/>
+                  📅 {gDate} a las {fmt12h(gTime)}<br/>
+                  📍 {BOOKING_SEDES.find(s=>s.id===gSede)?.nombre}<br/>
+                  💰 Valor: <strong style={{color:C.teal}}>$70.000</strong>
+                </div>
+                {gErr && <div style={{ background:C.dangerBg, borderRadius:10, padding:'0.6rem 0.9rem', color:C.danger, fontSize:'0.8rem', marginBottom:'0.75rem' }}>⚠️ {gErr}</div>}
+                <button onClick={handleGuestBook} disabled={gSaving}
+                  style={{ width:'100%', padding:'0.9rem', background:gSaving?'#aaa':`linear-gradient(135deg,${C.teal},${C.tealDark})`, color:'white', border:'none', borderRadius:12, cursor:gSaving?'not-allowed':'pointer', fontWeight:800, fontSize:'0.95rem', fontFamily:'inherit', boxShadow:'0 4px 16px rgba(49,109,116,0.3)' }}>
+                  {gSaving ? 'Agendando…' : '✅ Confirmar cita'}
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* PORTAL */}
       {client && data && (
