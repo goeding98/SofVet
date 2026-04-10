@@ -193,6 +193,8 @@ function TimeGrid({ days, aptsByDate, todayStr, isAdmin, onCellClick, onEdit, on
 // ── Main component ────────────────────────────────────────────────────────────
 export default function AppointmentsPage() {
   const { items: apts, add, edit, remove } = useStore('appointments');
+  const { items: clients }  = useStore('clients');
+  const { items: patients } = useStore('patients');
   const { session } = useAuth();
   const { isAdmin: _si }   = useSede();
   const location = useLocation();
@@ -212,6 +214,11 @@ export default function AppointmentsPage() {
   const [modal,  setModal]  = useState(false);
   const [form,   setForm]   = useState({});
   const [editId, setEditId] = useState(null);
+
+  // ── Cedula lookup for new appointment ────────────────────────────────────
+  const [cedula,      setCedula]      = useState('');
+  const [foundClient, setFoundClient] = useState(null);   // client obj or null
+  const [cedulaMsg,   setCedulaMsg]   = useState('');     // feedback message
 
 
   const filteredApts = useMemo(() =>
@@ -259,13 +266,33 @@ export default function AppointmentsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleCedulaSearch = (val) => {
+    setCedula(val);
+    if (!val.trim()) { setFoundClient(null); setCedulaMsg(''); return; }
+    const cl = clients.find(c => String(c.document || c.cedula || c.nit || '').trim() === val.trim());
+    if (cl) {
+      setFoundClient(cl);
+      setCedulaMsg(`✅ Cliente encontrado: ${cl.name}`);
+      setForm(f => ({ ...f, owner: cl.name }));
+    } else {
+      setFoundClient(null);
+      setCedulaMsg('⚠️ Cédula no registrada — ingresá el nombre manualmente.');
+    }
+  };
+
+  const selectPet = (pet) => {
+    setForm(f => ({ ...f, patient_name: pet.name, owner: foundClient?.name || f.owner }));
+  };
+
   const openAdd = (dateStr, timeStr) => {
     if (!isAdminUser) return;
+    setCedula(''); setFoundClient(null); setCedulaMsg('');
     setForm(mkForm(dateStr||anchor, timeStr||'09:00', sedeFilter));
     setEditId(null); setModal(true);
   };
   const openEdit = (apt) => {
     if (!isAdminUser) return;
+    setCedula(''); setFoundClient(null); setCedulaMsg('');
     setForm({...apt}); setEditId(apt.id); setModal(true);
   };
   const handleSave = () => {
@@ -465,6 +492,54 @@ export default function AppointmentsPage() {
 
       {/* Modal */}
       <Modal isOpen={modal} onClose={()=>setModal(false)} title={editId?'Editar Cita':'📅 Nueva Cita'} onSave={handleSave} size="md">
+
+        {/* ── Cedula lookup (only for new appointments) ── */}
+        {!editId && (() => {
+          const foundPets = foundClient ? patients.filter(p => p.client_id === foundClient.id) : [];
+          return (
+            <div style={{ marginBottom:'1rem', background:'var(--color-bg)', borderRadius:'var(--radius-md)', padding:'0.85rem 1rem', border:'1px solid var(--color-border)' }}>
+              <label style={labelSt}>Cédula del cliente</label>
+              <input
+                style={inputSt}
+                value={cedula}
+                onChange={e => handleCedulaSearch(e.target.value)}
+                placeholder="Ej: 1234567890"
+                autoComplete="off"
+              />
+              {cedulaMsg && (
+                <div style={{ fontSize:'0.75rem', marginTop:'0.4rem', color: foundClient ? '#2e7d50' : '#b8860b', fontWeight:600 }}>
+                  {cedulaMsg}
+                </div>
+              )}
+              {/* Pet selector if client found */}
+              {foundPets.length > 0 && (
+                <div style={{ marginTop:'0.65rem' }}>
+                  <div style={{ fontSize:'0.7rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:'var(--color-text-muted)', marginBottom:'0.35rem' }}>
+                    Seleccionar mascota
+                  </div>
+                  <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap' }}>
+                    {foundPets.map(pet => (
+                      <button
+                        key={pet.id}
+                        onClick={() => selectPet(pet)}
+                        style={{
+                          padding:'0.3rem 0.85rem', borderRadius:999, fontSize:'0.78rem', fontWeight:600,
+                          cursor:'pointer', fontFamily:'var(--font-body)',
+                          border:`1.5px solid ${form.patient_name === pet.name ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                          background: form.patient_name === pet.name ? 'var(--color-primary)' : 'white',
+                          color: form.patient_name === pet.name ? 'white' : 'var(--color-text)',
+                        }}
+                      >
+                        {pet.species === 'Perro' ? '🐶' : pet.species === 'Gato' ? '🐱' : '🐾'} {pet.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         <div className="grid-2">
           <div style={{marginBottom:'0.75rem'}}>
             <label style={labelSt}>Paciente *</label>
