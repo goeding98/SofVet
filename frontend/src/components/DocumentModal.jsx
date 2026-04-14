@@ -33,6 +33,8 @@ export default function DocumentModal({
   document: doc,
   preselectedClientId  = null,
   preselectedPatientId = null,
+  session    = null,
+  sedeActual = null,
 }) {
   const { items: clients  }                              = useStore('clients');
   const { items: patients }                              = useStore('patients');
@@ -169,6 +171,22 @@ export default function DocumentModal({
     if (!win) return alert('Tu navegador bloqueó la ventana emergente. Permite las ventanas emergentes para este sitio.');
     win.document.write(html);
     win.document.close();
+
+    // Registrar impresión en signed_documents
+    if (patient) {
+      addSignedDoc({
+        document_id:     doc.id,
+        document_nombre: doc.nombre,
+        patient_id:      patient.id,
+        patient_name:    patient.name,
+        client_name:     client?.name || '',
+        signature_data:  null,
+        signed_at:       new Date().toLocaleDateString('es-CO'),
+        tipo:            'impresion',
+        sede_id:         sedeActual?.id   || null,
+        veterinario:     session?.nombre  || null,
+      });
+    }
   };
 
   if (!isOpen || !doc) return null;

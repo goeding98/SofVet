@@ -933,43 +933,86 @@ export default function PetDetailPage() {
       </Card>
 
       {/* ── Documents section ── */}
-      <Card title="Consentimientos y Documentos">
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(260px, 1fr))', gap:'1rem' }}>
-          {documents.map(doc => {
-            const sig = petSignedDocs.filter(s => s.document_id === doc.id).slice(-1)[0];
-            return (
-              <div
-                key={doc.id}
-                style={{ border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', padding:'1rem', display:'flex', flexDirection:'column', gap:'0.6rem', transition:'var(--transition)' }}
-                onMouseEnter={e => e.currentTarget.style.boxShadow = 'var(--shadow-sm)'}
-                onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
-              >
-                {/* Doc header */}
-                <div style={{ display:'flex', alignItems:'center', gap:'0.6rem' }}>
-                  <div style={{ width:40, height:40, borderRadius:'var(--radius-sm)', background:'var(--color-info-bg)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.2rem', flexShrink:0 }}>
-                    {doc.icono}
+      {(() => {
+        const SEDES_DOC = { 1:'Santa Mónica', 2:'Colseguros', 3:'Ciudad Jardín', 4:'Domicilio' };
+        const historial = [...petSignedDocs].sort((a, b) => b.id - a.id);
+        return (
+          <Card title="Consentimientos y Documentos">
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(260px, 1fr))', gap:'1rem' }}>
+              {documents.map(doc => {
+                const sig = petSignedDocs.filter(s => s.document_id === doc.id && s.tipo === 'firma').slice(-1)[0];
+                return (
+                  <div
+                    key={doc.id}
+                    style={{ border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', padding:'1rem', display:'flex', flexDirection:'column', gap:'0.6rem', transition:'var(--transition)' }}
+                    onMouseEnter={e => e.currentTarget.style.boxShadow = 'var(--shadow-sm)'}
+                    onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+                  >
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.6rem' }}>
+                      <div style={{ width:40, height:40, borderRadius:'var(--radius-sm)', background:'var(--color-info-bg)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.2rem', flexShrink:0 }}>
+                        {doc.icono}
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontWeight:600, fontSize:'0.82rem', color:'var(--color-text)', lineHeight:1.3 }}>{doc.nombre}</div>
+                        {sig
+                          ? <div style={{ fontSize:'0.7rem', color:'var(--color-success)', fontWeight:600, marginTop:'0.15rem' }}>✅ Firmado el {sig.signed_at}</div>
+                          : <div style={{ fontSize:'0.7rem', color:'var(--color-text-muted)', marginTop:'0.15rem' }}>Sin firmar</div>
+                        }
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setActiveDoc(doc)}
+                      style={{ padding:'0.4rem 0.75rem', background: sig ? 'var(--color-success-bg)' : 'var(--color-primary)', color: sig ? 'var(--color-success)' : 'white', border: sig ? '1px solid var(--color-success)' : 'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, transition:'var(--transition)' }}
+                    >
+                      {sig ? '📄 Ver / Reimprimir' : '📄 Generar documento'}
+                    </button>
                   </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontWeight:600, fontSize:'0.82rem', color:'var(--color-text)', lineHeight:1.3 }}>{doc.nombre}</div>
-                    {sig
-                      ? <div style={{ fontSize:'0.7rem', color:'var(--color-success)', fontWeight:600, marginTop:'0.15rem' }}>✅ Firmado el {sig.signed_at}</div>
-                      : <div style={{ fontSize:'0.7rem', color:'var(--color-text-muted)', marginTop:'0.15rem' }}>Sin firmar</div>
-                    }
-                  </div>
-                </div>
+                );
+              })}
+            </div>
 
-                {/* Action */}
-                <button
-                  onClick={() => setActiveDoc(doc)}
-                  style={{ padding:'0.4rem 0.75rem', background: sig ? 'var(--color-success-bg)' : 'var(--color-primary)', color: sig ? 'var(--color-success)' : 'white', border: sig ? '1px solid var(--color-success)' : 'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, transition:'var(--transition)' }}
-                >
-                  {sig ? '📄 Ver / Reimprimir' : '📄 Generar documento'}
-                </button>
+            {/* ── Historial de impresiones ── */}
+            {historial.length > 0 && (
+              <div style={{ marginTop:'1.5rem', borderTop:'1px solid var(--color-border)', paddingTop:'1.25rem' }}>
+                <div style={{ fontSize:'0.78rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:'var(--color-text-muted)', marginBottom:'0.75rem' }}>
+                  Historial de documentos generados
+                </div>
+                <div style={{ overflowX:'auto' }}>
+                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.8rem' }}>
+                    <thead>
+                      <tr style={{ background:'var(--color-bg)' }}>
+                        {['Fecha','Documento','Tipo','Sede','Generado por'].map(h => (
+                          <th key={h} style={{ padding:'0.5rem 0.75rem', textAlign:'left', fontWeight:600, color:'var(--color-text-muted)', borderBottom:'1px solid var(--color-border)', whiteSpace:'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historial.map((r, i) => (
+                        <tr key={r.id || i} style={{ borderBottom:'1px solid var(--color-border)' }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <td style={{ padding:'0.5rem 0.75rem', whiteSpace:'nowrap', color:'var(--color-text-muted)' }}>{r.signed_at || '—'}</td>
+                          <td style={{ padding:'0.5rem 0.75rem', fontWeight:500, color:'var(--color-text)' }}>{r.document_nombre || '—'}</td>
+                          <td style={{ padding:'0.5rem 0.75rem' }}>
+                            {r.tipo === 'firma'
+                              ? <span style={{ background:'var(--color-success-bg)', color:'var(--color-success)', borderRadius:'var(--radius-full)', padding:'0.15rem 0.55rem', fontSize:'0.72rem', fontWeight:600 }}>✍️ Firma</span>
+                              : <span style={{ background:'var(--color-info-bg)', color:'var(--color-info)', borderRadius:'var(--radius-full)', padding:'0.15rem 0.55rem', fontSize:'0.72rem', fontWeight:600 }}>🖨️ Impresión</span>
+                            }
+                          </td>
+                          <td style={{ padding:'0.5rem 0.75rem', color:'var(--color-text-muted)' }}>{r.sede_id ? SEDES_DOC[r.sede_id] : '—'}</td>
+                          <td style={{ padding:'0.5rem 0.75rem', color:'var(--color-text-muted)' }}>{r.veterinario || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            );
-          })}
-        </div>
-      </Card>
+            )}
+          </Card>
+        );
+      })()}
+
 
       {/* Modals */}
       <VacunaModal isOpen={vacunaModal} onClose={() => { setVacunaModal(false); setEditingVacuna(null); }} onSave={handleSaveVacuna} pet={pet} initialData={editingVacuna} />
@@ -1052,6 +1095,8 @@ export default function PetDetailPage() {
         document={activeDoc}
         preselectedClientId={pet.client_id}
         preselectedPatientId={pet.id}
+        session={session}
+        sedeActual={sedeActual}
       />
 
       {/* Editar HC confirmation */}

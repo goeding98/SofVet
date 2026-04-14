@@ -199,6 +199,50 @@ const documents = [
     <div style="text-align:center;"><div style="border-bottom:1px solid #333;height:50px;margin-bottom:8px;"></div><p style="margin:0;font-size:13px;"><strong>Personal Autorizado</strong><br>Cargo: _______________<br>Firma y Sello</p></div>
   </div></div>`,
   },
+
+  /* ── 7. Deslinde Informado ────────────────────────────────────────────── */
+  {
+    id: 7,
+    nombre: 'Deslinde Informado',
+    icono: '⚠️',
+    descripcion: 'Retiro voluntario del paciente de hospitalización contra indicación médica.',
+    template: `<div style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:30px;color:#1a1a1a;">
+  <div style="text-align:center;border-bottom:3px solid #c0392b;padding-bottom:16px;margin-bottom:24px;">
+    <h1 style="font-size:20px;color:#c0392b;margin:0 0 4px;">DESLINDE INFORMADO</h1>
+    <p style="margin:0;font-size:13px;color:#666;">Fecha: <strong>{{fecha}}</strong></p>
+  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px;">
+    <tr><td style="padding:6px 10px;border:1px solid #dde8e6;background:#f4f7f6;font-weight:bold;width:35%;">Procedimiento / Actividad / Tratamiento</td><td style="padding:6px 10px;border:1px solid #dde8e6;">_______________________________________________</td></tr>
+    <tr><td style="padding:6px 10px;border:1px solid #dde8e6;background:#f4f7f6;font-weight:bold;">Nombre del propietario</td><td style="padding:6px 10px;border:1px solid #dde8e6;">{{nombre_cliente}}</td></tr>
+    <tr><td style="padding:6px 10px;border:1px solid #dde8e6;background:#f4f7f6;font-weight:bold;">Documento</td><td style="padding:6px 10px;border:1px solid #dde8e6;">{{cedula_cliente}}</td></tr>
+    <tr><td style="padding:6px 10px;border:1px solid #dde8e6;background:#f4f7f6;font-weight:bold;">Paciente</td><td style="padding:6px 10px;border:1px solid #dde8e6;">{{nombre_mascota}}</td></tr>
+    <tr><td style="padding:6px 10px;border:1px solid #dde8e6;background:#f4f7f6;font-weight:bold;">Especie / Raza</td><td style="padding:6px 10px;border:1px solid #dde8e6;">{{especie}} / {{raza}}</td></tr>
+    <tr><td style="padding:6px 10px;border:1px solid #dde8e6;background:#f4f7f6;font-weight:bold;">Edad / Sexo</td><td style="padding:6px 10px;border:1px solid #dde8e6;">{{edad}} / {{sexo}}</td></tr>
+    <tr><td style="padding:6px 10px;border:1px solid #dde8e6;background:#f4f7f6;font-weight:bold;">N° Historia Clínica</td><td style="padding:6px 10px;border:1px solid #dde8e6;">{{numero_historia}}</td></tr>
+  </table>
+  <div style="background:#fff8f8;border:1px solid #f5c6c2;border-radius:6px;padding:16px 20px;margin-bottom:24px;font-size:13px;line-height:1.7;">
+    <p style="margin:0;">Entiendo que este procedimiento hace parte del plan de tratamiento instaurado para mi mascota y que el médico posee la idoneidad y el entrenamiento suficiente. Me han sido explicadas las implicaciones y posibles complicaciones por su no realización. No obstante, <strong>me niego al mismo</strong>, asumiendo los riesgos bajo mi propia responsabilidad y en constancia de ello firmo.</p>
+  </div>
+  <div style="margin-bottom:32px;">
+    <p style="font-size:13px;font-weight:bold;margin-bottom:4px;">FIRMA DEL TUTOR</p>
+    <div style="border-bottom:1px solid #333;height:50px;max-width:400px;margin-bottom:8px;"></div>
+    <p style="margin:0;font-size:12px;color:#555;"><strong>{{nombre_cliente}}</strong> &nbsp;·&nbsp; C.C. {{cedula_cliente}}</p>
+  </div>
+  <div style="border-top:1px solid #dde8e6;padding-top:20px;">
+    <p style="font-size:13px;margin-bottom:16px;">Certifico que he explicado la naturaleza, propósito, ventajas y riesgos del procedimiento y he contestado todas las preguntas. Considero que el propietario comprende todo lo explicado.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;">
+      <div>
+        <p style="font-size:13px;font-weight:bold;margin-bottom:4px;">FIRMA DEL MÉDICO VETERINARIO</p>
+        <div style="border-bottom:1px solid #333;height:50px;margin-bottom:8px;"></div>
+        <p style="margin:0;font-size:12px;color:#555;">Matrícula Profesional: _______________</p>
+      </div>
+      <div style="display:flex;align-items:flex-end;">
+        <p style="font-size:11px;color:#888;font-style:italic;margin:0;">Este documento exime de responsabilidad al médico veterinario y al establecimiento por las consecuencias derivadas del retiro voluntario del paciente contra indicación médica (Ley 576/2000).</p>
+      </div>
+    </div>
+  </div>
+</div>`,
+  },
 ];
 
 export default documents;
