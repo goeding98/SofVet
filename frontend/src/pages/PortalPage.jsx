@@ -317,6 +317,7 @@ export default function PortalPage() {
       status:       'pendiente',
       sede_id:      gSede,
       notes:        `Motivo: ${gMotivo.trim()} | Cédula: ${gCedula.trim()}`,
+      source:       'portal',
     });
     setGSaving(false);
     if (error) return setGErr('Error al agendar: ' + error.message);
@@ -362,6 +363,7 @@ export default function PortalPage() {
       time_end:     addMin(agTime, DUR[agTipo]),
       status:       'pendiente',
       sede_id:      agSede,
+      source:       'portal',
     });
     setAgSaving(false);
     if (error) return setAgErr('Error al agendar: ' + error.message);
@@ -1029,9 +1031,9 @@ export default function PortalPage() {
                   <div style={{ marginBottom:'1rem' }}>
                     <label style={{ display:'block', fontSize:'0.7rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:C.muted, marginBottom:'0.4rem' }}>Tipo de cita</label>
                     <div style={{ display:'flex', gap:'0.5rem' }}>
-                      {['Consulta General','Control'].map(t => (
+                      {['Consulta General'].map(t => (
                         <button key={t} onClick={()=>{ setAgTipo(t); setAgTime(null); setAgSlots(null); if(agSede&&agDate) loadAgSlots(agDate,agSede,t); }} style={{ flex:1, padding:'0.6rem 0.5rem', border:`2px solid ${agTipo===t?C.teal:C.border}`, borderRadius:10, background:agTipo===t?C.tealLight:'white', color:agTipo===t?C.teal:C.text, cursor:'pointer', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:agTipo===t?700:400, textAlign:'center' }}>
-                          {t === 'Consulta General' ? '🩺 Consulta General' : '🔁 Control'}
+                          🩺 Consulta General
                         </button>
                       ))}
                     </div>

@@ -64,25 +64,32 @@ const labelSt = { display:'block', fontSize:'0.72rem', fontWeight:700, marginBot
 const inputSt = { width:'100%', padding:'0.55rem 0.75rem', fontFamily:'var(--font-body)', fontSize:'0.875rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)' };
 
 // ── Appointment block (positioned in grid) ───────────────────────────────────
+const SOURCE_LABEL = { portal: '🌐 Portal', app: '📱 App' };
+
 function AptBlock({ apt, isAdmin, onEdit, onDelete }) {
   const startMins = timeToMins(apt.time);
   if (startMins === null || startMins < START_HOUR*60 || startMins >= END_HOUR*60) return null;
   const endMins = apt.time_end ? timeToMins(apt.time_end) : startMins + defaultDuration(apt.service);
   const duration = Math.max(15, (endMins || startMins + 40) - startMins);
-  const { color, bg } = sc(apt.sede_id);
+
+  const isExternal = apt.source === 'portal' || apt.source === 'app';
+  const { color, bg } = isExternal
+    ? { color: '#6d28d9', bg: '#ede9fe' }
+    : sc(apt.sede_id);
+
   const top    = minsToTop(startMins);
   const height = (duration / 60) * ROW_H - 2;
   return (
     <div
       onClick={e => { e.stopPropagation(); isAdmin && onEdit(apt); }}
-      title={`${apt.time}${apt.time_end ? '–'+apt.time_end : ''} · ${apt.patient_name} · ${apt.service}${apt.consultorio ? ' · '+apt.consultorio : ''}`}
+      title={`${apt.time}${apt.time_end ? '–'+apt.time_end : ''} · ${apt.patient_name} · ${apt.service}${apt.consultorio ? ' · '+apt.consultorio : ''}${isExternal ? ' · '+SOURCE_LABEL[apt.source] : ''}`}
       style={{ position:'absolute', top:top+1, left:2, right:2, height, background:bg, borderLeft:`3px solid ${color}`, borderRadius:4, padding:'3px 5px 3px 6px', overflow:'hidden', cursor:isAdmin?'pointer':'default', zIndex:2, boxShadow:'0 1px 3px rgba(0,0,0,0.1)' }}
     >
       <div style={{ fontSize:'0.68rem', fontWeight:700, color, lineHeight:1.3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
         {apt.time}{apt.time_end ? `–${apt.time_end}` : ''} {apt.patient_name}
       </div>
       <div style={{ fontSize:'0.6rem', color, opacity:0.8, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-        🩺 {apt.service}{apt.consultorio ? ` · ${apt.consultorio}` : ''}
+        {isExternal ? SOURCE_LABEL[apt.source] : '🩺'} {apt.service}{apt.consultorio ? ` · ${apt.consultorio}` : ''}
       </div>
       {isAdmin && (
         <button onClick={e=>{e.stopPropagation();onDelete(apt);}}
