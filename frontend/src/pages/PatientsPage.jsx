@@ -80,10 +80,22 @@ export default function PatientsPage() {
     const age = form.fecha_nacimiento
       ? Math.floor((new Date() - new Date(form.fecha_nacimiento)) / (365.25 * 24 * 3600 * 1000))
       : parseInt(form.age) || 0;
+
+    // Auto-assign next no_historia for new patients
+    let no_historia = form.no_historia;
+    if (!editId && !no_historia) {
+      const maxNum = patients.reduce((max, p) => {
+        const n = parseInt(p.no_historia || '0', 10);
+        return n > max ? n : max;
+      }, 0);
+      no_historia = String(maxNum + 1).padStart(4, '0');
+    }
+
     const payload = {
       ...form,
       age,
       weight:   parseFloat(form.weight) || 0,
+      no_historia,
       created_at: editId
         ? (patients.find(p => p.id === editId)?.created_at || new Date().toISOString().split('T')[0])
         : new Date().toISOString().split('T')[0],
@@ -97,6 +109,11 @@ export default function PatientsPage() {
   };
 
   const columns = [
+    { key: 'no_historia', label: 'HC', render: v => (
+      <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.78rem', color: 'var(--color-primary)', background: 'var(--color-info-bg)', padding: '2px 7px', borderRadius: 6 }}>
+        #{v || '—'}
+      </span>
+    )},
     { key: 'name', label: 'Mascota', render: (v, row) => (
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <span style={{ fontSize: '1.3rem' }}>{speciesIcon(row.species)}</span>

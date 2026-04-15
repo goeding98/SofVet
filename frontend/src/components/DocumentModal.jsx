@@ -196,7 +196,6 @@ export default function DocumentModal({
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div
-      onClick={onClose}
       style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1100, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem', backdropFilter:'blur(3px)' }}
     >
       <div

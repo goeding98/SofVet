@@ -76,32 +76,25 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav style={{ flex: 1, padding: '0.65rem 0', overflowY: 'auto' }}>
-        {session?.rol === 'Caja' ? (
-          <>
-            <SectionLabel>Agenda</SectionLabel>
-            <MenuItem item={{ path: '/appointments', label: 'Agenda', icon: '📅' }} />
-          </>
-        ) : (
-          <>
-            <SectionLabel>General</SectionLabel>
-            {generalItems.map(item => <MenuItem key={item.path} item={item} />)}
+        <>
+          <SectionLabel>General</SectionLabel>
+          {generalItems.map(item => <MenuItem key={item.path} item={item} />)}
 
-            <SectionLabel>Servicios</SectionLabel>
-            {serviciosItems.map(item => <MenuItem key={item.path} item={item} />)}
+          <SectionLabel>Servicios</SectionLabel>
+          {serviciosItems.map(item => <MenuItem key={item.path} item={item} />)}
 
-            <SectionLabel>Otros</SectionLabel>
-            {otrosItems.map(item => <MenuItem key={item.path} item={item} />)}
+          <SectionLabel>Otros</SectionLabel>
+          {otrosItems.map(item => <MenuItem key={item.path} item={item} />)}
 
-            {session?.rol === 'Administrador' && (
-              <>
-                <SectionLabel>Administración</SectionLabel>
-                <MenuItem item={{ path: '/users',       label: 'Usuarios',       icon: '👥' }} />
-                <MenuItem item={{ path: '/import',      label: 'Importar datos', icon: '⬇️' }} />
-                <MenuItem item={{ path: '/hc-requests', label: 'Hist. Clínicas', icon: '📄' }} badge={hcPending} />
-              </>
-            )}
-          </>
-        )}
+          {session?.rol === 'Administrador' && (
+            <>
+              <SectionLabel>Administración</SectionLabel>
+              <MenuItem item={{ path: '/users',       label: 'Usuarios',       icon: '👥' }} />
+              <MenuItem item={{ path: '/import',      label: 'Importar datos', icon: '⬇️' }} />
+              <MenuItem item={{ path: '/hc-requests', label: 'Hist. Clínicas', icon: '📄' }} badge={hcPending} />
+            </>
+          )}
+        </>
       </nav>
 
       {/* User / Logout */}

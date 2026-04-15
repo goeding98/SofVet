@@ -102,6 +102,8 @@ function buildPDFHtml(formula, pet, client) {
         : `<table>${rows}</table>`}
     </div>
 
+    ${formula.observaciones ? `<div style="margin-bottom:16px;padding:10px 14px;background:#f4f8f7;border-left:3px solid ${BRAND.tealLt};border-radius:0 4px 4px 0;font-size:11px"><div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#888;letter-spacing:0.05em;margin-bottom:4px">Observaciones</div><div style="color:#333;line-height:1.5">${formula.observaciones}</div></div>` : ''}
+
     <div class="vet-sig">
       <div class="line"></div>
       <div class="label">${formula.veterinario || 'Médico Veterinario'}</div>
@@ -171,7 +173,6 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
 
   return (
     <div
-      onClick={onClose}
       style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:1000, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'2rem 1rem', backdropFilter:'blur(2px)', overflowY:'auto' }}
     >
       <div
@@ -248,10 +249,19 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
                   </div>
                 </div>
 
-                {/* Vet */}
-                {f.veterinario && (
-                  <div style={{ padding:'0.5rem 1rem', background:BRAND.bgRow, borderBottom:`1px solid ${BRAND.tealLt}`, fontSize:'0.78rem', color:'var(--color-text-muted)' }}>
-                    👨‍⚕️ <strong style={{ color:'var(--color-text)' }}>{f.veterinario}</strong>
+                {/* Vet + Observaciones */}
+                {(f.veterinario || f.observaciones) && (
+                  <div style={{ padding:'0.5rem 1rem', background:BRAND.bgRow, borderBottom:`1px solid ${BRAND.tealLt}`, fontSize:'0.78rem', display:'flex', flexDirection:'column', gap:'0.25rem' }}>
+                    {f.veterinario && (
+                      <div style={{ color:'var(--color-text-muted)' }}>
+                        👨‍⚕️ <strong style={{ color:'var(--color-text)' }}>{f.veterinario}</strong>
+                      </div>
+                    )}
+                    {f.observaciones && (
+                      <div style={{ color:'var(--color-text-muted)' }}>
+                        📝 <span style={{ color:'var(--color-text)' }}>{f.observaciones}</span>
+                      </div>
+                    )}
                   </div>
                 )}
 

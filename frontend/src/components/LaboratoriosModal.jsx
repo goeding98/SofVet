@@ -127,7 +127,7 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, onEdit, pet
   // ── BLOCKED: no pending labs (only in new mode) ────────────────────────────
   if (!isEditMode && solicitados.length === 0) {
     return (
-      <div onClick={handleClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'2rem 1rem', backdropFilter:'blur(2px)' }}>
+      <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'2rem 1rem', backdropFilter:'blur(2px)' }}>
         <div onClick={e=>e.stopPropagation()} style={{ background:'var(--color-white)', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-lg)', width:'100%', maxWidth:440, overflow:'hidden' }}>
           <div style={{ padding:'1.25rem 1.5rem', borderBottom:'1px solid var(--color-border)', background:'#fff8e1', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
             <h3 style={{ fontFamily:'var(--font-title)', color:'#b8860b', fontSize:'1.1rem', margin:0 }}>🧪 Subir Resultado</h3>
@@ -148,7 +148,7 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, onEdit, pet
 
   // ── MODAL ──────────────────────────────────────────────────────────────────
   return (
-    <div onClick={handleClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'2rem 1rem', backdropFilter:'blur(2px)', overflowY:'auto' }}>
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'2rem 1rem', backdropFilter:'blur(2px)', overflowY:'auto' }}>
       <div onClick={e=>e.stopPropagation()} style={{ background:'var(--color-white)', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-lg)', width:'100%', maxWidth:540, margin:'auto', overflow:'hidden' }}>
 
         <div style={{ padding:'1.25rem 1.5rem', borderBottom:'1px solid var(--color-border)', background: isEditMode ? '#fff8f0' : '#f0fdf4', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
