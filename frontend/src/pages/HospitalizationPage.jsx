@@ -111,10 +111,12 @@ export default function HospitalizationPage() {
   useEffect(() => { refreshHosps(); }, []);  // eslint-disable-line react-hooks/exhaustive-deps
   const { items: patients, edit: editPatient }               = useStore('patients');
 
-  const [hospSedeFilter, setHospSedeFilter] = useState(null);
   const isAdmin    = session?.rol === 'Administrador';
   const isAuxiliar = session?.rol === 'Auxiliar';
   const isMedico   = session?.rol === 'Médico' || session?.rol === 'Administrador';
+  // Domicilio (id=4) users and admins can see all sedes; others see only their sede
+  const canSeeAllSedes = isAdmin || session?.sede_id === 4;
+  const [hospSedeFilter, setHospSedeFilter] = useState(canSeeAllSedes ? null : session?.sede_id || null);
 
   // ── view state ─────────────────────────────────────────────────────────
   const [selectedId,     setSelectedId]     = useState(null);
@@ -322,14 +324,16 @@ export default function HospitalizationPage() {
           title={`Pacientes hospitalizados ahora (${activos.length})`}
           action={
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <select
-                value={hospSedeFilter ?? ''}
-                onChange={e => setHospSedeFilter(e.target.value === '' ? null : parseInt(e.target.value))}
-                style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', cursor: 'pointer' }}
-              >
-                <option value="">Todas las sedes</option>
-                {SEDES.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-              </select>
+              {canSeeAllSedes && (
+                <select
+                  value={hospSedeFilter ?? ''}
+                  onChange={e => setHospSedeFilter(e.target.value === '' ? null : parseInt(e.target.value))}
+                  style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', cursor: 'pointer' }}
+                >
+                  <option value="">Todas las sedes</option>
+                  {SEDES.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                </select>
+              )}
               <button
                 onClick={() => setShowNoCobradas(v => !v)}
                 style={{ padding: '0.35rem 0.85rem', borderRadius: 999, border: '1px solid #b8860b', fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 600, background: showNoCobradas ? '#b8860b' : '#fff8e1', color: showNoCobradas ? 'white' : '#b8860b' }}

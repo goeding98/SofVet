@@ -14,6 +14,8 @@ export default function LaboratoriosPage() {
   const { session } = useAuth();
 
   const isMedico = session?.rol === 'Médico' || session?.rol === 'Administrador';
+  // Domicilio (id=4) users and admins can see all sedes; others see only their sede + Domicilio
+  const canSeeAllSedes = isAdmin || session?.sede_id === 4;
 
   const [sedeFilter,  setSedeFilter]  = useState(sedeActual || null);
   const [showHistory, setShowHistory] = useState(false);
@@ -23,27 +25,33 @@ export default function LaboratoriosPage() {
   const [editingLab,  setEditingLab]  = useState(null); // { lab, pedido } being edited
   const [editModal,   setEditModal]   = useState(false);
 
+  // For restricted users: only their sede + Domicilio (sede 4)
+  const sedePermitida = (sede_id) => {
+    if (canSeeAllSedes) return sedeFilter === null ? true : sede_id === sedeFilter;
+    return sede_id === session?.sede_id || sede_id === 4;
+  };
+
   const sinReportar = useMemo(() =>
     pedidos
       .filter(p => p.estado === 'Subido SIN REPORTAR')
-      .filter(p => sedeFilter === null ? true : p.sede_id === sedeFilter)
+      .filter(p => sedePermitida(p.sede_id))
       .sort((a, b) => a.fecha_solicitado?.localeCompare(b.fecha_solicitado)),
-    [pedidos, sedeFilter]);
+    [pedidos, sedeFilter, canSeeAllSedes]);
 
   const ultimos30 = useMemo(() =>
     pedidos
       .filter(p => p.estado === 'Reportado')
-      .filter(p => sedeFilter === null ? true : p.sede_id === sedeFilter)
+      .filter(p => sedePermitida(p.sede_id))
       .sort((a, b) => b.fecha_reportado?.localeCompare(a.fecha_reportado))
       .slice(0, 30),
-    [pedidos, sedeFilter]);
+    [pedidos, sedeFilter, canSeeAllSedes]);
 
   const solicitados = useMemo(() =>
     pedidos
       .filter(p => p.estado === 'Solicitado')
-      .filter(p => sedeFilter === null ? true : p.sede_id === sedeFilter)
+      .filter(p => sedePermitida(p.sede_id))
       .sort((a, b) => a.fecha_solicitado?.localeCompare(b.fecha_solicitado)),
-    [pedidos, sedeFilter]);
+    [pedidos, sedeFilter, canSeeAllSedes]);
 
   const handleReportar = async (p) => {
     setSaving(p.id);
@@ -76,8 +84,8 @@ export default function LaboratoriosPage() {
         </p>
       </div>
 
-      {/* Sede filter */}
-      {(isAdmin || sedesUsadas.length > 1) && (
+      {/* Sede filter — solo visible para admin y usuarios Domicilio */}
+      {canSeeAllSedes && (isAdmin || sedesUsadas.length > 1) && (
         <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap', marginBottom:'1.25rem' }}>
           {isAdmin && (
             <button onClick={() => setSedeFilter(null)}
