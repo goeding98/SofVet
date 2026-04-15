@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import Button from './Button';
 
-export default function Modal({ isOpen, onClose, title, children, onSave, saveLabel = 'Guardar', size = 'md', extraFooter = null }) {
+export default function Modal({ isOpen, onClose, title, children, onSave, saveLabel = 'Guardar', size = 'md', extraFooter = null, leftFooter = null }) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -83,11 +83,15 @@ export default function Modal({ isOpen, onClose, title, children, onSave, saveLa
           borderTop: '1px solid var(--color-border)',
           display: 'flex',
           gap: '0.75rem',
-          justifyContent: 'flex-end',
+          justifyContent: 'space-between',
+          alignItems: 'center',
         }}>
-          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          {extraFooter}
-          {onSave && <Button variant="primary" onClick={onSave}>{saveLabel}</Button>}
+          <div>{leftFooter}</div>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+            {extraFooter}
+            {onSave && <Button variant="primary" onClick={onSave}>{saveLabel}</Button>}
+          </div>
         </div>
       </div>
     </div>
