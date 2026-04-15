@@ -37,7 +37,7 @@ export default function PetDetailPage() {
   const { items: consultations, add: addConsultation, edit: editConsultation, remove: removeConsultation } = useStore('consultations');
   const { items: vaccines, add: addVaccine, edit: editVaccine } = useStore('vaccines');
   const { items: imagingRecords, add: addImaging }     = useStore('imaging');
-  const { items: formulas, add: addFormula }           = useStore('formulas_medicas');
+  const { items: formulas, add: addFormula, edit: editFormula } = useStore('formulas_medicas');
   const { items: procedimientos, add: addProcedimiento, edit: editProcedimiento } = useStore('procedimientos');
   const { items: laboratorios, add: addLaboratorio, edit: editLaboratorio } = useStore('laboratorios');
   const { items: hospReports, add: addHospReport, edit: editHospReport, remove: removeHospReport } = useStore('hospitalization_reports');
@@ -222,9 +222,18 @@ export default function PetDetailPage() {
     if (editingConsult) {
       // Editing existing consultation
       editConsultation(editingConsult.id, { ...cleaned, estado: 'completada' });
-      // If completing an incomplete consult, also create formula/labs
+      // Always handle formula when editing: create if new, update if already exists
+      if (formula_productos.length > 0) {
+        const existingFormula = formulas.find(f => f.patient_id === petId && f.fecha === data.date);
+        if (existingFormula) {
+          editFormula(existingFormula.id, { productos: formula_productos, observaciones: data.observaciones || null, veterinario: existingFormula.veterinario || session?.nombre || null });
+        } else {
+          await _createFormulaAndLabs({ ...data, formula_productos, labs_pedidos: [] }, petId, pet);
+        }
+      }
+      // If completing an incomplete consult, also create labs
       if (editingConsult.estado === 'incompleta') {
-        await _createFormulaAndLabs({ ...data, formula_produtos: formula_productos, labs_pedidos }, petId, pet);
+        await _createFormulaAndLabs({ ...data, formula_productos: [], labs_pedidos }, petId, pet);
       }
     } else {
       // New consultation
