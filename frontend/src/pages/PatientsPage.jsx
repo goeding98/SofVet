@@ -74,7 +74,7 @@ export default function PatientsPage() {
     setModal(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.client_id) return alert('Debes seleccionar un cliente propietario.');
     if (!validatePet(form)) return;
     const age = form.fecha_nacimiento
@@ -88,7 +88,7 @@ export default function PatientsPage() {
         const n = parseInt(p.no_historia || '0', 10);
         return n > max ? n : max;
       }, 0);
-      no_historia = String(maxNum + 1).padStart(4, '0');
+      no_historia = String(maxNum + 1);
     }
 
     const payload = {
@@ -100,7 +100,16 @@ export default function PatientsPage() {
         ? (patients.find(p => p.id === editId)?.created_at || new Date().toISOString().split('T')[0])
         : new Date().toISOString().split('T')[0],
     };
-    editId ? edit(editId, payload) : add(payload);
+
+    if (editId) {
+      edit(editId, payload);
+    } else {
+      const result = await add(payload);
+      // If Supabase didn't return no_historia (ignored on INSERT), force it via UPDATE
+      if (result && !result.no_historia && no_historia) {
+        edit(result.id, { no_historia });
+      }
+    }
     setModal(false);
   };
 
