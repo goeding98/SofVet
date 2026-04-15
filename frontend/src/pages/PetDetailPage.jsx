@@ -34,7 +34,7 @@ export default function PetDetailPage() {
   const { items: patients, loading: loadingPatients } = useStore('patients');
   const { items: clients }     = useStore('clients');
   const { items: prepagada }   = useStore('prepagada');
-  const { items: consultations, add: addConsultation, edit: editConsultation } = useStore('consultations');
+  const { items: consultations, add: addConsultation, edit: editConsultation, remove: removeConsultation } = useStore('consultations');
   const { items: vaccines, add: addVaccine, edit: editVaccine } = useStore('vaccines');
   const { items: imagingRecords, add: addImaging }     = useStore('imaging');
   const { items: formulas, add: addFormula }           = useStore('formulas_medicas');
@@ -1022,6 +1022,7 @@ export default function PetDetailPage() {
         onClose={closeConsultModal}
         onSave={handleSaveConsultation}
         onSaveDraft={handleSaveDraft}
+        onDelete={(id) => { removeConsultation(id); setConsultModal(false); setEditingConsult(null); }}
         pet={pet}
         initialData={editingConsult}
         mode={editingConsult ? (editingConsult.estado === 'incompleta' ? 'incomplete' : 'edit') : 'new'}

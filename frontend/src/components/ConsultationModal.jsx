@@ -51,13 +51,15 @@ const SectionHeader = ({ icon, title, color='var(--color-primary)' }) => (
 );
 
 // mode: 'new' | 'incomplete' | 'edit'
-export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft, pet, initialData = null, mode = 'new' }) {
+export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft, onDelete, pet, initialData = null, mode = 'new' }) {
   const { sedeActual, isAdmin } = useSede();
   const [form, setForm] = useState(makeEmpty);
   const [sedeId, setSedeId] = useState(sedeActual || 1);
+  const [confirmDel, setConfirmDel] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
+      setConfirmDel(false);
       if (initialData) {
         setForm({
           ...makeEmpty(),
@@ -356,6 +358,28 @@ export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft
         {form.labs_pedidos.length > 0 && (
           <div style={{ background:'#e8f5ee', border:'1px solid #2e7d50', borderRadius:'var(--radius-sm)', padding:'0.5rem 0.85rem', fontSize:'0.75rem', color:'#2e7d50', marginTop:'0.5rem' }}>
             ✅ Se crearán <strong>{form.labs_pedidos.length}</strong> pedido{form.labs_pedidos.length !== 1 ? 's' : ''} de laboratorio al guardar esta consulta.
+          </div>
+        )}
+
+        {/* Eliminar — solo en modo edición */}
+        {mode === 'edit' && onDelete && (
+          <div style={{ marginTop:'1.5rem', borderTop:'1px solid var(--color-border)', paddingTop:'1rem' }}>
+            {!confirmDel ? (
+              <button
+                onClick={() => setConfirmDel(true)}
+                style={{ width:'100%', padding:'0.55rem', background:'none', border:'1px solid #e8c0bb', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.82rem', color:'var(--color-danger)', fontWeight:500 }}
+              >
+                🗑️ Eliminar esta consulta
+              </button>
+            ) : (
+              <div style={{ background:'#fdecea', border:'1px solid #f5c6c2', borderRadius:'var(--radius-md)', padding:'0.75rem 1rem', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'0.75rem' }}>
+                <span style={{ fontSize:'0.82rem', color:'var(--color-danger)', fontWeight:600 }}>¿Eliminar esta consulta permanentemente?</span>
+                <div style={{ display:'flex', gap:'0.5rem', flexShrink:0 }}>
+                  <button onClick={() => setConfirmDel(false)} style={{ padding:'0.35rem 0.85rem', background:'white', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.8rem', color:'var(--color-text-muted)' }}>No</button>
+                  <button onClick={() => onDelete(initialData.id)} style={{ padding:'0.35rem 0.85rem', background:'var(--color-danger)', color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.8rem', fontWeight:700 }}>Sí, eliminar</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
