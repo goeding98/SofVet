@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
@@ -105,7 +105,10 @@ function fmtNoche(dateStr) {
 export default function HospitalizationPage() {
   const navigate = useNavigate();
   const { session } = useAuth();
-  const { items: hosps, edit: editHosp, remove: removeHosp } = useStore('hospitalization');
+  const { items: hosps, edit: editHosp, remove: removeHosp, refresh: refreshHosps } = useStore('hospitalization');
+
+  // Forzar datos frescos al entrar — múltiples usuarios editan hospitalizaciones simultáneamente
+  useEffect(() => { refreshHosps(); }, []);  // eslint-disable-line react-hooks/exhaustive-deps
   const { items: patients, edit: editPatient }               = useStore('patients');
 
   const [hospSedeFilter, setHospSedeFilter] = useState(null);
