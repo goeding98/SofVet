@@ -208,8 +208,9 @@ export default function AppointmentsPage() {
   const location = useLocation();
   const navState = location.state;
 
-  const isAdminUser = session?.rol === 'Administrador';
-  const today       = new Date();
+  const isAdminUser   = session?.rol === 'Administrador';
+  const canManageApts = session?.rol === 'Administrador' || session?.rol === 'Caja';
+  const today         = new Date();
   const todayStr    = localDateStr(today);
 
   const [viewMode,   setViewMode]   = useState('week');
@@ -274,7 +275,7 @@ export default function AppointmentsPage() {
 
   // Auto-open new form if navigated from pet dashboard
   useEffect(() => {
-    if (navState?.patient_name && isAdminUser) {
+    if (navState?.patient_name && canManageApts) {
       const f = mkForm(todayStr, '09:00', sedeFilter);
       setForm({ ...f, patient_name: navState.patient_name, owner: navState.owner || '' });
       setEditId(null); setModal(true);
@@ -301,13 +302,13 @@ export default function AppointmentsPage() {
   };
 
   const openAdd = (dateStr, timeStr) => {
-    if (!isAdminUser) return;
+    if (!canManageApts) return;
     setCedula(''); setFoundClient(null); setCedulaMsg('');
     setForm(mkForm(dateStr||anchor, timeStr||'09:00', sedeFilter));
     setEditId(null); setModal(true);
   };
   const openEdit = (apt) => {
-    if (!isAdminUser) return;
+    if (!canManageApts) return;
     setCedula(''); setFoundClient(null); setCedulaMsg('');
     setForm({...apt}); setEditId(apt.id); setModal(true);
   };
@@ -317,7 +318,7 @@ export default function AppointmentsPage() {
     setModal(false);
   };
   const handleDelete = (apt) => {
-    if (!isAdminUser) return;
+    if (!canManageApts) return;
     if (confirm(`¿Eliminar cita de ${apt.patient_name}?`)) remove(apt.id);
   };
   const setF = (k, v) => setForm(f => {
@@ -474,7 +475,7 @@ export default function AppointmentsPage() {
           <button onClick={()=>nav(1)}  style={{width:30,height:30,border:'1px solid var(--color-border)',borderRadius:'var(--radius-sm)',background:'var(--color-white)',cursor:'pointer',fontSize:'1rem',display:'flex',alignItems:'center',justifyContent:'center'}}>›</button>
           <button onClick={goToday} style={{padding:'0.28rem 0.7rem',border:'1px solid var(--color-border)',borderRadius:'var(--radius-sm)',background:'var(--color-white)',cursor:'pointer',fontFamily:'var(--font-body)',fontSize:'0.75rem',color:'var(--color-text-muted)'}}>Hoy</button>
           <button onClick={refreshApts} title="Actualizar citas" style={{width:30,height:30,border:'1px solid var(--color-border)',borderRadius:'var(--radius-sm)',background:'var(--color-white)',cursor:'pointer',fontSize:'0.85rem',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--color-text-muted)'}}>🔄</button>
-          {isAdminUser&&(
+          {canManageApts&&(
             <button onClick={()=>openAdd(viewMode==='day'?anchor:todayStr)} style={{padding:'0.38rem 1rem',background:'var(--color-primary)',color:'white',border:'none',borderRadius:'var(--radius-sm)',cursor:'pointer',fontFamily:'var(--font-body)',fontSize:'0.82rem',fontWeight:700}}>
               + Nueva cita
             </button>
@@ -488,7 +489,7 @@ export default function AppointmentsPage() {
           days={weekDaysArr}
           aptsByDate={aptsByDate}
           todayStr={todayStr}
-          isAdmin={isAdminUser}
+          isAdmin={canManageApts}
           onCellClick={openAdd}
           onEdit={openEdit}
           onDelete={handleDelete}
@@ -499,7 +500,7 @@ export default function AppointmentsPage() {
           days={[anchor]}
           aptsByDate={aptsByDate}
           todayStr={todayStr}
-          isAdmin={isAdminUser}
+          isAdmin={canManageApts}
           onCellClick={openAdd}
           onEdit={openEdit}
           onDelete={handleDelete}

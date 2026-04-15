@@ -4,7 +4,7 @@ import { SEDES, sedeById } from '../utils/useSede';
 import Card from '../components/Card';
 import Button from '../components/Button';
 
-const ROLES = ['Administrador', 'Médico', 'Auxiliar'];
+const ROLES = ['Administrador', 'Médico', 'Auxiliar', 'Caja'];
 
 function generateTempPassword() {
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
@@ -17,6 +17,7 @@ const rolColors = {
   Administrador: { bg: '#e8f0ff', color: '#2e5cbf' },
   Médico:        { bg: 'var(--color-success-bg)', color: 'var(--color-success)' },
   Auxiliar:      { bg: 'var(--color-warning-bg)', color: 'var(--color-warning)' },
+  Caja:          { bg: '#f3e8ff', color: '#7c3aed' },
 };
 
 const estadoStyle = {
@@ -237,7 +238,7 @@ export default function UsersPage() {
               <div style={{ marginBottom: '1rem' }}>
                 <label style={labelStyle}>Rol *</label>
                 <select value={editForm.rol} onChange={e => setEditForm(f => ({ ...f, rol: e.target.value }))} style={{ width: '100%', padding: '0.6rem 0.75rem' }}>
-                  {['Administrador', 'Médico', 'Auxiliar'].map(r => <option key={r}>{r}</option>)}
+                  {ROLES.map(r => <option key={r}>{r}</option>)}
                 </select>
               </div>
               {editForm.rol !== 'Administrador' && (
