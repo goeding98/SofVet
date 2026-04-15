@@ -196,10 +196,11 @@ export default function PetDetailPage() {
 
   const _createFormulaAndLabs = async (data, petId, pet) => {
     const { formula_productos, labs_pedidos } = data;
-    if (formula_productos && formula_productos.length > 0) {
+    const hasFormula = (formula_productos && formula_productos.length > 0) || data.observaciones?.trim();
+    if (hasFormula) {
       let fxError = null;
       const fxResult = await addFormula(
-        { patient_id: petId, patient_name: pet.name, fecha: data.date || new Date().toISOString().split('T')[0], productos: formula_productos, estado: 'Pendiente', veterinario: session?.nombre || null, observaciones: data.observaciones || null },
+        { patient_id: petId, patient_name: pet.name, fecha: data.date || new Date().toISOString().split('T')[0], productos: formula_productos || [], estado: 'Pendiente', veterinario: session?.nombre || null, observaciones: data.observaciones || null },
         { onError: (msg) => { fxError = msg; } }
       );
       if (!fxResult) alert('⚠️ Error al guardar fórmula médica:\n\n' + fxError);
@@ -223,7 +224,8 @@ export default function PetDetailPage() {
       // Editing existing consultation
       editConsultation(editingConsult.id, { ...cleaned, estado: 'completada' });
       // Always handle formula when editing: create if new, update if already exists
-      if (formula_productos.length > 0) {
+      const hasFormulaData = formula_productos.length > 0 || data.observaciones?.trim();
+      if (hasFormulaData) {
         const existingFormula = formulas.find(f => f.patient_id === petId && f.fecha === data.date);
         if (existingFormula) {
           editFormula(existingFormula.id, { productos: formula_productos, observaciones: data.observaciones || null, veterinario: existingFormula.veterinario || session?.nombre || null });
@@ -1033,7 +1035,10 @@ export default function PetDetailPage() {
         onSaveDraft={handleSaveDraft}
         onDelete={(id) => { removeConsultation(id); setConsultModal(false); setEditingConsult(null); }}
         pet={pet}
-        initialData={editingConsult}
+        initialData={editingConsult ? {
+          ...editingConsult,
+          formula_productos: formulas.find(f => f.patient_id === petId && f.fecha === editingConsult.date)?.productos || editingConsult.formula_productos || [],
+        } : null}
         mode={editingConsult ? (editingConsult.estado === 'incompleta' ? 'incomplete' : 'edit') : 'new'}
       />
 
