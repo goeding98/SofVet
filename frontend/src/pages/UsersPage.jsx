@@ -31,7 +31,7 @@ const labelStyle = {
 };
 
 export default function UsersPage() {
-  const { session, users, createUser, editUser, deleteUser, toggleUserStatus } = useAuth();
+  const { session, users, createUser, editUser, deleteUser, toggleUserStatus, resetUserPassword } = useAuth();
 
   const [modal,         setModal]         = useState(false);
   const [form,          setForm]          = useState({ nombre: '', username: '', rol: 'Médico', sede_id: 1, tempPassword: '' });
@@ -40,9 +40,11 @@ export default function UsersPage() {
   const [error,         setError]         = useState('');
 
   // Edit modal
-  const [editModal, setEditModal] = useState(false);
-  const [editForm,  setEditForm]  = useState(null);
-  const [editError, setEditError] = useState('');
+  const [editModal,    setEditModal]    = useState(false);
+  const [editForm,     setEditForm]     = useState(null);
+  const [editError,    setEditError]    = useState('');
+  const [newPwd,       setNewPwd]       = useState('');
+  const [pwdSuccess,   setPwdSuccess]   = useState('');
 
   const openModal = () => {
     const pwd = generateTempPassword();
@@ -90,7 +92,25 @@ export default function UsersPage() {
   const openEdit = (user) => {
     setEditForm({ id: user.id, nombre: user.nombre, username: user.username || '', rol: user.rol, sede_id: user.sede_id || 1, estado: user.estado });
     setEditError('');
+    setNewPwd('');
+    setPwdSuccess('');
     setEditModal(true);
+  };
+
+  const handleGenEditPwd = () => {
+    const pwd = generateTempPassword();
+    setNewPwd(pwd);
+    setPwdSuccess('');
+  };
+
+  const handleResetPwd = async () => {
+    if (!newPwd.trim()) return setEditError('Escribe una contraseña nueva.');
+    if (newPwd.trim().length < 6) return setEditError('La contraseña debe tener al menos 6 caracteres.');
+    setEditError('');
+    const result = await resetUserPassword(editForm.id, newPwd.trim());
+    if (!result.success) return setEditError(result.error);
+    setPwdSuccess(`✅ Contraseña cambiada: "${newPwd.trim()}"`);
+    setNewPwd('');
   };
 
   const handleSaveEdit = async () => {
@@ -220,7 +240,7 @@ export default function UsersPage() {
 
       {/* Modal editar usuario */}
       {editModal && editForm && (
-        <div onClick={() => setEditModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(2px)' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(2px)' }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 480, overflow: 'hidden' }}>
             <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-bg)' }}>
               <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-primary)', fontSize: '1.1rem', margin: 0 }}>✏️ Editar usuario</h3>
@@ -257,6 +277,27 @@ export default function UsersPage() {
                 </select>
               </div>
 
+              {/* Cambiar contraseña */}
+              <div style={{ borderTop: '1px solid var(--color-border)', marginTop: '0.5rem', paddingTop: '1rem', marginBottom: '1rem' }}>
+                <label style={{ ...labelStyle, color: '#7c3aed' }}>🔑 Cambiar contraseña</label>
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                  <input
+                    value={newPwd}
+                    onChange={e => { setNewPwd(e.target.value); setPwdSuccess(''); }}
+                    placeholder="Nueva contraseña…"
+                    style={{ flex: 1, padding: '0.6rem 0.75rem', fontFamily: 'monospace', letterSpacing: '0.08em' }}
+                  />
+                  <button onClick={handleGenEditPwd} style={{ padding: '0.6rem 0.9rem', background: '#f3e8ff', color: '#7c3aed', border: '1px solid #c4b5fd', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', fontWeight: 500 }}>🔄 Generar</button>
+                  <button onClick={handleResetPwd} style={{ padding: '0.6rem 0.9rem', background: '#7c3aed', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', fontWeight: 600 }}>Guardar</button>
+                </div>
+                <p style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', margin: 0 }}>El usuario deberá cambiarla en su próximo ingreso.</p>
+                {pwdSuccess && (
+                  <div style={{ background: 'var(--color-success-bg)', border: '1px solid var(--color-success)', borderRadius: 'var(--radius-sm)', padding: '0.5rem 0.75rem', color: 'var(--color-success)', fontSize: '0.8rem', marginTop: '0.5rem', fontWeight: 500 }}>
+                    {pwdSuccess}
+                  </div>
+                )}
+              </div>
+
               {editError && (
                 <div style={{ background: 'var(--color-danger-bg)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', padding: '0.6rem 0.9rem', color: 'var(--color-danger)', fontSize: '0.8rem', marginBottom: '1rem' }}>
                   ⚠️ {editError}
@@ -274,7 +315,7 @@ export default function UsersPage() {
 
       {/* Modal crear usuario */}
       {modal && (
-        <div onClick={() => setModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(2px)' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(2px)' }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 480, overflow: 'hidden' }}>
             <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-bg)' }}>
               <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-primary)', fontSize: '1.1rem', margin: 0 }}>Crear nuevo usuario</h3>

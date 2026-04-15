@@ -124,6 +124,17 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
+  // ── Resetear contraseña de otro usuario (solo admin) ───────────────────
+  const resetUserPassword = async (id, newPassword) => {
+    const { error } = await supabase
+      .from('sofvet_users')
+      .update({ password: newPassword, must_change_password: true })
+      .eq('id', id);
+    if (error) return { success: false, error: error.message };
+    setUsers(prev => prev.map(u => u.id === id ? { ...u, password: newPassword, must_change_password: true } : u));
+    return { success: true };
+  };
+
   // ── Cambiar contraseña ──────────────────────────────────────────────────
   const changePassword = async (oldPassword, newPassword) => {
     const user = users.find(u => u.id === session?.id);
@@ -141,7 +152,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, users, login, logout, createUser, editUser, deleteUser, toggleUserStatus, changePassword }}>
+    <AuthContext.Provider value={{ session, users, login, logout, createUser, editUser, deleteUser, toggleUserStatus, changePassword, resetUserPassword }}>
       {children}
     </AuthContext.Provider>
   );
