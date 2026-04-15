@@ -17,7 +17,8 @@ export default function LaboratoriosPage() {
   // Domicilio (id=4) users and admins can see all sedes; others see only their sede + Domicilio
   const canSeeAllSedes = isAdmin || session?.sede_id === 4;
 
-  const [sedeFilter,  setSedeFilter]  = useState(sedeActual || null);
+  // Restricted users default to "Todos" (their sede + Domicilio); admins keep sedeActual
+  const [sedeFilter,  setSedeFilter]  = useState(canSeeAllSedes ? (sedeActual || null) : null);
   const [showHistory, setShowHistory] = useState(false);
   const [expanded,    setExpanded]    = useState(null); // pedido id
   const [reportes,    setReportes]    = useState({});   // { [pedidoId]: text }
@@ -25,10 +26,13 @@ export default function LaboratoriosPage() {
   const [editingLab,  setEditingLab]  = useState(null); // { lab, pedido } being edited
   const [editModal,   setEditModal]   = useState(false);
 
-  // For restricted users: only their sede + Domicilio (sede 4)
+  // Sede filter logic:
+  // - Admin / Domicilio users: sedeFilter=null → all; sedeFilter=X → only X
+  // - Restricted users: sedeFilter=null → their sede + Domicilio; sedeFilter=X → only X
   const sedePermitida = (sede_id) => {
     if (canSeeAllSedes) return sedeFilter === null ? true : sede_id === sedeFilter;
-    return sede_id === session?.sede_id || sede_id === 4;
+    if (sedeFilter === null) return sede_id === session?.sede_id || sede_id === 4;
+    return sede_id === sedeFilter;
   };
 
   const sinReportar = useMemo(() =>
@@ -84,22 +88,40 @@ export default function LaboratoriosPage() {
         </p>
       </div>
 
-      {/* Sede filter — solo visible para admin y usuarios Domicilio */}
-      {canSeeAllSedes && (isAdmin || sedesUsadas.length > 1) && (
+      {/* Sede filter */}
+      {canSeeAllSedes ? (
+        (isAdmin || sedesUsadas.length > 1) && (
+          <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap', marginBottom:'1.25rem' }}>
+            {isAdmin && (
+              <button onClick={() => setSedeFilter(null)}
+                style={{ padding:'0.3rem 0.85rem', borderRadius:999, fontSize:'0.75rem', fontWeight:600, cursor:'pointer', border:'1px solid', borderColor: sedeFilter === null ? 'var(--color-primary)' : 'var(--color-border)', background: sedeFilter === null ? 'var(--color-primary)' : 'var(--color-white)', color: sedeFilter === null ? 'white' : 'var(--color-text-muted)' }}
+              >Todas las sedes</button>
+            )}
+            {sedesUsadas.map(sid => {
+              const s = SEDES.find(x => x.id === sid);
+              if (!s) return null;
+              const active = sedeFilter === sid;
+              return (
+                <button key={sid} onClick={() => setSedeFilter(active ? (isAdmin ? null : sid) : sid)}
+                  style={{ padding:'0.3rem 0.85rem', borderRadius:999, fontSize:'0.75rem', fontWeight:600, cursor:'pointer', border:`1px solid ${s.color}`, background: active ? s.color : s.bg, color: active ? 'white' : s.color }}
+                >📍 {s.nombre}</button>
+              );
+            })}
+          </div>
+        )
+      ) : (
         <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap', marginBottom:'1.25rem' }}>
-          {isAdmin && (
-            <button onClick={() => setSedeFilter(null)}
-              style={{ padding:'0.3rem 0.85rem', borderRadius:999, fontSize:'0.75rem', fontWeight:600, cursor:'pointer', border:'1px solid', borderColor: sedeFilter === null ? 'var(--color-primary)' : 'var(--color-border)', background: sedeFilter === null ? 'var(--color-primary)' : 'var(--color-white)', color: sedeFilter === null ? 'white' : 'var(--color-text-muted)' }}
-            >Todas las sedes</button>
-          )}
-          {sedesUsadas.map(sid => {
-            const s = SEDES.find(x => x.id === sid);
-            if (!s) return null;
-            const active = sedeFilter === sid;
+          {[
+            { label: 'Todos', value: null },
+            { label: SEDES.find(s => s.id === session?.sede_id)?.nombre || 'Mi sede', value: session?.sede_id },
+            { label: 'Domicilio', value: 4 },
+          ].map(({ label, value }) => {
+            const active = sedeFilter === value;
+            const s = value ? SEDES.find(x => x.id === value) : null;
             return (
-              <button key={sid} onClick={() => setSedeFilter(active ? (isAdmin ? null : sid) : sid)}
-                style={{ padding:'0.3rem 0.85rem', borderRadius:999, fontSize:'0.75rem', fontWeight:600, cursor:'pointer', border:`1px solid ${s.color}`, background: active ? s.color : s.bg, color: active ? 'white' : s.color }}
-              >📍 {s.nombre}</button>
+              <button key={String(value)} onClick={() => setSedeFilter(value)}
+                style={{ padding:'0.3rem 0.85rem', borderRadius:999, fontSize:'0.75rem', fontWeight:600, cursor:'pointer', border:`1px solid ${active ? (s?.color || 'var(--color-primary)') : 'var(--color-border)'}`, background: active ? (s?.color || 'var(--color-primary)') : (s?.bg || 'var(--color-white)'), color: active ? 'white' : (s?.color || 'var(--color-text-muted)') }}
+              >{value ? `📍 ${label}` : `🔍 ${label}`}</button>
             );
           })}
         </div>
