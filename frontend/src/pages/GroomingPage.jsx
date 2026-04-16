@@ -457,15 +457,38 @@ export default function GroomingPage() {
     setModal(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.patient_name?.trim() || !form.date) { alert('Mascota y fecha son requeridos'); return; }
     const payload = {
-      ...form,
-      valor_servicio:  form.valor_servicio  ? parseInt(form.valor_servicio)  : null,
+      patient_name:     form.patient_name?.trim() || '',
+      breed:            form.breed?.trim()         || null,
+      owner:            form.owner?.trim()          || null,
+      owner_phone:      form.owner_phone?.trim()    || null,
+      services:         form.services               || [],
+      date:             form.date                   || '',
+      time:             form.time                   || null,
+      time_end:         form.time_end               || null,
+      notes:            form.notes?.trim()          || null,
+      sede_id:          form.sede_id                || null,
+      status:           form.status                 || 'pendiente',
+      photo_before:     form.photo_before           || null,
+      photo_after:      form.photo_after            || null,
+      agendado_por:     form.agendado_por?.trim()   || null,
+      valor_servicio:   form.valor_servicio  ? parseInt(form.valor_servicio)  : null,
+      transporte:       !!form.transporte,
       valor_transporte: form.valor_transporte ? parseInt(form.valor_transporte) : null,
+      direccion:        form.direccion?.trim()      || null,
+      pago_estado:      form.pago_estado            || 'Pendiente',
     };
-    editId ? edit(editId, payload) : add(payload);
-    setModal(false);
+    if (editId) {
+      edit(editId, payload);
+      setModal(false);
+    } else {
+      const result = await add(payload, {
+        onError: (msg) => alert('Error al guardar: ' + msg),
+      });
+      if (result !== null) setModal(false);
+    }
   };
 
   const handleDelete       = (item) => { if(confirm(`¿Eliminar servicio de ${item.patient_name}?`)) remove(item.id); };
