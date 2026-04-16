@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import html2pdf from 'html2pdf.js';
+import { useStore } from '../utils/useStore';
+import { useAuth } from '../utils/useAuth';
 
 const BRAND = {
   teal:    '#316d74',
@@ -10,7 +11,6 @@ const BRAND = {
   bgRow:   '#f4f8f7',
 };
 
-// ── helpers ───────────────────────────────────────────────────────────────────
 const ESTADO_CFG = {
   Pendiente: { bg:'#fff8e1', color:'#b8860b' },
   Entregada: { bg:'#e8f5ee', color:'#2e7d50' },
@@ -39,11 +39,10 @@ function buildPDFHtml(formula, pet, client) {
 
   return `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@700&family=DM+Sans:wght@400;600;700&display=swap');
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'DM Sans',Arial,sans-serif; font-size:12px; color:#222; background:#fff; padding:28px 32px; }
+    body { font-family:Arial,sans-serif; font-size:12px; color:#222; background:#fff; padding:28px 32px; }
     .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; border-bottom:3px solid ${BRAND.teal}; padding-bottom:14px; }
-    .title { font-family:'Fraunces',serif; font-size:26px; font-weight:700; color:${BRAND.teal}; letter-spacing:-0.5px; }
+    .title { font-size:26px; font-weight:700; color:${BRAND.teal}; letter-spacing:-0.5px; }
     .subtitle { font-size:12px; color:#666; margin-top:3px; }
     .section-header { background:${BRAND.teal}; color:#fff; padding:6px 12px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0; border-radius:4px 4px 0 0; }
     .section-body { border:1px solid ${BRAND.tealLt}; border-top:none; border-radius:0 0 4px 4px; padding:10px 14px; margin-bottom:14px; }
@@ -70,7 +69,6 @@ function buildPDFHtml(formula, pet, client) {
         <div class="title">Fórmula Médica</div>
         <div class="subtitle">Fecha: ${formula.fecha || '—'}${formula.veterinario ? ' &nbsp;·&nbsp; ' + formula.veterinario : ''}</div>
       </div>
-      <img src="/logos/pp-03.svg" alt="Pets & Pets" style="height:48px;object-fit:contain;opacity:0.9" />
     </div>
 
     <div class="section-header">Datos del Propietario</div>
@@ -99,7 +97,7 @@ function buildPDFHtml(formula, pet, client) {
     <div style="border:1px solid ${BRAND.tealLt};border-top:none;border-radius:0 0 4px 4px;margin-bottom:14px;overflow:hidden">
       ${prods.length === 0
         ? `<p style="padding:16px;text-align:center;color:#999;font-style:italic">Sin medicamentos registrados.</p>`
-        : `<table>${rows}</table>`}
+        : `<table><thead><tr><th>#</th><th>Producto</th><th>Cantidad</th><th>Indicaciones</th></tr></thead><tbody>${rows}</tbody></table>`}
     </div>
 
     ${formula.observaciones ? `<div style="margin-bottom:16px;padding:10px 14px;background:#f4f8f7;border-left:3px solid ${BRAND.tealLt};border-radius:0 4px 4px 0;font-size:11px"><div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#888;letter-spacing:0.05em;margin-bottom:4px">Observaciones</div><div style="color:#333;line-height:1.5">${formula.observaciones}</div></div>` : ''}
@@ -122,9 +120,18 @@ function buildPDFHtml(formula, pet, client) {
   </body></html>`;
 }
 
+const EMPTY_PROD = { producto: '', cantidad: '', instrucciones: '' };
+
 // ── main component ────────────────────────────────────────────────────────────
 export default function FormulasModal({ isOpen, onClose, pet, client, formulas }) {
-  const [downloading, setDownloading] = useState(null); // formula id being downloaded
+  const { add: addFormula } = useStore('formulas_medicas');
+  const { session } = useAuth();
+
+  const [showCreate, setShowCreate] = useState(false);
+  const [createDate, setCreateDate] = useState('');
+  const [createObs,  setCreateObs]  = useState('');
+  const [createProds, setCreateProds] = useState([{ ...EMPTY_PROD }]);
+  const [saving, setSaving] = useState(false);
 
   const petFormulas = useMemo(() =>
     (formulas || [])
@@ -134,30 +141,12 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
 
   if (!isOpen || !pet) return null;
 
-  const handleDownload = async (formula) => {
-    setDownloading(formula.id);
+  const handleDownload = (formula) => {
     const html = buildPDFHtml(formula, pet, client);
-
-    // Temporary container off-screen
-    const container = document.createElement('div');
-    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff';
-    container.innerHTML = html;
-    document.body.appendChild(container);
-
-    const opt = {
-      margin:     [10, 10, 10, 10],
-      filename:   `Formula_${pet.name}_${formula.fecha || 'sin-fecha'}.pdf`,
-      image:      { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false },
-      jsPDF:      { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    };
-
-    try {
-      await html2pdf().set(opt).from(container).save();
-    } finally {
-      document.body.removeChild(container);
-      setDownloading(null);
-    }
+    const w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => w.print(), 800);
   };
 
   const handlePrintAll = () => {
@@ -171,10 +160,44 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
     setTimeout(() => w.print(), 800);
   };
 
+  const openCreate = () => {
+    setCreateDate(new Date().toISOString().split('T')[0]);
+    setCreateObs('');
+    setCreateProds([{ ...EMPTY_PROD }]);
+    setShowCreate(true);
+  };
+
+  const handleProdChange = (i, field, val) => {
+    setCreateProds(prev => prev.map((p, idx) => idx === i ? { ...p, [field]: val } : p));
+  };
+
+  const handleAddProd = () => setCreateProds(prev => [...prev, { ...EMPTY_PROD }]);
+  const handleRemoveProd = (i) => setCreateProds(prev => prev.filter((_, idx) => idx !== i));
+
+  const handleCreateSave = async () => {
+    const prods = createProds.filter(p => p.producto.trim());
+    if (!prods.length && !createObs.trim()) {
+      alert('Agrega al menos un medicamento o una observación.');
+      return;
+    }
+    setSaving(true);
+    await addFormula({
+      patient_id:   pet.id,
+      patient_name: pet.name,
+      fecha:        createDate || new Date().toISOString().split('T')[0],
+      productos:    prods,
+      estado:       'Pendiente',
+      veterinario:  session?.nombre || null,
+      observaciones: createObs.trim() || null,
+    });
+    setSaving(false);
+    setShowCreate(false);
+  };
+
+  const inputSt = { width:'100%', padding:'0.5rem 0.65rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.82rem', boxSizing:'border-box' };
+
   return (
-    <div
-      style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:1000, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'2rem 1rem', backdropFilter:'blur(2px)', overflowY:'auto' }}
-    >
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:1000, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'2rem 1rem', backdropFilter:'blur(2px)', overflowY:'auto' }}>
       <div
         onClick={e => e.stopPropagation()}
         style={{ background:'var(--color-white)', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-lg)', width:'100%', maxWidth:720, margin:'auto', overflow:'hidden' }}
@@ -197,23 +220,75 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
               </button>
             )}
             <button
+              onClick={showCreate ? () => setShowCreate(false) : openCreate}
+              style={{ padding:'0.4rem 0.85rem', background: showCreate ? 'var(--color-bg)' : BRAND.teal, color: showCreate ? 'var(--color-text-muted)' : '#fff', border:`1px solid ${showCreate ? 'var(--color-border)' : BRAND.teal}`, borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600 }}
+            >
+              {showCreate ? '✕ Cancelar' : '+ Nueva Fórmula'}
+            </button>
+            <button
               onClick={onClose}
               style={{ width:32, height:32, background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-full)', cursor:'pointer', fontSize:'1rem', display:'flex', alignItems:'center', justifyContent:'center' }}
             >×</button>
           </div>
         </div>
 
+        {/* ── Create Form ── */}
+        {showCreate && (
+          <div style={{ padding:'1.25rem 1.5rem', background:'#f9fffe', borderBottom:`2px solid ${BRAND.teal}` }}>
+            <div style={{ fontSize:'0.75rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:BRAND.teal, marginBottom:'1rem' }}>
+              Nueva Fórmula — {pet.name}
+            </div>
+
+            {/* Fecha + Observaciones */}
+            <div style={{ display:'grid', gridTemplateColumns:'160px 1fr', gap:'0.75rem', marginBottom:'1rem' }}>
+              <div>
+                <label style={{ display:'block', fontSize:'0.7rem', fontWeight:700, textTransform:'uppercase', color:'var(--color-text-muted)', marginBottom:'0.3rem' }}>Fecha</label>
+                <input type="date" value={createDate} onChange={e => setCreateDate(e.target.value)} style={inputSt} />
+              </div>
+              <div>
+                <label style={{ display:'block', fontSize:'0.7rem', fontWeight:700, textTransform:'uppercase', color:'var(--color-text-muted)', marginBottom:'0.3rem' }}>Observaciones</label>
+                <input type="text" value={createObs} onChange={e => setCreateObs(e.target.value)} placeholder="Indicaciones generales..." style={inputSt} />
+              </div>
+            </div>
+
+            {/* Products */}
+            <div style={{ marginBottom:'0.75rem' }}>
+              <label style={{ display:'block', fontSize:'0.7rem', fontWeight:700, textTransform:'uppercase', color:'var(--color-text-muted)', marginBottom:'0.5rem' }}>Medicamentos</label>
+              {createProds.map((p, i) => (
+                <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 90px 1fr 28px', gap:'0.4rem', marginBottom:'0.4rem', alignItems:'center' }}>
+                  <input type="text" placeholder="Producto / medicamento" value={p.producto} onChange={e => handleProdChange(i, 'producto', e.target.value)} style={inputSt} />
+                  <input type="text" placeholder="Cantidad" value={p.cantidad} onChange={e => handleProdChange(i, 'cantidad', e.target.value)} style={inputSt} />
+                  <input type="text" placeholder="Indicaciones (ej: 1 tab cada 12h por 5 días)" value={p.instrucciones} onChange={e => handleProdChange(i, 'instrucciones', e.target.value)} style={inputSt} />
+                  <button onClick={() => handleRemoveProd(i)} style={{ background:'none', border:'none', cursor:'pointer', color:'#c0392b', fontSize:'1rem', padding:'0.2rem', lineHeight:1 }}>×</button>
+                </div>
+              ))}
+              <button onClick={handleAddProd} style={{ fontSize:'0.78rem', color:BRAND.teal, background:'none', border:`1px dashed ${BRAND.tealLt}`, borderRadius:'var(--radius-sm)', padding:'0.35rem 0.85rem', cursor:'pointer', fontFamily:'var(--font-body)', fontWeight:600, marginTop:'0.25rem' }}>
+                + Agregar medicamento
+              </button>
+            </div>
+
+            <div style={{ display:'flex', justifyContent:'flex-end' }}>
+              <button
+                onClick={handleCreateSave}
+                disabled={saving}
+                style={{ padding:'0.55rem 1.4rem', background: saving ? '#aaa' : BRAND.teal, color:'#fff', border:'none', borderRadius:'var(--radius-md)', cursor: saving ? 'not-allowed' : 'pointer', fontSize:'0.875rem', fontWeight:700, fontFamily:'var(--font-body)' }}
+              >
+                {saving ? '⏳ Guardando...' : '💾 Guardar Fórmula'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ── Body ── */}
         <div style={{ padding:'1.25rem', maxHeight:'75vh', overflowY:'auto' }}>
-          {petFormulas.length === 0 ? (
+          {petFormulas.length === 0 && !showCreate ? (
             <div style={{ textAlign:'center', padding:'3rem 1rem', color:'var(--color-text-muted)' }}>
               <div style={{ fontSize:'2.5rem', marginBottom:'0.5rem' }}>💊</div>
               <p style={{ fontSize:'0.875rem' }}>Sin fórmulas médicas registradas para este paciente.</p>
-              <p style={{ fontSize:'0.78rem', marginTop:'0.3rem' }}>Las fórmulas se crean al guardar una consulta con productos en "Fórmula médica".</p>
+              <p style={{ fontSize:'0.78rem', marginTop:'0.3rem' }}>Crea una con el botón <strong>"+ Nueva Fórmula"</strong> o al guardar una consulta.</p>
             </div>
           ) : petFormulas.map(f => {
-            const prods  = Array.isArray(f.productos) ? f.productos : [];
-            const isDl   = downloading === f.id;
+            const prods = Array.isArray(f.productos) ? f.productos : [];
             return (
               <div key={f.id} style={{ border:`1px solid ${BRAND.tealLt}`, borderRadius:'var(--radius-lg)', marginBottom:'1.25rem', overflow:'hidden', boxShadow:'0 1px 4px rgba(49,109,116,0.08)' }}>
 
@@ -227,10 +302,9 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
                     {estadoBadge(f.estado)}
                     <button
                       onClick={() => handleDownload(f)}
-                      disabled={isDl}
-                      style={{ padding:'0.35rem 0.8rem', background: isDl ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.15)', color:'#fff', border:'1px solid rgba(255,255,255,0.4)', borderRadius:'var(--radius-sm)', cursor: isDl ? 'not-allowed' : 'pointer', fontFamily:'var(--font-body)', fontSize:'0.75rem', fontWeight:600, backdropFilter:'blur(4px)' }}
+                      style={{ padding:'0.35rem 0.8rem', background:'rgba(255,255,255,0.15)', color:'#fff', border:'1px solid rgba(255,255,255,0.4)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.75rem', fontWeight:600, backdropFilter:'blur(4px)' }}
                     >
-                      {isDl ? '⏳ Generando…' : '⬇️ Descargar PDF'}
+                      ⬇️ Descargar PDF
                     </button>
                   </div>
                 </div>
