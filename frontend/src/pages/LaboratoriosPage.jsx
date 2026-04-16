@@ -8,8 +8,8 @@ import LaboratoriosModal from '../components/LaboratoriosModal';
 const sedeNombre = (id) => SEDES.find(s => s.id === id)?.nombre || `Sede ${id}`;
 
 export default function LaboratoriosPage() {
-  const { items: pedidos,      edit: editPedido } = useStore('laboratorios_pedidos');
-  const { items: laboratorios, edit: editLaboratorio } = useStore('laboratorios');
+  const { items: pedidos,      edit: editPedido, remove: removePedido } = useStore('laboratorios_pedidos');
+  const { items: laboratorios, edit: editLaboratorio, remove: removeLaboratorio } = useStore('laboratorios');
   const { sedeActual, isAdmin } = useSede();
   const { session } = useAuth();
 
@@ -71,6 +71,16 @@ export default function LaboratoriosPage() {
 
   const toggleExpand = (id) => {
     setExpanded(prev => prev === id ? null : id);
+  };
+
+  const handleDeletePedido = (p) => {
+    const lab = laboratorios.find(l => String(l.pedido_id) === String(p.id));
+    const msg = lab
+      ? `¿Eliminar la solicitud de "${p.tipo_examen}" para ${p.patient_name}?\n\nEsto también eliminará el resultado ya subido. Esta acción no se puede deshacer.`
+      : `¿Eliminar la solicitud de "${p.tipo_examen}" para ${p.patient_name}?\n\nEsta acción no se puede deshacer.`;
+    if (!confirm(msg)) return;
+    if (lab) removeLaboratorio(lab.id);
+    removePedido(p.id);
   };
 
   const sedesUsadas = [...new Set(pedidos.map(p => p.sede_id).filter(Boolean))];
@@ -171,6 +181,7 @@ export default function LaboratoriosPage() {
                   <th style={thSt}>Procesamiento</th>
                   <th style={thSt}>Sede</th>
                   <th style={{ ...thSt, textAlign:'center' }}>Laboratorios</th>
+                  <th style={thSt}></th>
                 </tr>
               </thead>
               <tbody>
@@ -214,12 +225,19 @@ export default function LaboratoriosPage() {
                               : '⏳ Sin PDF'}
                           </button>
                         </td>
+                        <td style={{ ...tdSt, textAlign:'center' }}>
+                          <button
+                            onClick={() => handleDeletePedido(p)}
+                            title="Eliminar solicitud por error"
+                            style={{ background:'none', border:'none', cursor:'pointer', color:'#c0392b', fontSize:'1rem', padding:'0.2rem 0.5rem', borderRadius:'var(--radius-sm)', lineHeight:1 }}
+                          >🗑</button>
+                        </td>
                       </tr>
 
                       {/* ── Panel expandido ── */}
                       {isOpen && (
                         <tr>
-                          <td colSpan={6} style={{ padding:0, borderTop:'none' }}>
+                          <td colSpan={7} style={{ padding:0, borderTop:'none' }}>
                             <div style={{ padding:'1.25rem 1.5rem', background:'#fffbf0', borderTop:'2px solid #f59e0b', borderBottom:'1px solid #fde68a' }}>
 
                               {/* Meta info */}
@@ -336,6 +354,7 @@ export default function LaboratoriosPage() {
                   <th style={thSt}>Examen</th>
                   <th style={thSt}>Procesamiento</th>
                   <th style={thSt}>Sede</th>
+                  <th style={thSt}></th>
                 </tr>
               </thead>
               <tbody>
@@ -350,6 +369,13 @@ export default function LaboratoriosPage() {
                       </span>
                     </td>
                     <td style={{ ...tdSt, color:'var(--color-text-muted)', fontSize:'0.78rem' }}>{sedeNombre(p.sede_id)}</td>
+                    <td style={{ ...tdSt, textAlign:'center' }}>
+                      <button
+                        onClick={() => handleDeletePedido(p)}
+                        title="Eliminar solicitud por error"
+                        style={{ background:'none', border:'none', cursor:'pointer', color:'#c0392b', fontSize:'1rem', padding:'0.2rem 0.5rem', borderRadius:'var(--radius-sm)', lineHeight:1 }}
+                      >🗑</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
