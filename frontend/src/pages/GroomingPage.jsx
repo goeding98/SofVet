@@ -358,7 +358,7 @@ function PhotoField({ label, value, onChange }) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function GroomingPage() {
-  const { items, add, edit, remove } = useStore('grooming');
+  const { items, add, edit, remove, refresh } = useStore('grooming');
   const { items: clients }  = useStore('clients');
   const { items: patients } = useStore('patients');
   const { session } = useAuth();
@@ -444,7 +444,7 @@ export default function GroomingPage() {
 
   // ── Modal ─────────────────────────────────────────────────────────────────
   const openAdd = (dateStr, timeStr) => {
-    setForm(mkForm(dateStr||anchor, timeStr||'09:00'));
+    setForm({ ...mkForm(dateStr||anchor, timeStr||'09:00'), sede_id: session?.sede_id || null });
     setCedula('');
     setEditId(null);
     setModal(true);
@@ -487,7 +487,12 @@ export default function GroomingPage() {
       const result = await add(payload, {
         onError: (msg) => alert('Error al guardar: ' + msg),
       });
-      if (result !== null) setModal(false);
+      if (result !== null) {
+        setModal(false);
+        refresh();
+      } else if (result === null) {
+        alert('No se pudo guardar. Revisa la consola del navegador para más detalles.');
+      }
     }
   };
 
