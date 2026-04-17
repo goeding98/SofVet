@@ -167,7 +167,13 @@ export default function PetDetailPage() {
   ];
 
   const handleSaveVacuna = async (data) => {
-    if (data.id) {
+    if (Array.isArray(data)) {
+      for (const vac of data) {
+        let err = null;
+        await addVaccine({ ...vac, patient_id: petId, patient_name: pet.name }, { onError: m => { err = m; } });
+        if (err) { alert('⚠️ Error al guardar vacuna:\n\n' + err); break; }
+      }
+    } else if (data.id) {
       const { id, ...rest } = data;
       await editVaccine(id, rest);
     } else {

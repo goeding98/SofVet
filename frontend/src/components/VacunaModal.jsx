@@ -3,7 +3,7 @@ import Modal from './Modal';
 import { useSede, SEDES } from '../utils/useSede';
 
 const VACUNAS = {
-  Perro: ['Puppy Virbac', 'Quíntuple', 'Séxtuple', 'Anti-rabia'],
+  Perro: ['Puppy Virbac', 'Quíntuple', 'Séxtuple', 'Anti-rabia', 'KC'],
   Gato:  ['Triple Felina', 'Leucemia'],
 };
 
@@ -21,10 +21,11 @@ const iSt = {
 
 export default function VacunaModal({ isOpen, onClose, onSave, pet, initialData }) {
   const { sedeActual, isAdmin } = useSede();
-  const opciones = VACUNAS[pet?.species] || [];
+  const opciones  = VACUNAS[pet?.species] || [];
   const isEditing = !!initialData?.id;
 
-  const [selected, setSelected] = useState(null);
+  // When editing: single string. When creating: array.
+  const [selected, setSelected] = useState(isEditing ? null : []);
   const [fecha,    setFecha]    = useState('');
   const [proxima,  setProxima]  = useState('');
   const [lote,     setLote]     = useState('');
@@ -41,7 +42,7 @@ export default function VacunaModal({ isOpen, onClose, onSave, pet, initialData 
         setVet(initialData.vet || '');
         setSedeId(initialData.sede_id || sedeActual || 1);
       } else {
-        setSelected(null);
+        setSelected([]);
         setFecha(new Date().toISOString().split('T')[0]);
         setProxima('');
         setLote('');
@@ -51,21 +52,47 @@ export default function VacunaModal({ isOpen, onClose, onSave, pet, initialData 
     }
   }, [isOpen, sedeActual, initialData]);
 
-  const handleSave = () => {
-    if (!selected)     return alert('Selecciona una vacuna.');
-    if (!fecha)        return alert('La fecha es requerida.');
-    onSave({
-      ...(isEditing ? { id: initialData.id } : {}),
-      vaccine_name: selected,
-      date_applied: fecha,
-      next_dose:    proxima || null,
-      batch:        lote    || null,
-      vet:          vet     || null,
-      sede_id:      sedeId  || null,
-      dose:         '1ra dosis',
-      status:       'vigente',
-    });
+  const toggleVacuna = (v) => {
+    setSelected(prev =>
+      Array.isArray(prev)
+        ? prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]
+        : v
+    );
   };
+
+  const isActive = (v) => Array.isArray(selected) ? selected.includes(v) : selected === v;
+
+  const handleSave = () => {
+    if (!fecha) return alert('La fecha es requerida.');
+    if (isEditing) {
+      if (!selected) return alert('Selecciona una vacuna.');
+      onSave({
+        id:           initialData.id,
+        vaccine_name: selected,
+        date_applied: fecha,
+        next_dose:    proxima || null,
+        batch:        lote    || null,
+        vet:          vet     || null,
+        sede_id:      sedeId  || null,
+        dose:         '1ra dosis',
+        status:       'vigente',
+      });
+    } else {
+      if (!selected.length) return alert('Selecciona al menos una vacuna.');
+      onSave(selected.map(v => ({
+        vaccine_name: v,
+        date_applied: fecha,
+        next_dose:    proxima || null,
+        batch:        lote    || null,
+        vet:          vet     || null,
+        sede_id:      sedeId  || null,
+        dose:         '1ra dosis',
+        status:       'vigente',
+      })));
+    }
+  };
+
+  const hasSelection = isEditing ? !!selected : (Array.isArray(selected) && selected.length > 0);
 
   if (!isOpen) return null;
 
@@ -74,39 +101,45 @@ export default function VacunaModal({ isOpen, onClose, onSave, pet, initialData 
       isOpen={isOpen}
       onClose={onClose}
       title={isEditing ? `✏️ Editar Vacuna — ${pet?.name || ''}` : `💉 Vacunar — ${pet?.name || ''}`}
-      onSave={selected ? handleSave : null}
-      saveLabel={isEditing ? 'Guardar cambios' : 'Registrar vacuna'}
+      onSave={hasSelection ? handleSave : null}
+      saveLabel={isEditing ? 'Guardar cambios' : `Registrar${Array.isArray(selected) && selected.length > 1 ? ` ${selected.length} vacunas` : ' vacuna'}`}
       size="sm"
     >
       {/* Opciones de vacuna */}
       <div style={{ marginBottom: '1.25rem' }}>
-        <label style={lSt}>Vacuna *</label>
+        <label style={lSt}>
+          Vacuna{!isEditing ? 's' : ''} *
+          {!isEditing && <span style={{ fontWeight: 400, textTransform: 'none', marginLeft: '0.4rem', color: 'var(--color-text-muted)' }}>(puedes seleccionar varias)</span>}
+        </label>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {opciones.length === 0 ? (
             <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
               No hay vacunas configuradas para {pet?.species || 'esta especie'}.
             </p>
-          ) : opciones.map(v => (
-            <button
-              key={v}
-              onClick={() => setSelected(v)}
-              style={{
-                padding: '0.65rem 1rem',
-                border: `2px solid ${selected === v ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                borderRadius: 'var(--radius-md)',
-                background: selected === v ? 'var(--color-info-bg)' : 'var(--color-white)',
-                color: selected === v ? 'var(--color-primary)' : 'var(--color-text)',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-body)',
-                fontSize: '0.875rem',
-                fontWeight: selected === v ? 700 : 400,
-                textAlign: 'left',
-                transition: 'var(--transition)',
-              }}
-            >
-              {selected === v ? '✓ ' : ''}{v}
-            </button>
-          ))}
+          ) : opciones.map(v => {
+            const active = isActive(v);
+            return (
+              <button
+                key={v}
+                onClick={() => toggleVacuna(v)}
+                style={{
+                  padding: '0.65rem 1rem',
+                  border: `2px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                  borderRadius: 'var(--radius-md)',
+                  background: active ? 'var(--color-info-bg)' : 'var(--color-white)',
+                  color: active ? 'var(--color-primary)' : 'var(--color-text)',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.875rem',
+                  fontWeight: active ? 700 : 400,
+                  textAlign: 'left',
+                  transition: 'var(--transition)',
+                }}
+              >
+                {active ? '✓ ' : ''}{v}
+              </button>
+            );
+          })}
         </div>
       </div>
 
