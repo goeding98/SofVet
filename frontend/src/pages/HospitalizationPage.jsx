@@ -558,9 +558,7 @@ export default function HospitalizationPage() {
                                     >
                                       💰 Liquidar
                                     </button>
-                                  ) : (
-                                    <span style={{ fontSize: '0.65rem', background: '#fff3cd', color: '#856404', padding: '1px 7px', borderRadius: 999 }}>Pendiente</span>
-                                  )}
+                                  ) : null}
                                 </div>
                               );
                             })}
