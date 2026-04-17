@@ -150,6 +150,7 @@ export default function HospitalizationPage() {
   const [liquidHospId,        setLiquidHospId]        = useState(null);
   const [liquidChecked,       setLiquidChecked]       = useState({});
   const [liquidNochesChecked, setLiquidNochesChecked] = useState({});
+  const [liquidAppChecked,    setLiquidAppChecked]    = useState({});
 
   // ── derived ─────────────────────────────────────────────────────────────
   const activos    = hosps.filter(h => h.status === 'activo'     && (hospSedeFilter === null || h.sede_id === hospSedeFilter));
@@ -297,6 +298,16 @@ export default function HospitalizationPage() {
     const nochesInit = {};
     noches.filter(n => !n.liquidado).forEach(n => { nochesInit[n.fecha] = false; });
     setLiquidNochesChecked(nochesInit);
+    // aplicaciones de medicamentos
+    const liquidadasKeys = new Set(h.aplicaciones_liquidadas || []);
+    const appInit = {};
+    (h.aplicaciones || []).forEach(a => {
+      (a.medicamentos || []).forEach(m => {
+        const key = `${a.fecha}_${a.hora}_${m.medicamento}`;
+        if (!liquidadasKeys.has(key)) appInit[key] = false;
+      });
+    });
+    setLiquidAppChecked(appInit);
     setLiquidModal(true);
   };
 
@@ -304,7 +315,11 @@ export default function HospitalizationPage() {
     if (!liquidHosp) return;
     const selectedIds    = Object.entries(liquidChecked).filter(([, v]) => v).map(([k]) => parseInt(k));
     const selectedNoches = Object.entries(liquidNochesChecked).filter(([, v]) => v).map(([k]) => k);
-    if (!selectedIds.length && !selectedNoches.length) { alert('Selecciona al menos un ítem o noche para liquidar.'); return; }
+    const selectedApps   = Object.entries(liquidAppChecked).filter(([, v]) => v).map(([k]) => k);
+    if (!selectedIds.length && !selectedNoches.length && !selectedApps.length) {
+      alert('Selecciona al menos un ítem para liquidar.');
+      return;
+    }
     const now = new Date();
     const newLiq = {
       fecha:          now.toISOString().split('T')[0],
@@ -314,7 +329,11 @@ export default function HospitalizationPage() {
       noches:         selectedNoches,
       items_snapshot: selectedIds.map(id => (liquidHosp.consumo || []).find(item => item.id === id)).filter(Boolean),
     };
-    editHosp(liquidHosp.id, { liquidaciones_parciales: [...(liquidHosp.liquidaciones_parciales || []), newLiq] });
+    const updates = { liquidaciones_parciales: [...(liquidHosp.liquidaciones_parciales || []), newLiq] };
+    if (selectedApps.length) {
+      updates.aplicaciones_liquidadas = [...(liquidHosp.aplicaciones_liquidadas || []), ...selectedApps];
+    }
+    editHosp(liquidHosp.id, updates);
     setLiquidModal(false);
   };
 
@@ -1206,10 +1225,16 @@ export default function HospitalizationPage() {
         const pendingItems  = (liquidHosp.consumo || []).filter(item => !liquidatedIds.has(item.id));
         const allNoches     = buildNochesSummary(liquidHosp.ingreso_date, today, liquidHosp.liquidaciones_parciales);
         const pendingNoches = allNoches.filter(n => !n.liquidado);
-        const { totals: appTotals } = buildApplicationSummary(liquidHosp.aplicaciones);
+        const liquidadasAppKeys = new Set(liquidHosp.aplicaciones_liquidadas || []);
+        const pendingAppItems   = (liquidHosp.aplicaciones || []).flatMap(a =>
+          (a.medicamentos || [])
+            .map(m => ({ key: `${a.fecha}_${a.hora}_${m.medicamento}`, medicamento: m.medicamento, dosis: m.dosis, unidad: m.unidad, fecha: a.fecha, hora: a.hora, aplicado_por: a.aplicado_por }))
+            .filter(item => !liquidadasAppKeys.has(item.key))
+        );
         const selectedConsumoCount = Object.values(liquidChecked).filter(Boolean).length;
         const selectedNochesCount  = Object.values(liquidNochesChecked).filter(Boolean).length;
-        const selectedCount = selectedConsumoCount + selectedNochesCount;
+        const selectedAppCount     = Object.values(liquidAppChecked).filter(Boolean).length;
+        const selectedCount = selectedConsumoCount + selectedNochesCount + selectedAppCount;
         return (
           <div onClick={() => setLiquidModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', backdropFilter: 'blur(2px)', overflowY: 'auto' }}>
             <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 560, overflow: 'hidden', margin: 'auto' }}>
@@ -1224,23 +1249,46 @@ export default function HospitalizationPage() {
 
               <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
-                {/* Resumen de medicamentos aplicados */}
-                {appTotals.length > 0 && (
-                  <div style={{ background: 'var(--color-info-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem' }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
-                      💊 Medicamentos aplicados (total hospitalización)
+                {/* Medicamentos aplicados — checkboxes */}
+                {pendingAppItems.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8e44ad', marginBottom: '0.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>💊 Medicamentos aplicados</span>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', fontWeight: 400, fontSize: '0.72rem', textTransform: 'none', letterSpacing: 0 }}>
+                        <input
+                          type="checkbox"
+                          checked={pendingAppItems.every(item => liquidAppChecked[item.key])}
+                          onChange={e => {
+                            const next = {};
+                            pendingAppItems.forEach(item => { next[item.key] = e.target.checked; });
+                            setLiquidAppChecked(next);
+                          }}
+                          style={{ accentColor: '#8e44ad' }}
+                        />
+                        Todos
+                      </label>
                     </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                      {appTotals.map((t, i) => (
-                        <span key={i} style={{ background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.25rem 0.7rem', fontSize: '0.82rem', fontWeight: 500 }}>
-                          {t.medicamento}: <strong>{t.total} {t.unidad}</strong> <span style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>({t.aplicaciones} aplic.)</span>
-                        </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', maxHeight: 200, overflowY: 'auto' }}>
+                      {pendingAppItems.map(item => (
+                        <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0.85rem', border: `1px solid ${liquidAppChecked[item.key] ? '#8e44ad' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', background: liquidAppChecked[item.key] ? '#f3e8ff' : 'var(--color-white)', cursor: 'pointer', transition: 'all 0.15s' }}>
+                          <input
+                            type="checkbox"
+                            checked={!!liquidAppChecked[item.key]}
+                            onChange={e => setLiquidAppChecked(prev => ({ ...prev, [item.key]: e.target.checked }))}
+                            style={{ accentColor: '#8e44ad', width: 16, height: 16, flexShrink: 0 }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{item.medicamento}</div>
+                            <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>{item.fecha} {item.hora} · Por: {item.aplicado_por}</div>
+                          </div>
+                          <span style={{ fontWeight: 700, fontSize: '0.9rem', color: liquidAppChecked[item.key] ? '#8e44ad' : 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{item.dosis} {item.unidad}</span>
+                        </label>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {pendingNoches.length === 0 && pendingItems.length === 0 ? (
+                {pendingNoches.length === 0 && pendingItems.length === 0 && pendingAppItems.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-md)' }}>
                     <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>✅</div>
                     <p style={{ fontSize: '0.875rem' }}>Todo está liquidado. No hay ítems pendientes.</p>
