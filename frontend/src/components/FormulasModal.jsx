@@ -124,10 +124,11 @@ const EMPTY_PROD = { producto: '', cantidad: '', instrucciones: '' };
 
 // ── main component ────────────────────────────────────────────────────────────
 export default function FormulasModal({ isOpen, onClose, pet, client, formulas }) {
-  const { add: addFormula } = useStore('formulas_medicas');
+  const { add: addFormula, edit: editFormula } = useStore('formulas_medicas');
   const { session } = useAuth();
 
   const [showCreate, setShowCreate] = useState(false);
+  const [editingFormula, setEditingFormula] = useState(null); // null = crear, obj = editar
   const [createDate, setCreateDate] = useState('');
   const [createObs,  setCreateObs]  = useState('');
   const [createProds, setCreateProds] = useState([{ ...EMPTY_PROD }]);
@@ -161,9 +162,18 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
   };
 
   const openCreate = () => {
+    setEditingFormula(null);
     setCreateDate(new Date().toISOString().split('T')[0]);
     setCreateObs('');
     setCreateProds([{ ...EMPTY_PROD }]);
+    setShowCreate(true);
+  };
+
+  const openEdit = (f) => {
+    setEditingFormula(f);
+    setCreateDate(f.fecha || new Date().toISOString().split('T')[0]);
+    setCreateObs(f.observaciones || '');
+    setCreateProds(Array.isArray(f.productos) && f.productos.length ? f.productos.map(p => ({ ...p })) : [{ ...EMPTY_PROD }]);
     setShowCreate(true);
   };
 
@@ -181,17 +191,28 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
       return;
     }
     setSaving(true);
-    await addFormula({
-      patient_id:   pet.id,
-      patient_name: pet.name,
-      fecha:        createDate || new Date().toISOString().split('T')[0],
-      productos:    prods,
-      estado:       'Pendiente',
-      veterinario:  session?.nombre || null,
-      observaciones: createObs.trim() || null,
-    });
+    if (editingFormula) {
+      const editorName = session?.nombre || null;
+      await editFormula(editingFormula.id, {
+        fecha:         createDate || editingFormula.fecha,
+        productos:     prods,
+        observaciones: createObs.trim() || null,
+        editado_por:   editorName !== editingFormula.veterinario ? editorName : editingFormula.editado_por || null,
+      });
+    } else {
+      await addFormula({
+        patient_id:    pet.id,
+        patient_name:  pet.name,
+        fecha:         createDate || new Date().toISOString().split('T')[0],
+        productos:     prods,
+        estado:        'Pendiente',
+        veterinario:   session?.nombre || null,
+        observaciones: createObs.trim() || null,
+      });
+    }
     setSaving(false);
     setShowCreate(false);
+    setEditingFormula(null);
   };
 
   const inputSt = { width:'100%', padding:'0.5rem 0.65rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.82rem', boxSizing:'border-box' };
@@ -220,7 +241,7 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
               </button>
             )}
             <button
-              onClick={showCreate ? () => setShowCreate(false) : openCreate}
+              onClick={showCreate ? () => { setShowCreate(false); setEditingFormula(null); } : openCreate}
               style={{ padding:'0.4rem 0.85rem', background: showCreate ? 'var(--color-bg)' : BRAND.teal, color: showCreate ? 'var(--color-text-muted)' : '#fff', border:`1px solid ${showCreate ? 'var(--color-border)' : BRAND.teal}`, borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600 }}
             >
               {showCreate ? '✕ Cancelar' : '+ Nueva Fórmula'}
@@ -236,7 +257,7 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
         {showCreate && (
           <div style={{ padding:'1.25rem 1.5rem', background:'#f9fffe', borderBottom:`2px solid ${BRAND.teal}` }}>
             <div style={{ fontSize:'0.75rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:BRAND.teal, marginBottom:'1rem' }}>
-              Nueva Fórmula — {pet.name}
+              {editingFormula ? `Editar Fórmula — ${editingFormula.fecha || ''}` : `Nueva Fórmula — ${pet.name}`}
             </div>
 
             {/* Fecha + Observaciones */}
@@ -301,6 +322,12 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
                   <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
                     {estadoBadge(f.estado)}
                     <button
+                      onClick={() => openEdit(f)}
+                      style={{ padding:'0.35rem 0.8rem', background:'rgba(255,255,255,0.15)', color:'#fff', border:'1px solid rgba(255,255,255,0.4)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.75rem', fontWeight:600, backdropFilter:'blur(4px)' }}
+                    >
+                      ✏️ Editar
+                    </button>
+                    <button
                       onClick={() => handleDownload(f)}
                       style={{ padding:'0.35rem 0.8rem', background:'rgba(255,255,255,0.15)', color:'#fff', border:'1px solid rgba(255,255,255,0.4)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.75rem', fontWeight:600, backdropFilter:'blur(4px)' }}
                     >
@@ -324,11 +351,16 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
                 </div>
 
                 {/* Vet + Observaciones */}
-                {(f.veterinario || f.observaciones) && (
+                {(f.veterinario || f.editado_por || f.observaciones) && (
                   <div style={{ padding:'0.5rem 1rem', background:BRAND.bgRow, borderBottom:`1px solid ${BRAND.tealLt}`, fontSize:'0.78rem', display:'flex', flexDirection:'column', gap:'0.25rem' }}>
                     {f.veterinario && (
                       <div style={{ color:'var(--color-text-muted)' }}>
                         👨‍⚕️ <strong style={{ color:'var(--color-text)' }}>{f.veterinario}</strong>
+                      </div>
+                    )}
+                    {f.editado_por && f.editado_por !== f.veterinario && (
+                      <div style={{ color:'var(--color-text-muted)' }}>
+                        ✏️ Editado por <strong style={{ color:'var(--color-text)' }}>{f.editado_por}</strong>
                       </div>
                     )}
                     {f.observaciones && (
