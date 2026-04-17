@@ -850,11 +850,11 @@ export default function HospitalizationPage() {
 
                 {totals.length > 0 && (
                   <div style={{ background: 'var(--color-info-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem' }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>Totales</div>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>Totales aplicados</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                       {totals.map((t, i) => (
                         <span key={i} style={{ background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.3rem 0.75rem', fontSize: '0.82rem', fontWeight: 500 }}>
-                          {t.medicamento}: <strong>{t.total} {t.unidad}</strong>
+                          {t.medicamento}: <strong>{t.total} {t.unidad}</strong> <span style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>({t.aplicaciones} aplic.)</span>
                         </span>
                       ))}
                     </div>
@@ -1154,6 +1154,7 @@ export default function HospitalizationPage() {
         const pendingItems  = (liquidHosp.consumo || []).filter(item => !liquidatedIds.has(item.id));
         const allNoches     = buildNochesSummary(liquidHosp.ingreso_date, today, liquidHosp.liquidaciones_parciales);
         const pendingNoches = allNoches.filter(n => !n.liquidado);
+        const { totals: appTotals } = buildApplicationSummary(liquidHosp.aplicaciones);
         const selectedConsumoCount = Object.values(liquidChecked).filter(Boolean).length;
         const selectedNochesCount  = Object.values(liquidNochesChecked).filter(Boolean).length;
         const selectedCount = selectedConsumoCount + selectedNochesCount;
@@ -1170,6 +1171,22 @@ export default function HospitalizationPage() {
               </div>
 
               <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+                {/* Resumen de medicamentos aplicados */}
+                {appTotals.length > 0 && (
+                  <div style={{ background: 'var(--color-info-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem' }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
+                      💊 Medicamentos aplicados (total hospitalización)
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                      {appTotals.map((t, i) => (
+                        <span key={i} style={{ background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.25rem 0.7rem', fontSize: '0.82rem', fontWeight: 500 }}>
+                          {t.medicamento}: <strong>{t.total} {t.unidad}</strong> <span style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>({t.aplicaciones} aplic.)</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {pendingNoches.length === 0 && pendingItems.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-md)' }}>
