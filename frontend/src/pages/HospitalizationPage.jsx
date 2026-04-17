@@ -240,6 +240,14 @@ export default function HospitalizationPage() {
   const updateEditTxMed = (i, field, val) => setEditTxMeds(m => m.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
   const handleSaveEditTx = () => { editHosp(editTxHospId, { tratamiento: editTxMeds.filter(m => m.medicamento.trim()) }); setEditTxModal(false); };
 
+  // ── liquidar medicamento aplicado ───────────────────────────────────────
+  const handleLiquidarAplicacion = (h, appFecha, appHora, medMedicamento) => {
+    const key = `${appFecha}_${appHora}_${medMedicamento}`;
+    const current = h.aplicaciones_liquidadas || [];
+    if (current.includes(key)) return;
+    editHosp(h.id, { aplicaciones_liquidadas: [...current, key] });
+  };
+
   // ── hoja de consumo ─────────────────────────────────────────────────────
   const openConsumo = (h) => {
     setConsumoHospId(h.id);
@@ -318,7 +326,7 @@ export default function HospitalizationPage() {
       </div>
 
       {/* ── Section 1: Active ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 440px' : '1fr', gap: '1.5rem', alignItems: 'start', marginBottom: '1.5rem' }}>
+      <div style={{ marginBottom: '1.5rem' }}>
 
         <Card
           title={`Pacientes hospitalizados ahora (${activos.length})`}
@@ -419,140 +427,184 @@ export default function HospitalizationPage() {
           )}
         </Card>
 
-        {/* Detail panel */}
-        {selected && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <Card>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-                <div>
-                  <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-primary)', fontSize: '1.1rem', margin: '0 0 0.15rem' }}>
-                    {speciesIcon(selected.species)} {selected.patient_name}
-                  </h3>
-                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                    {selected.species} · {selected.breed} · {selected.weight} kg · {selected.age} años
-                  </p>
-                </div>
-                <button onClick={() => setSelectedId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: 'var(--color-text-muted)' }}>×</button>
-              </div>
-              <div style={{ marginBottom: '0.5rem' }}>{sedeBadge(selected.sede_id)}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                <InfoChip label="Cliente"     value={selected.client_name} />
-                <InfoChip label="Ingreso"     value={`${selected.ingreso_date} ${selected.ingreso_time}`} />
-                <InfoChip label="Veterinario" value={selected.responsible_vet} />
-                <InfoChip label="Aplicaciones" value={`${selected.aplicaciones?.length || 0} registradas`} />
-              </div>
-              <InfoBlock label="Motivo"      value={selected.motivo} />
-              <InfoBlock label="Diagnóstico" value={selected.diagnostico} />
-            </Card>
+      </div>
 
-            <Card
-              title="Plan de tratamiento"
-              action={isMedico && (
-                <button onClick={() => openEditTx(selected)} style={{ padding: '0.3rem 0.75rem', background: 'var(--color-white)', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius-sm)', color: 'var(--color-primary)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600 }}>
-                  ✏️ Editar
-                </button>
-              )}
-            >
-              {!selected.tratamiento?.length ? (
-                <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '1rem 0' }}>Sin plan registrado.</p>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg)' }}>
-                        {['Medicamento', 'Dosis', 'Vía', 'Frecuencia'].map(h => (
-                          <th key={h} style={{ padding: '0.5rem 0.6rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selected.tratamiento.map((t, i) => (
-                        <tr key={i} style={{ borderBottom: i < selected.tratamiento.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
-                          <td style={{ padding: '0.5rem 0.6rem', fontWeight: 500 }}>{t.medicamento}</td>
-                          <td style={{ padding: '0.5rem 0.6rem' }}>{t.dosis} {t.unidad}</td>
-                          <td style={{ padding: '0.5rem 0.6rem' }}>{t.via || '—'}</td>
-                          <td style={{ padding: '0.5rem 0.6rem', color: 'var(--color-text-muted)' }}>{t.frecuencia}</td>
+      {/* ══════════════ MODAL: DETALLE PACIENTE ══════════════ */}
+      {selected && (
+        <div onClick={() => setSelectedId(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', backdropFilter: 'blur(2px)', overflowY: 'auto' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 700, margin: 'auto', overflow: 'hidden' }}>
+
+            {/* Header */}
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', background: 'var(--color-info-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-primary)', fontSize: '1.1rem', margin: '0 0 0.15rem' }}>
+                  {speciesIcon(selected.species)} {selected.patient_name}
+                </h3>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                  {selected.species}{selected.breed ? ` · ${selected.breed}` : ''}{selected.weight ? ` · ${selected.weight} kg` : ''}{selected.age ? ` · ${selected.age} años` : ''}
+                </p>
+              </div>
+              <button onClick={() => setSelectedId(null)} style={{ width: 32, height: 32, background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)' }}>×</button>
+            </div>
+
+            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+              {/* Info general */}
+              <div>
+                <div style={{ marginBottom: '0.6rem' }}>{sedeBadge(selected.sede_id)}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  <InfoChip label="Cliente"      value={selected.client_name} />
+                  <InfoChip label="Ingreso"      value={`${selected.ingreso_date} ${selected.ingreso_time}`} />
+                  <InfoChip label="Veterinario"  value={selected.responsible_vet} />
+                  <InfoChip label="Aplicaciones" value={`${selected.aplicaciones?.length || 0} registradas`} />
+                </div>
+                <InfoBlock label="Motivo"      value={selected.motivo} />
+                <InfoBlock label="Diagnóstico" value={selected.diagnostico} />
+              </div>
+
+              {/* Plan de tratamiento */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>Plan de tratamiento</div>
+                  {isMedico && (
+                    <button onClick={() => openEditTx(selected)} style={{ padding: '0.3rem 0.75rem', background: 'var(--color-white)', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius-sm)', color: 'var(--color-primary)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600 }}>
+                      ✏️ Editar
+                    </button>
+                  )}
+                </div>
+                {!selected.tratamiento?.length ? (
+                  <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', padding: '0.75rem', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>Sin plan registrado.</p>
+                ) : (
+                  <div style={{ overflowX: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg)' }}>
+                          {['Medicamento', 'Dosis', 'Vía', 'Frecuencia'].map(h => (
+                            <th key={h} style={{ padding: '0.5rem 0.75rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{h}</th>
+                          ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </Card>
+                      </thead>
+                      <tbody>
+                        {selected.tratamiento.map((t, i) => (
+                          <tr key={i} style={{ borderBottom: i < selected.tratamiento.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
+                            <td style={{ padding: '0.5rem 0.75rem', fontWeight: 500 }}>{t.medicamento}</td>
+                            <td style={{ padding: '0.5rem 0.75rem' }}>{t.dosis} {t.unidad}</td>
+                            <td style={{ padding: '0.5rem 0.75rem' }}>{t.via || '—'}</td>
+                            <td style={{ padding: '0.5rem 0.75rem', color: 'var(--color-text-muted)' }}>{t.frecuencia}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
 
-            <Card title={`Historial de aplicaciones (${selected.aplicaciones?.length || 0})`}>
-              {!selected.aplicaciones?.length ? (
-                <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '1.5rem 0' }}>Aún no se han registrado aplicaciones.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: 280, overflowY: 'auto' }}>
-                  {[...selected.aplicaciones].reverse().map((a, i) => (
-                    <div key={i} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.85rem', fontSize: '0.8rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-                        <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>💊 Aplicación</span>
-                        <span style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{a.fecha} {a.hora}</span>
-                      </div>
-                      {a.medicamentos?.map((m, mi) => (
-                        <div key={mi} style={{ fontSize: '0.8rem' }}>· {m.medicamento} — {m.dosis} {m.unidad}</div>
-                      ))}
-                      <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>Por: <strong>{a.aplicado_por}</strong></div>
-                      {a.notas && <div style={{ marginTop: '0.2rem', color: 'var(--color-text)', fontSize: '0.78rem' }}>{a.notas}</div>}
-                    </div>
-                  ))}
+              {/* Historial de aplicaciones */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
+                    Historial de aplicaciones ({selected.aplicaciones?.length || 0})
+                  </div>
+                  {selected.status === 'activo' && (isAuxiliar || isMedico) && (
+                    <button onClick={() => { setSelectedId(null); openApply(selected); }} style={{ padding: '0.3rem 0.75rem', background: 'var(--color-white)', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius-sm)', color: 'var(--color-primary)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600 }}>
+                      💊 Registrar aplicación
+                    </button>
+                  )}
                 </div>
-              )}
-              {selected.status === 'activo' && (isAuxiliar || isMedico) && (
-                <div style={{ marginTop: '0.75rem' }}>
-                  <Button variant="primary" size="sm" onClick={() => openApply(selected)}>💊 Registrar aplicación</Button>
-                </div>
-              )}
-            </Card>
-
-            {/* Hoja de Consumo en panel de detalle */}
-            <Card
-              title={`Hoja de consumo (${selected.consumo?.length || 0} ítems)`}
-              action={(isAuxiliar || isMedico) && selected.status === 'activo' && (
-                <button onClick={() => openConsumo(selected)} style={{ padding: '0.3rem 0.75rem', background: 'var(--color-white)', border: '1px solid #e67e22', borderRadius: 'var(--radius-sm)', color: '#e67e22', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600 }}>
-                  + Agregar ítem
-                </button>
-              )}
-            >
-              {!selected.consumo?.length ? (
-                <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '1rem 0' }}>Sin ítems registrados.</p>
-              ) : (() => {
-                const liquidatedIds = new Set((selected.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
-                return (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: 220, overflowY: 'auto' }}>
-                    {selected.consumo.map(item => {
-                      const liquidado = liquidatedIds.has(item.id);
+                {!selected.aplicaciones?.length ? (
+                  <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', padding: '0.75rem', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>Aún no se han registrado aplicaciones.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: 340, overflowY: 'auto' }}>
+                    {[...selected.aplicaciones].reverse().map((a, i) => {
+                      const liquidadasKeys = selected.aplicaciones_liquidadas || [];
                       return (
-                        <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0.65rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: liquidado ? 'var(--color-success-bg)' : 'var(--color-white)', fontSize: '0.8rem' }}>
-                          <span style={{ flex: 1 }}>{item.descripcion}</span>
-                          <span style={{ fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>x{item.cantidad}</span>
-                          {liquidado
-                            ? <span style={{ fontSize: '0.68rem', background: 'var(--color-success)', color: 'white', padding: '1px 6px', borderRadius: 999 }}>Liquidado</span>
-                            : <span style={{ fontSize: '0.68rem', background: '#fff3cd', color: '#856404', padding: '1px 6px', borderRadius: 999 }}>Pendiente</span>
-                          }
+                        <div key={i} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.85rem', fontSize: '0.8rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>💊 Aplicación</span>
+                            <span style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{a.fecha} {a.hora} · Por: <strong>{a.aplicado_por}</strong></span>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                            {a.medicamentos?.map((m, mi) => {
+                              const key = `${a.fecha}_${a.hora}_${m.medicamento}`;
+                              const liquidado = liquidadasKeys.includes(key);
+                              return (
+                                <div key={mi} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0.5rem', borderRadius: 'var(--radius-sm)', background: liquidado ? 'var(--color-success-bg)' : 'var(--color-bg)' }}>
+                                  <span style={{ flex: 1, fontSize: '0.8rem' }}>· {m.medicamento} — {m.dosis} {m.unidad}</span>
+                                  {liquidado ? (
+                                    <span style={{ fontSize: '0.65rem', background: 'var(--color-success)', color: 'white', padding: '1px 7px', borderRadius: 999, whiteSpace: 'nowrap' }}>✓ Liquidado</span>
+                                  ) : isMedico ? (
+                                    <button
+                                      onClick={() => handleLiquidarAplicacion(selected, a.fecha, a.hora, m.medicamento)}
+                                      style={{ fontSize: '0.65rem', background: 'none', border: '1px solid #8e44ad', color: '#8e44ad', padding: '1px 7px', borderRadius: 999, cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}
+                                    >
+                                      💰 Liquidar
+                                    </button>
+                                  ) : (
+                                    <span style={{ fontSize: '0.65rem', background: '#fff3cd', color: '#856404', padding: '1px 7px', borderRadius: 999 }}>Pendiente</span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {a.notas && <div style={{ marginTop: '0.4rem', color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>📝 {a.notas}</div>}
                         </div>
                       );
                     })}
                   </div>
-                );
-              })()}
-              {selected.status === 'activo' && isMedico && (selected.consumo?.length || 0) > 0 && (() => {
-                const liquidatedIds = new Set((selected.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
-                const pendingCount = (selected.consumo || []).filter(item => !liquidatedIds.has(item.id)).length;
-                return pendingCount > 0 ? (
-                  <div style={{ marginTop: '0.75rem' }}>
-                    <button onClick={() => openLiquidParcial(selected)} style={{ ...btnStyle('#8e44ad'), padding: '0.4rem 0.85rem', fontSize: '0.78rem' }}>
-                      💰 Liquidar ítems ({pendingCount} pendiente{pendingCount !== 1 ? 's' : ''})
-                    </button>
+                )}
+              </div>
+
+              {/* Hoja de consumo */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
+                    Hoja de consumo ({selected.consumo?.length || 0} ítems)
                   </div>
-                ) : null;
-              })()}
-            </Card>
+                  {(isAuxiliar || isMedico) && selected.status === 'activo' && (
+                    <button onClick={() => { setSelectedId(null); openConsumo(selected); }} style={{ padding: '0.3rem 0.75rem', background: 'var(--color-white)', border: '1px solid #e67e22', borderRadius: 'var(--radius-sm)', color: '#e67e22', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600 }}>
+                      + Agregar ítem
+                    </button>
+                  )}
+                </div>
+                {!selected.consumo?.length ? (
+                  <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', padding: '0.75rem', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>Sin ítems registrados.</p>
+                ) : (() => {
+                  const liquidatedIds = new Set((selected.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: 220, overflowY: 'auto' }}>
+                      {selected.consumo.map(item => {
+                        const liquidado = liquidatedIds.has(item.id);
+                        return (
+                          <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0.65rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: liquidado ? 'var(--color-success-bg)' : 'var(--color-white)', fontSize: '0.8rem' }}>
+                            <span style={{ flex: 1 }}>{item.descripcion}</span>
+                            <span style={{ fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>x{item.cantidad}</span>
+                            {liquidado
+                              ? <span style={{ fontSize: '0.68rem', background: 'var(--color-success)', color: 'white', padding: '1px 6px', borderRadius: 999 }}>Liquidado</span>
+                              : <span style={{ fontSize: '0.68rem', background: '#fff3cd', color: '#856404', padding: '1px 6px', borderRadius: 999 }}>Pendiente</span>
+                            }
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+                {selected.status === 'activo' && isMedico && (() => {
+                  const liquidatedIds = new Set((selected.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
+                  const pendingCount = (selected.consumo || []).filter(item => !liquidatedIds.has(item.id)).length;
+                  return pendingCount > 0 ? (
+                    <div style={{ marginTop: '0.6rem' }}>
+                      <button onClick={() => { setSelectedId(null); openLiquidParcial(selected); }} style={{ ...btnStyle('#8e44ad'), padding: '0.4rem 0.85rem', fontSize: '0.78rem' }}>
+                        💰 Liquidar ítems ({pendingCount} pendiente{pendingCount !== 1 ? 's' : ''})
+                      </button>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ── Section 2: No cobradas ── */}
       {showNoCobradas && (
