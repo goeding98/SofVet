@@ -44,6 +44,7 @@ export default function PetDetailPage() {
   const { items: hospitalization }                     = useStore('hospitalization');
   const { items: signedDocs }  = useStore('signedDocuments');
   const { items: labPedidos, edit: editLabPedido, add: addLabPedido } = useStore('laboratorios_pedidos');
+  const { items: notasClincias, add: addNota } = useStore('notas_clinicas');
 
   const { sedeActual, isAdmin: isAdminUser } = useSede();
   const { session } = useAuth();
@@ -70,6 +71,11 @@ export default function PetDetailPage() {
   const [editingHosp,      setEditingHosp]      = useState(null);
   const [activeDoc,      setActiveDoc]      = useState(null);
   const [sedeFilter,     setSedeFilter]     = useState(null);
+  const [notaModal,      setNotaModal]      = useState(false);
+  const [notaForm,       setNotaForm]       = useState({ titulo: '', observaciones: '' });
+  const [notaFile,       setNotaFile]       = useState(null);
+  const [notaUploading,  setNotaUploading]  = useState(false);
+  const [notaImageView,  setNotaImageView]  = useState(null);
 
   const petId  = parseInt(id);
   const pet    = patients.find(p => p.id === petId);
@@ -111,6 +117,10 @@ export default function PetDetailPage() {
   const petLabPedidos = labPedidos
     .filter(p => p.patient_id === petId && p.estado !== 'Solicitado')
     .sort((a, b) => b.fecha_solicitado?.localeCompare(a.fecha_solicitado));
+
+  const petNotas = notasClincias
+    .filter(n => n.patient_id === petId)
+    .sort((a, b) => b.created_at?.localeCompare(a.created_at));
 
   const activeHosp = hospitalization.find(h => h.patient_id === petId && h.status === 'activo');
   const petHospitals = hospitalization
@@ -275,6 +285,34 @@ export default function PetDetailPage() {
   const handleSolicitarLab = async (data) => {
     await addLabPedido({ ...data, patient_id: petId });
     setLabSolModal(false);
+  };
+
+  const handleSaveNota = async () => {
+    if (!notaForm.titulo.trim()) return alert('El título es requerido.');
+    setNotaUploading(true);
+    let imagen_url = null;
+    if (notaFile) {
+      const safeName = notaFile.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `notas/${petId}/${Date.now()}_${safeName}`;
+      const { error: upErr } = await supabase.storage.from('notas-clinicas').upload(path, notaFile, { upsert: true });
+      if (upErr) { setNotaUploading(false); return alert('Error subiendo imagen: ' + upErr.message); }
+      const { data: urlData } = supabase.storage.from('notas-clinicas').getPublicUrl(path);
+      imagen_url = urlData.publicUrl;
+    }
+    let err = null;
+    const result = await addNota({
+      patient_id:    petId,
+      titulo:        notaForm.titulo.trim(),
+      observaciones: notaForm.observaciones.trim() || null,
+      imagen_url,
+      autor:         session?.nombre || null,
+      created_at:    new Date().toISOString().split('T')[0],
+    }, { onError: (m) => { err = m; } });
+    setNotaUploading(false);
+    if (!result) return alert('❌ Error al guardar nota:\n\n' + err);
+    setNotaModal(false);
+    setNotaForm({ titulo: '', observaciones: '' });
+    setNotaFile(null);
   };
 
   const handleSaveProcedimiento = async (data) => {
@@ -585,11 +623,14 @@ export default function PetDetailPage() {
 
       {/* Historia Clínica */}
       <Card
-        title={`Historia Clínica (${petConsults.length} consultas · ${petImaging.length} imág · ${petProcedimientos.length} proced · ${petLabPedidos.length} labs)`}
+        title={`Historia Clínica (${petConsults.length} consultas · ${petImaging.length} imág · ${petProcedimientos.length} proced · ${petLabPedidos.length} labs · ${petNotas.length} notas)`}
         action={
           <div style={{ display:'flex', gap:'0.5rem' }}>
             <button onClick={handleDownloadPDF} style={{ padding:'0.4rem 0.85rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, color:'var(--color-text-muted)', display:'flex', alignItems:'center', gap:'0.35rem' }}>
               📄 Descargar PDF
+            </button>
+            <button onClick={() => { setNotaForm({ titulo:'', observaciones:'' }); setNotaFile(null); setNotaModal(true); }} style={{ padding:'0.4rem 0.85rem', background:'var(--color-white)', border:'1px solid #b8860b', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, color:'#b8860b', display:'flex', alignItems:'center', gap:'0.35rem' }}>
+              📝 Agregar nota
             </button>
             <Button size="sm" variant="primary" onClick={() => { setEditingConsult(null); setConsultModal(true); }}>+ Nueva consulta</Button>
           </div>
@@ -686,6 +727,36 @@ export default function PetDetailPage() {
                 Mostrando las últimas 5 de {petConsults.length} consultas.
               </p>
             )}
+          </div>
+        )}
+
+        {/* Notas clínicas */}
+        {petNotas.length > 0 && (
+          <div style={{ marginTop:'1.5rem', borderTop:'2px solid #f5c842', paddingTop:'1.25rem' }}>
+            <div style={{ fontSize:'0.8rem', fontWeight:700, color:'#b8860b', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:'0.85rem' }}>
+              📝 Notas clínicas ({petNotas.length})
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+              {petNotas.map(n => (
+                <div key={n.id} style={{ border:'1px solid #f5c842', borderRadius:'var(--radius-md)', padding:'0.85rem 1rem', background:'#fffdf0' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'0.3rem' }}>
+                    <span style={{ fontWeight:700, color:'#8a6200', fontSize:'0.9rem' }}>{n.titulo}</span>
+                    <span style={{ fontSize:'0.68rem', color:'#b8860b' }}>{n.created_at}{n.autor ? ` · ${n.autor}` : ''}</span>
+                  </div>
+                  {n.observaciones && (
+                    <p style={{ margin:'0 0 0.6rem', fontSize:'0.82rem', color:'var(--color-text)', lineHeight:1.5 }}>{n.observaciones}</p>
+                  )}
+                  {n.imagen_url && (
+                    <img
+                      src={n.imagen_url}
+                      alt={n.titulo}
+                      onClick={() => setNotaImageView(n.imagen_url)}
+                      style={{ maxWidth:'100%', maxHeight:220, objectFit:'contain', borderRadius:'var(--radius-sm)', cursor:'zoom-in', border:'1px solid #f5c842' }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -1030,6 +1101,71 @@ export default function PetDetailPage() {
         );
       })()}
 
+
+      {/* ── Modal: Agregar nota clínica ── */}
+      {notaModal && (
+        <div onClick={() => setNotaModal(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem', backdropFilter:'blur(2px)' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background:'var(--color-white)', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-lg)', width:'100%', maxWidth:500, overflow:'hidden' }}>
+            <div style={{ padding:'1.1rem 1.5rem', borderBottom:'1px solid var(--color-border)', background:'#fffdf0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <h3 style={{ margin:0, fontFamily:'var(--font-title)', color:'#8a6200', fontSize:'1rem' }}>📝 Agregar nota clínica</h3>
+              <button onClick={() => setNotaModal(false)} style={{ background:'none', border:'none', fontSize:'1.1rem', cursor:'pointer', color:'var(--color-text-muted)' }}>×</button>
+            </div>
+            <div style={{ padding:'1.25rem 1.5rem', display:'flex', flexDirection:'column', gap:'0.9rem' }}>
+              <div>
+                <label style={{ display:'block', fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', marginBottom:'0.3rem', color:'var(--color-text)' }}>Título *</label>
+                <input
+                  type="text"
+                  value={notaForm.titulo}
+                  onChange={e => setNotaForm(f => ({ ...f, titulo: e.target.value }))}
+                  placeholder="Ej: Parvo positivo, Lesión cutánea, Rx tórax..."
+                  style={{ width:'100%', padding:'0.6rem 0.75rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.875rem', boxSizing:'border-box' }}
+                />
+              </div>
+              <div>
+                <label style={{ display:'block', fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', marginBottom:'0.3rem', color:'var(--color-text)' }}>Observaciones</label>
+                <textarea
+                  value={notaForm.observaciones}
+                  onChange={e => setNotaForm(f => ({ ...f, observaciones: e.target.value }))}
+                  rows={3}
+                  placeholder="Descripción, hallazgos, seguimiento..."
+                  style={{ width:'100%', padding:'0.6rem 0.75rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.875rem', resize:'vertical', boxSizing:'border-box' }}
+                />
+              </div>
+              <div>
+                <label style={{ display:'block', fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', marginBottom:'0.3rem', color:'var(--color-text)' }}>Imagen (opcional)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => setNotaFile(e.target.files[0] || null)}
+                  style={{ width:'100%', fontSize:'0.82rem' }}
+                />
+                {notaFile && (
+                  <div style={{ marginTop:'0.4rem', fontSize:'0.75rem', color:'#b8860b' }}>
+                    📎 {notaFile.name} ({(notaFile.size / 1024).toFixed(0)} KB)
+                  </div>
+                )}
+              </div>
+              <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem', paddingTop:'0.25rem' }}>
+                <button onClick={() => setNotaModal(false)} style={{ padding:'0.55rem 1.1rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', color:'var(--color-text-muted)' }}>Cancelar</button>
+                <button
+                  onClick={handleSaveNota}
+                  disabled={notaUploading}
+                  style={{ padding:'0.55rem 1.4rem', background: notaUploading ? '#aaa' : '#b8860b', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor: notaUploading ? 'not-allowed' : 'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', fontWeight:700 }}
+                >
+                  {notaUploading ? '⏳ Subiendo...' : '💾 Guardar nota'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Lightbox imagen nota ── */}
+      {notaImageView && (
+        <div onClick={() => setNotaImageView(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', cursor:'zoom-out', padding:'1rem' }}>
+          <img src={notaImageView} alt="Nota" style={{ maxWidth:'95vw', maxHeight:'90vh', objectFit:'contain', borderRadius:'var(--radius-md)' }} />
+        </div>
+      )}
 
       {/* Modals */}
       <VacunaModal isOpen={vacunaModal} onClose={() => { setVacunaModal(false); setEditingVacuna(null); }} onSave={handleSaveVacuna} pet={pet} initialData={editingVacuna} />
