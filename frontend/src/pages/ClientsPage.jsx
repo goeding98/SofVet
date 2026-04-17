@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
+import { useAuth } from '../utils/useAuth';
 import Card from '../components/Card';
 import Table from '../components/Table';
 import Button from '../components/Button';
@@ -25,6 +26,7 @@ const labelStyle = {
 
 export default function ClientsPage() {
   const navigate = useNavigate();
+  const { session } = useAuth();
   const { items: clients, add: addClient, edit, remove } = useStore('clients');
   const { items: patients, add: addPet }                 = useStore('patients');
 
@@ -50,7 +52,7 @@ export default function ClientsPage() {
   );
 
   // ── Client CRUD ──────────────────────────────────────────────
-  const openAdd  = () => { setClientForm(EMPTY_CLIENT); setEditId(null); setClientModal(true); };
+  const openAdd  = () => { setClientForm({ ...EMPTY_CLIENT, sede_id: session?.sede_id || null }); setEditId(null); setClientModal(true); };
   const openEdit = (row) => { setClientForm({ ...row }); setEditId(row.id); setClientModal(true); };
 
   const handleSaveClient = async () => {
