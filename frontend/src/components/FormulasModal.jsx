@@ -100,7 +100,7 @@ function buildPDFHtml(formula, pet, client) {
         : `<table><thead><tr><th>#</th><th>Producto</th><th>Cantidad</th><th>Indicaciones</th></tr></thead><tbody>${rows}</tbody></table>`}
     </div>
 
-    ${formula.observaciones ? `<div style="margin-bottom:16px;padding:10px 14px;background:#f4f8f7;border-left:3px solid ${BRAND.tealLt};border-radius:0 4px 4px 0;font-size:11px"><div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#888;letter-spacing:0.05em;margin-bottom:4px">Observaciones</div><div style="color:#333;line-height:1.5">${formula.observaciones}</div></div>` : ''}
+    ${formula.observaciones ? `<div style="margin-bottom:16px;padding:10px 14px;background:#f4f8f7;border-left:3px solid ${BRAND.tealLt};border-radius:0 4px 4px 0;font-size:11px"><div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#888;letter-spacing:0.05em;margin-bottom:4px">Observaciones</div><div style="color:#333;line-height:1.5;white-space:pre-wrap">${formula.observaciones.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>` : ''}
 
     <div class="vet-sig">
       <div class="line"></div>
@@ -260,16 +260,22 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
               {editingFormula ? `Editar Fórmula — ${editingFormula.fecha || ''}` : `Nueva Fórmula — ${pet.name}`}
             </div>
 
-            {/* Fecha + Observaciones */}
-            <div style={{ display:'grid', gridTemplateColumns:'160px 1fr', gap:'0.75rem', marginBottom:'1rem' }}>
-              <div>
-                <label style={{ display:'block', fontSize:'0.7rem', fontWeight:700, textTransform:'uppercase', color:'var(--color-text-muted)', marginBottom:'0.3rem' }}>Fecha</label>
-                <input type="date" value={createDate} onChange={e => setCreateDate(e.target.value)} style={inputSt} />
-              </div>
-              <div>
-                <label style={{ display:'block', fontSize:'0.7rem', fontWeight:700, textTransform:'uppercase', color:'var(--color-text-muted)', marginBottom:'0.3rem' }}>Observaciones</label>
-                <input type="text" value={createObs} onChange={e => setCreateObs(e.target.value)} placeholder="Indicaciones generales..." style={inputSt} />
-              </div>
+            {/* Fecha */}
+            <div style={{ marginBottom:'0.75rem', maxWidth:180 }}>
+              <label style={{ display:'block', fontSize:'0.7rem', fontWeight:700, textTransform:'uppercase', color:'var(--color-text-muted)', marginBottom:'0.3rem' }}>Fecha</label>
+              <input type="date" value={createDate} onChange={e => setCreateDate(e.target.value)} style={inputSt} />
+            </div>
+
+            {/* Observaciones */}
+            <div style={{ marginBottom:'1rem' }}>
+              <label style={{ display:'block', fontSize:'0.7rem', fontWeight:700, textTransform:'uppercase', color:'var(--color-text-muted)', marginBottom:'0.3rem' }}>Observaciones / Indicaciones generales</label>
+              <textarea
+                value={createObs}
+                onChange={e => setCreateObs(e.target.value)}
+                placeholder={'Escribe aquí indicaciones generales, notas clínicas...\n\nPuedes usar Enter para cambiar de párrafo.'}
+                rows={5}
+                style={{ ...inputSt, resize:'vertical', lineHeight:1.6, whiteSpace:'pre-wrap' }}
+              />
             </div>
 
             {/* Products */}
@@ -365,7 +371,7 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
                     )}
                     {f.observaciones && (
                       <div style={{ color:'var(--color-text-muted)' }}>
-                        📝 <span style={{ color:'var(--color-text)' }}>{f.observaciones}</span>
+                        📝 <span style={{ color:'var(--color-text)', whiteSpace:'pre-wrap' }}>{f.observaciones}</span>
                       </div>
                     )}
                   </div>
