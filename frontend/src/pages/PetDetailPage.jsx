@@ -35,7 +35,7 @@ export default function PetDetailPage() {
   const { items: clients }     = useStore('clients');
   const { items: prepagada }   = useStore('prepagada');
   const { items: consultations, add: addConsultation, edit: editConsultation, remove: removeConsultation } = useStore('consultations');
-  const { items: vaccines, add: addVaccine, edit: editVaccine } = useStore('vaccines');
+  const { items: vaccines, add: addVaccine, edit: editVaccine, remove: removeVaccine } = useStore('vaccines');
   const { items: imagingRecords, add: addImaging }     = useStore('imaging');
   const { items: formulas, add: addFormula, edit: editFormula } = useStore('formulas_medicas');
   const { items: procedimientos, add: addProcedimiento, edit: editProcedimiento } = useStore('procedimientos');
@@ -927,6 +927,10 @@ export default function PetDetailPage() {
                             }}
                             style={{ padding:'2px 8px', background:'white', border:'1px solid #15803d', color:'#15803d', borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)' }}
                           >✏️ Editar</button>
+                          <button
+                            onClick={() => { if (confirm(`¿Eliminar ${isDesp ? 'desparasitación' : 'vacuna'} "${vName}"?`)) removeVaccine(v.id); }}
+                            style={{ padding:'2px 8px', background:'white', border:'1px solid var(--color-danger)', color:'var(--color-danger)', borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)' }}
+                          >🗑️</button>
                         </div>
                       </div>
                       {vNext && (
