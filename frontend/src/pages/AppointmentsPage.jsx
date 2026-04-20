@@ -208,8 +208,8 @@ export default function AppointmentsPage() {
   const location = useLocation();
   const navState = location.state;
 
-  const isAdminUser   = session?.rol === 'Administrador';
-  const canManageApts = session?.rol === 'Administrador' || session?.rol === 'Caja';
+  const isAdminUser   = session?.rol === 'Administrador' || session?.sede_id === 4;
+  const canManageApts = session?.rol === 'Administrador' || session?.rol === 'Caja' || session?.sede_id === 4;
   const today         = new Date();
   const todayStr    = localDateStr(today);
 

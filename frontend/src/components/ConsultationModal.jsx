@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import Button from './Button';
 import { useSede, SEDES } from '../utils/useSede';
+import { useAuth } from '../utils/useAuth';
 
 const EMPTY_MED    = { medicamento: '', dosis: '', via: 'VO' };
 const EMPTY_FORMULA = { producto: '', cantidad: '', instrucciones: '' };
@@ -53,6 +54,8 @@ const SectionHeader = ({ icon, title, color='var(--color-primary)' }) => (
 // mode: 'new' | 'incomplete' | 'edit'
 export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft, onDelete, pet, initialData = null, mode = 'new' }) {
   const { sedeActual, isAdmin } = useSede();
+  const { session } = useAuth();
+  const canChooseSede = isAdmin || session?.sede_id === 4;
   const [form, setForm] = useState(makeEmpty);
   const [sedeId, setSedeId] = useState(sedeActual || 1);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -194,7 +197,7 @@ export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft
         </div>
         <div style={{ flex:1 }}>
           <label style={lSt}>Sede</label>
-          {isAdmin ? (
+          {canChooseSede ? (
             <select value={sedeId} onChange={e=>setSedeId(parseInt(e.target.value))} style={iSt}>
               {SEDES.map(s=><option key={s.id} value={s.id}>{s.nombre}</option>)}
             </select>
