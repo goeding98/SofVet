@@ -188,6 +188,7 @@ export default function LaboratoriosPage() {
             <table style={{ width:'100%', borderCollapse:'collapse' }}>
               <thead>
                 <tr>
+                  <th style={{ ...thSt, width:50 }}>#</th>
                   <th style={thSt}>Fecha solicitado</th>
                   <th style={thSt}>Mascota</th>
                   <th style={thSt}>Tutor</th>
@@ -209,6 +210,7 @@ export default function LaboratoriosPage() {
                   return (
                     <Fragment key={p.id}>
                       <tr style={{ background: isOpen ? '#fff8f0' : 'transparent' }}>
+                        <td style={{ ...tdSt, color:'var(--color-text-muted)', fontSize:'0.72rem', fontWeight:700, whiteSpace:'nowrap' }}>#{p.id}</td>
                         <td style={tdSt}>{p.fecha_solicitado || '—'}{p.hora_solicitado ? ` ${p.hora_solicitado}` : ''}</td>
                         <td style={{ ...tdSt, fontWeight:600 }}>
                           {p.patient_id ? (
@@ -280,7 +282,7 @@ export default function LaboratoriosPage() {
                       {/* ── Panel expandido ── */}
                       {isOpen && (
                         <tr>
-                          <td colSpan={9} style={{ padding:0, borderTop:'none' }}>
+                          <td colSpan={10} style={{ padding:0, borderTop:'none' }}>
                             <div style={{ padding:'1.25rem 1.5rem', background:'#fffbf0', borderTop:'2px solid #f59e0b', borderBottom:'1px solid #fde68a' }}>
 
                               {/* Meta info */}
@@ -392,6 +394,7 @@ export default function LaboratoriosPage() {
             <table style={{ width:'100%', borderCollapse:'collapse' }}>
               <thead>
                 <tr>
+                  <th style={{ ...thSt, width:50 }}>#</th>
                   <th style={thSt}>Fecha solicitado</th>
                   <th style={thSt}>Mascota</th>
                   <th style={thSt}>Tutor</th>
@@ -405,6 +408,7 @@ export default function LaboratoriosPage() {
               <tbody>
                 {solicitados.map(p => (
                   <tr key={p.id}>
+                    <td style={{ ...tdSt, color:'var(--color-text-muted)', fontSize:'0.72rem', fontWeight:700, whiteSpace:'nowrap' }}>#{p.id}</td>
                     <td style={tdSt}>{p.fecha_solicitado || '—'}{p.hora_solicitado ? ` ${p.hora_solicitado}` : ''}</td>
                     <td style={{ ...tdSt, fontWeight:600 }}>
                       {p.patient_id ? (
@@ -472,8 +476,11 @@ export default function LaboratoriosPage() {
                 <table style={{ width:'100%', borderCollapse:'collapse' }}>
                   <thead>
                     <tr>
+                      <th style={{ ...thSt, width:50 }}>#</th>
                       <th style={thSt}>Fecha solicitado</th>
                       <th style={thSt}>Mascota</th>
+                      <th style={thSt}>Tutor</th>
+                      <th style={thSt}>Solicitado por</th>
                       <th style={thSt}>Examen</th>
                       <th style={thSt}>Fecha reportado</th>
                       <th style={thSt}>Reportado por</th>
@@ -483,6 +490,7 @@ export default function LaboratoriosPage() {
                   <tbody>
                     {ultimos30.map(p => (
                       <tr key={p.id}>
+                        <td style={{ ...tdSt, color:'var(--color-text-muted)', fontSize:'0.72rem', fontWeight:700, whiteSpace:'nowrap' }}>#{p.id}</td>
                         <td style={tdSt}>{p.fecha_solicitado || '—'}{p.hora_solicitado ? ` ${p.hora_solicitado}` : ''}</td>
                         <td style={{ ...tdSt, fontWeight:600 }}>
                           {p.patient_id ? (
