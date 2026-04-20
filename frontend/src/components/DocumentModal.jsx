@@ -160,6 +160,7 @@ export default function DocumentModal({
 
   // ── Print ──────────────────────────────────────────────────────────────────
   const handlePrint = () => {
+    setSaveError('');
     // Guardar registro ANTES de abrir popup (si el popup es bloqueado, igual queda guardado)
     if (patient) {
       addSignedDoc({
@@ -168,13 +169,13 @@ export default function DocumentModal({
         patient_id:      patient.id,
         patient_name:    patient.name,
         client_name:     client?.name || '',
-        signature_data:  null,
+        signature_data:  '',
         signed_at:       new Date().toLocaleDateString('es-CO'),
         tipo:            'impresion',
         sede_id:         sedeActual   || null,
         veterinario:     session?.nombre || null,
       }, {
-        onError: (msg) => setSaveError(msg),
+        onError: (msg) => setSaveError(String(msg)),
       });
     }
 
@@ -188,10 +189,11 @@ export default function DocumentModal({
          </div>`
       : '';
 
+    // setTimeout evita que window.print() sincrónico cause error en Chrome
     const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${doc?.nombre || 'Documento'}</title>
 <style>@page{margin:20mm}body{margin:0;font-family:Arial,sans-serif}@media print{.no-print{display:none}}</style>
 </head><body>${filledHtml}${sigBlock}
-<script>window.onload=function(){window.print()};<\/script></body></html>`;
+<script>window.onload=function(){setTimeout(function(){window.print();},250);};<\/script></body></html>`;
 
     const win = window.open('', '_blank');
     if (!win) { alert('Tu navegador bloqueó la ventana emergente. Permite las ventanas emergentes para este sitio.'); return; }

@@ -118,11 +118,17 @@ export function useStore(key) {
     cache[key] = optimistic;
     notify(key, optimistic);
 
-    const { data, error } = await supabase
-      .from(table)
-      .insert(rest)
-      .select()
-      .single();
+    let data, error;
+    try {
+      ({ data, error } = await supabase.from(table).insert(rest).select().single());
+    } catch (e) {
+      console.error(`[useStore] add ${table} threw:`, e);
+      onError?.(e?.message || String(e));
+      const rolled = (cache[key] || []).filter(i => i.id !== tempId);
+      cache[key] = rolled;
+      notify(key, rolled);
+      return null;
+    }
 
     if (error) {
       console.error(`[useStore] add ${table}:`, error.message);
