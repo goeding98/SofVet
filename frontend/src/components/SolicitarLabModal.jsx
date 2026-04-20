@@ -9,7 +9,8 @@ const iSt = { width:'100%', padding:'0.55rem 0.75rem', border:'1px solid var(--c
 export default function SolicitarLabModal({ isOpen, onClose, onSave, pet }) {
   const { session } = useAuth();
   const { sedeActual, isAdmin } = useSede();
-  const isLab = session?.rol === 'Laboratorio';
+  const isLab       = session?.rol === 'Laboratorio';
+  const isDomicilio = session?.sede_id === 4;
 
   const [tipo,          setTipo]         = useState('Hemograma');
   const [otroTipo,      setOtroTipo]     = useState('');
@@ -76,7 +77,7 @@ export default function SolicitarLabModal({ isOpen, onClose, onSave, pet }) {
             </div>
             <div>
               <label style={lSt}>Sede</label>
-              {(isAdmin || isLab) ? (
+              {(isAdmin || isLab || isDomicilio) ? (
                 <select value={sedeId} onChange={e=>setSedeId(parseInt(e.target.value))} style={iSt}>
                   {SEDES.map(s=><option key={s.id} value={s.id}>{s.nombre}</option>)}
                 </select>

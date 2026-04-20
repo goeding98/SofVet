@@ -25,7 +25,9 @@ export default function LaboratoriosPage() {
   };
 
   const isMedico = session?.rol === 'Médico' || session?.rol === 'Administrador';
-  const isLab    = session?.rol === 'Laboratorio';
+  const isLab       = session?.rol === 'Laboratorio';
+  const isDomicilio = session?.sede_id === 4;
+  const canEditSede = isAdmin || isLab || isDomicilio;
   // Admins, Lab users, and Domicilio users can see all sedes
   const canSeeAllSedes = isAdmin || isLab || session?.sede_id === 4;
 
@@ -226,7 +228,7 @@ export default function LaboratoriosPage() {
                           </span>
                         </td>
                         <td style={{ ...tdSt, fontSize:'0.78rem' }}>
-                          {(isAdmin || isLab) && editSedePid === p.id ? (
+                          {canEditSede && editSedePid === p.id ? (
                             <div style={{ display:'flex', gap:'0.3rem', alignItems:'center' }}>
                               <select
                                 defaultValue={p.sede_id}
@@ -240,9 +242,9 @@ export default function LaboratoriosPage() {
                             </div>
                           ) : (
                             <span
-                              onClick={(isAdmin || isLab) ? () => setEditSedePid(p.id) : undefined}
-                              title={(isAdmin || isLab) ? 'Clic para cambiar sede' : undefined}
-                              style={{ color:'var(--color-text-muted)', cursor: (isAdmin || isLab) ? 'pointer' : 'default', textDecoration: (isAdmin || isLab) ? 'underline dotted' : 'none' }}
+                              onClick={canEditSede ? () => setEditSedePid(p.id) : undefined}
+                              title={canEditSede ? 'Clic para cambiar sede' : undefined}
+                              style={{ color:'var(--color-text-muted)', cursor: canEditSede ? 'pointer' : 'default', textDecoration: canEditSede ? 'underline dotted' : 'none' }}
                             >
                               {sedeNombre(p.sede_id)}
                             </span>
@@ -424,7 +426,7 @@ export default function LaboratoriosPage() {
                       </span>
                     </td>
                     <td style={{ ...tdSt, fontSize:'0.78rem' }}>
-                      {(isAdmin || isLab) && editSedePid === p.id ? (
+                      {canEditSede && editSedePid === p.id ? (
                         <div style={{ display:'flex', gap:'0.3rem', alignItems:'center' }}>
                           <select
                             defaultValue={p.sede_id}

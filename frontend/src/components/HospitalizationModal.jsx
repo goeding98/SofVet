@@ -13,6 +13,7 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
   const navigate = useNavigate();
   const { session } = useAuth();
   const { sedeActual, isAdmin } = useSede();
+  const isDomicilio = session?.sede_id === 4;
   const { add: addHosp, edit: editHosp } = useStore('hospitalization');
   const { items: patients, edit: editPatient } = useStore('patients');
   const isEditing = !!initialData?.id;
@@ -106,9 +107,9 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
             </p>
             <div style={{ marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>📍 Sede:</span>
-              {isAdmin ? (
+              {(isAdmin || isDomicilio) ? (
                 <select value={sedeId} onChange={e => setSedeId(parseInt(e.target.value))} style={{ fontSize: '0.78rem', padding: '0.2rem 0.5rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)' }}>
-                  {SEDES.filter(s => !s.domicilio).map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                  {SEDES.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
                 </select>
               ) : (
                 <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text)' }}>{SEDES.find(s => s.id === sedeId)?.nombre}</span>
