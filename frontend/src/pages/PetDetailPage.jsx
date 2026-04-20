@@ -1046,7 +1046,8 @@ export default function PetDetailPage() {
           <Card title="Consentimientos y Documentos">
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(260px, 1fr))', gap:'1rem' }}>
               {documents.map(doc => {
-                const sig = petSignedDocs.filter(s => s.document_id === doc.id && s.tipo === 'firma').slice(-1)[0];
+                const sig = petSignedDocs.filter(s => s.document_id === doc.id && (s.tipo === 'firma' || s.tipo === 'impresion')).slice(-1)[0];
+                const esFirma = sig?.tipo === 'firma';
                 return (
                   <div
                     key={doc.id}
@@ -1061,14 +1062,16 @@ export default function PetDetailPage() {
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontWeight:600, fontSize:'0.82rem', color:'var(--color-text)', lineHeight:1.3 }}>{doc.nombre}</div>
                         {sig
-                          ? <div style={{ fontSize:'0.7rem', color:'var(--color-success)', fontWeight:600, marginTop:'0.15rem' }}>✅ Firmado el {sig.signed_at}</div>
-                          : <div style={{ fontSize:'0.7rem', color:'var(--color-text-muted)', marginTop:'0.15rem' }}>Sin firmar</div>
+                          ? <div style={{ fontSize:'0.7rem', color: esFirma ? 'var(--color-success)' : 'var(--color-primary)', fontWeight:600, marginTop:'0.15rem' }}>
+                              {esFirma ? `✅ Firmado el ${sig.signed_at}` : `📄 Generado el ${sig.signed_at}`}
+                            </div>
+                          : <div style={{ fontSize:'0.7rem', color:'var(--color-text-muted)', marginTop:'0.15rem' }}>Sin generar</div>
                         }
                       </div>
                     </div>
                     <button
                       onClick={() => setActiveDoc(doc)}
-                      style={{ padding:'0.4rem 0.75rem', background: sig ? 'var(--color-success-bg)' : 'var(--color-primary)', color: sig ? 'var(--color-success)' : 'white', border: sig ? '1px solid var(--color-success)' : 'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, transition:'var(--transition)' }}
+                      style={{ padding:'0.4rem 0.75rem', background: sig ? (esFirma ? 'var(--color-success-bg)' : 'var(--color-info-bg)') : 'var(--color-primary)', color: sig ? (esFirma ? 'var(--color-success)' : 'var(--color-primary)') : 'white', border: sig ? `1px solid ${esFirma ? 'var(--color-success)' : 'var(--color-primary)'}` : 'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, transition:'var(--transition)' }}
                     >
                       {sig ? '📄 Ver / Reimprimir' : '📄 Generar documento'}
                     </button>

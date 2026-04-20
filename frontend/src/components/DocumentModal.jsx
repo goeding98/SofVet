@@ -146,6 +146,9 @@ export default function DocumentModal({
       client_name:      client?.name || '',
       signature_data:   canvas.toDataURL(),
       signed_at:        new Date().toLocaleDateString('es-CO'),
+      tipo:             'firma',
+      sede_id:          sedeActual || null,
+      veterinario:      session?.nombre || null,
     });
     setSigSaved(true);
   };
@@ -183,7 +186,7 @@ export default function DocumentModal({
         signature_data:  null,
         signed_at:       new Date().toLocaleDateString('es-CO'),
         tipo:            'impresion',
-        sede_id:         sedeActual?.id   || null,
+        sede_id:         sedeActual        || null,
         veterinario:     session?.nombre  || null,
       });
     }
