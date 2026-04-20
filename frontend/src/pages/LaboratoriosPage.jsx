@@ -405,8 +405,14 @@ export default function LaboratoriosPage() {
               <tbody>
                 {solicitados.map(p => (
                   <tr key={p.id}>
-                    <td style={tdSt}>{p.fecha_solicitado || '—'}</td>
-                    <td style={{ ...tdSt, fontWeight:600 }}>{p.patient_name || '—'}</td>
+                    <td style={tdSt}>{p.fecha_solicitado || '—'}{p.hora_solicitado ? ` ${p.hora_solicitado}` : ''}</td>
+                    <td style={{ ...tdSt, fontWeight:600 }}>
+                      {p.patient_id ? (
+                        <button onClick={() => navigate(`/patients/${p.patient_id}`)} style={{ background:'none', border:'none', cursor:'pointer', fontWeight:600, fontSize:'0.84rem', color:'var(--color-primary)', padding:0, fontFamily:'var(--font-body)', textDecoration:'underline' }}>{p.patient_name || '—'}</button>
+                      ) : (p.patient_name || '—')}
+                    </td>
+                    <td style={{ ...tdSt, fontSize:'0.8rem', color:'var(--color-text-muted)' }}>{getTutor(p.patient_id)}</td>
+                    <td style={{ ...tdSt, fontSize:'0.8rem', color:'var(--color-text-muted)' }}>{p.solicitado_por || <span style={{ fontStyle:'italic', fontSize:'0.72rem' }}>—</span>}</td>
                     <td style={tdSt}>{p.tipo_examen}</td>
                     <td style={tdSt}>
                       <span style={{ background: p.procesamiento === 'Externo' ? '#e8f0ff' : '#e8f5ee', color: p.procesamiento === 'Externo' ? '#2e5cbf' : '#2e7d50', padding:'2px 9px', borderRadius:999, fontSize:'0.7rem', fontWeight:600 }}>
