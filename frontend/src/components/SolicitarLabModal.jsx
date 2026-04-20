@@ -33,6 +33,7 @@ export default function SolicitarLabModal({ isOpen, onClose, onSave, pet }) {
       estado:           'Solicitado',
       fecha_solicitado: new Date().toISOString().split('T')[0],
       hora_solicitado:  new Date().toTimeString().slice(0, 5),
+      solicitado_por:   session?.nombre || 'Desconocido',
     });
     reset(); onClose();
   };

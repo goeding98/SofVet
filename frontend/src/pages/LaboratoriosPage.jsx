@@ -1,4 +1,5 @@
 import { useState, useMemo, Fragment } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
 import { useSede, SEDES } from '../utils/useSede';
 import { useAuth } from '../utils/useAuth';
@@ -10,8 +11,18 @@ const sedeNombre = (id) => SEDES.find(s => s.id === id)?.nombre || `Sede ${id}`;
 export default function LaboratoriosPage() {
   const { items: pedidos,      edit: editPedido, remove: removePedido } = useStore('laboratorios_pedidos');
   const { items: laboratorios, edit: editLaboratorio, remove: removeLaboratorio } = useStore('laboratorios');
+  const { items: patients } = useStore('patients');
+  const { items: clients }  = useStore('clients');
   const { sedeActual, isAdmin } = useSede();
   const { session } = useAuth();
+  const navigate = useNavigate();
+
+  const getTutor = (patient_id) => {
+    const pat = patients.find(p => p.id === patient_id);
+    if (!pat) return '—';
+    const cli = clients.find(c => c.id === pat.owner_id);
+    return cli?.name || '—';
+  };
 
   const isMedico = session?.rol === 'Médico' || session?.rol === 'Administrador';
   const isLab    = session?.rol === 'Laboratorio';
@@ -179,6 +190,8 @@ export default function LaboratoriosPage() {
                 <tr>
                   <th style={thSt}>Fecha solicitado</th>
                   <th style={thSt}>Mascota</th>
+                  <th style={thSt}>Tutor</th>
+                  <th style={thSt}>Solicitado por</th>
                   <th style={thSt}>Examen</th>
                   <th style={thSt}>Procesamiento</th>
                   <th style={thSt}>Sede</th>
@@ -196,8 +209,14 @@ export default function LaboratoriosPage() {
                   return (
                     <Fragment key={p.id}>
                       <tr style={{ background: isOpen ? '#fff8f0' : 'transparent' }}>
-                        <td style={tdSt}>{p.fecha_solicitado || '—'}</td>
-                        <td style={{ ...tdSt, fontWeight:600 }}>{p.patient_name || '—'}</td>
+                        <td style={tdSt}>{p.fecha_solicitado || '—'}{p.hora_solicitado ? ` ${p.hora_solicitado}` : ''}</td>
+                        <td style={{ ...tdSt, fontWeight:600 }}>
+                          {p.patient_id ? (
+                            <button onClick={() => navigate(`/patients/${p.patient_id}`)} style={{ background:'none', border:'none', cursor:'pointer', fontWeight:600, fontSize:'0.84rem', color:'var(--color-primary)', padding:0, fontFamily:'var(--font-body)', textDecoration:'underline' }}>{p.patient_name || '—'}</button>
+                          ) : (p.patient_name || '—')}
+                        </td>
+                        <td style={{ ...tdSt, fontSize:'0.8rem', color:'var(--color-text-muted)' }}>{getTutor(p.patient_id)}</td>
+                        <td style={{ ...tdSt, fontSize:'0.8rem', color:'var(--color-text-muted)' }}>{p.solicitado_por || <span style={{ fontStyle:'italic', fontSize:'0.72rem' }}>—</span>}</td>
                         <td style={tdSt}>{p.tipo_examen}</td>
                         <td style={tdSt}>
                           <span style={{ background: p.procesamiento === 'Externo' ? '#e8f0ff' : '#e8f5ee', color: p.procesamiento === 'Externo' ? '#2e5cbf' : '#2e7d50', padding:'2px 9px', borderRadius:999, fontSize:'0.7rem', fontWeight:600 }}>
@@ -261,7 +280,7 @@ export default function LaboratoriosPage() {
                       {/* ── Panel expandido ── */}
                       {isOpen && (
                         <tr>
-                          <td colSpan={7} style={{ padding:0, borderTop:'none' }}>
+                          <td colSpan={9} style={{ padding:0, borderTop:'none' }}>
                             <div style={{ padding:'1.25rem 1.5rem', background:'#fffbf0', borderTop:'2px solid #f59e0b', borderBottom:'1px solid #fde68a' }}>
 
                               {/* Meta info */}
@@ -375,6 +394,8 @@ export default function LaboratoriosPage() {
                 <tr>
                   <th style={thSt}>Fecha solicitado</th>
                   <th style={thSt}>Mascota</th>
+                  <th style={thSt}>Tutor</th>
+                  <th style={thSt}>Solicitado por</th>
                   <th style={thSt}>Examen</th>
                   <th style={thSt}>Procesamiento</th>
                   <th style={thSt}>Sede</th>
@@ -456,8 +477,14 @@ export default function LaboratoriosPage() {
                   <tbody>
                     {ultimos30.map(p => (
                       <tr key={p.id}>
-                        <td style={tdSt}>{p.fecha_solicitado || '—'}</td>
-                        <td style={{ ...tdSt, fontWeight:600 }}>{p.patient_name || '—'}</td>
+                        <td style={tdSt}>{p.fecha_solicitado || '—'}{p.hora_solicitado ? ` ${p.hora_solicitado}` : ''}</td>
+                        <td style={{ ...tdSt, fontWeight:600 }}>
+                          {p.patient_id ? (
+                            <button onClick={() => navigate(`/patients/${p.patient_id}`)} style={{ background:'none', border:'none', cursor:'pointer', fontWeight:600, fontSize:'0.84rem', color:'var(--color-primary)', padding:0, fontFamily:'var(--font-body)', textDecoration:'underline' }}>{p.patient_name || '—'}</button>
+                          ) : (p.patient_name || '—')}
+                        </td>
+                        <td style={{ ...tdSt, fontSize:'0.8rem', color:'var(--color-text-muted)' }}>{getTutor(p.patient_id)}</td>
+                        <td style={{ ...tdSt, fontSize:'0.8rem', color:'var(--color-text-muted)' }}>{p.solicitado_por || <span style={{ fontStyle:'italic', fontSize:'0.72rem' }}>—</span>}</td>
                         <td style={tdSt}>{p.tipo_examen}</td>
                         <td style={{ ...tdSt, color:'#2e7d50', fontWeight:600 }}>{p.fecha_reportado || '—'}</td>
                         <td style={{ ...tdSt, color:'var(--color-text-muted)' }}>{p.reportado_por || '—'}</td>
