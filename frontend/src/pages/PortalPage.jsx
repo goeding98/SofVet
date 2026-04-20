@@ -150,7 +150,7 @@ export default function PortalPage() {
       supabase.from('appointments').select('id,patient_name,date,time,service,status').in('patient_name', names).gte('date', tod).neq('status','cancelada').order('date', { ascending: true }).limit(20),
       supabase.from('imaging').select('patient_id,tipo,resultado,date').in('patient_id', ids).order('date', { ascending: false }),
       supabase.from('hospitalization').select('patient_id,motivo,diagnostico,ingreso_date,alta_date,status').in('patient_id', ids).order('ingreso_date', { ascending: false }),
-      supabase.from('hc_requests').select('*').eq('client_id', cl.id),
+      supabase.from('hc_requests').select('*').eq('client_id', cl.id).order('requested_at', { ascending: false }),
       supabase.from('prepagada').select('patient_id,status,paid_until').in('patient_id', ids).neq('status','baja'),
     ]);
 
@@ -194,8 +194,9 @@ export default function PortalPage() {
   // ── HC Request ────────────────────────────────────────────────────────────
   const handleSolicitarHC = async (pet) => {
     const existing = pet.hcReq;
-    if (existing?.status === 'pendiente') return; // ya solicitó
-    // Si hay una aprobada expirada o no hay nada, crear nueva
+    if (existing?.status === 'pendiente') return;
+    const vigente = existing?.status === 'aprobada' && existing?.expires_at && new Date(existing.expires_at) > new Date();
+    if (vigente) return;
     const { error } = await supabase.from('hc_requests').insert({
       client_id:    client.id,
       patient_id:   pet.id,
