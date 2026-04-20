@@ -1089,9 +1089,9 @@ export default function PetDetailPage() {
                       </div>
                       <button
                         onClick={() => setActiveDoc(doc)}
-                        style={{ padding:'0.4rem 0.75rem', background: sig ? (esFirma ? 'var(--color-success-bg)' : 'var(--color-info-bg)') : 'var(--color-primary)', color: sig ? (esFirma ? 'var(--color-success)' : 'var(--color-primary)') : 'white', border: sig ? `1px solid ${esFirma ? 'var(--color-success)' : 'var(--color-primary)'}` : 'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, transition:'var(--transition)' }}
+                        style={{ padding:'0.4rem 0.75rem', background:'var(--color-primary)', color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, transition:'var(--transition)' }}
                       >
-                        {sig ? '📄 Ver / Reimprimir' : '📄 Generar documento'}
+                        📄 Generar documento
                       </button>
                     </div>
                   );
