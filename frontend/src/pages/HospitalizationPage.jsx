@@ -146,12 +146,11 @@ export default function HospitalizationPage() {
   const [consumoNewDesc, setConsumoNewDesc] = useState('');
   const [consumoNewCant, setConsumoNewCant] = useState('');
 
-  // ── liquidación parcial modal ───────────────────────────────────────────
-  const [liquidModal,         setLiquidModal]         = useState(false);
-  const [liquidHospId,        setLiquidHospId]        = useState(null);
-  const [liquidChecked,       setLiquidChecked]       = useState({});
-  const [liquidNochesChecked, setLiquidNochesChecked] = useState({});
-  const [liquidAppChecked,    setLiquidAppChecked]    = useState({});
+  // ── abonos modal ────────────────────────────────────────────────────────
+  const [abonoModal,  setAbonoModal]  = useState(false);
+  const [abonoHospId, setAbonoHospId] = useState(null);
+  const [abonoDesc,   setAbonoDesc]   = useState('');
+  const [abonoValor,  setAbonoValor]  = useState('');
 
   // ── derived ─────────────────────────────────────────────────────────────
   const activos    = hosps.filter(h => h.status === 'activo'     && (hospSedeFilter === null || h.sede_id === hospSedeFilter));
@@ -160,7 +159,7 @@ export default function HospitalizationPage() {
   const applyHosp   = hosps.find(h => h.id === applyHospId);
   const editTxHosp  = hosps.find(h => h.id === editTxHospId);
   const consumoHosp = hosps.find(h => h.id === consumoHospId);
-  const liquidHosp  = hosps.find(h => h.id === liquidHospId);
+  const abonoHosp   = hosps.find(h => h.id === abonoHospId);
 
   // ── alta flow ───────────────────────────────────────────────────────────
   const openAlta = (h) => { setAltaHosp(h); setAltaModal(true); };
@@ -251,12 +250,34 @@ export default function HospitalizationPage() {
   const updateEditTxMed = (i, field, val) => setEditTxMeds(m => m.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
   const handleSaveEditTx = () => { editHosp(editTxHospId, { tratamiento: editTxMeds.filter(m => m.medicamento.trim()) }); setEditTxModal(false); };
 
-  // ── liquidar medicamento aplicado ───────────────────────────────────────
-  const handleLiquidarAplicacion = (h, appFecha, appHora, medMedicamento) => {
-    const key = `${appFecha}_${appHora}_${medMedicamento}`;
-    const current = h.aplicaciones_liquidadas || [];
-    if (current.includes(key)) return;
-    editHosp(h.id, { aplicaciones_liquidadas: [...current, key] });
+  // ── abonos ──────────────────────────────────────────────────────────────
+  const openAbonos = (h) => {
+    setAbonoHospId(h.id);
+    setAbonoDesc('');
+    setAbonoValor('');
+    setAbonoModal(true);
+  };
+
+  const handleAddAbono = () => {
+    if (!abonoDesc.trim() || !abonoValor || !abonoHosp) return;
+    const now = new Date();
+    const newAbono = {
+      id:             Date.now(),
+      descripcion:    abonoDesc.trim(),
+      valor:          parseFloat(String(abonoValor).replace(/\./g, '').replace(',', '.')) || 0,
+      fecha:          now.toISOString().split('T')[0],
+      hora:           now.toTimeString().slice(0, 5),
+      registrado_por: session?.nombre || 'Desconocido',
+    };
+    editHosp(abonoHospId, { abonos: [...(abonoHosp.abonos || []), newAbono] });
+    setAbonoDesc('');
+    setAbonoValor('');
+  };
+
+  const handleDeleteAbono = (hospId, abonoId) => {
+    const h = hosps.find(x => x.id === hospId);
+    if (!h || !confirm('¿Eliminar este abono?')) return;
+    editHosp(hospId, { abonos: (h.abonos || []).filter(a => a.id !== abonoId) });
   };
 
   // ── hoja de consumo ─────────────────────────────────────────────────────
@@ -290,61 +311,6 @@ export default function HospitalizationPage() {
     const liquidatedIds = new Set((h.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
     if (liquidatedIds.has(itemId)) { alert('Este ítem ya fue liquidado y no puede eliminarse.'); return; }
     editHosp(hospId, { consumo: (h.consumo || []).filter(item => item.id !== itemId) });
-  };
-
-  // ── liquidación parcial ─────────────────────────────────────────────────
-  const openLiquidParcial = (h) => {
-    setLiquidHospId(h.id);
-    // consumo items
-    const liquidatedIds = new Set((h.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
-    const init = {};
-    (h.consumo || []).forEach(item => {
-      if (!liquidatedIds.has(item.id)) init[item.id] = false;
-    });
-    setLiquidChecked(init);
-    // noches
-    const today = new Date().toISOString().split('T')[0];
-    const noches = buildNochesSummary(h.ingreso_date, today, h.liquidaciones_parciales);
-    const nochesInit = {};
-    noches.filter(n => !n.liquidado).forEach(n => { nochesInit[n.fecha] = false; });
-    setLiquidNochesChecked(nochesInit);
-    // aplicaciones de medicamentos
-    const liquidadasKeys = new Set(h.aplicaciones_liquidadas || []);
-    const appInit = {};
-    (h.aplicaciones || []).forEach(a => {
-      (a.medicamentos || []).forEach(m => {
-        const key = `${a.fecha}_${a.hora}_${m.medicamento}`;
-        if (!liquidadasKeys.has(key)) appInit[key] = false;
-      });
-    });
-    setLiquidAppChecked(appInit);
-    setLiquidModal(true);
-  };
-
-  const handleLiquidParcial = () => {
-    if (!liquidHosp) return;
-    const selectedIds    = Object.entries(liquidChecked).filter(([, v]) => v).map(([k]) => parseInt(k));
-    const selectedNoches = Object.entries(liquidNochesChecked).filter(([, v]) => v).map(([k]) => k);
-    const selectedApps   = Object.entries(liquidAppChecked).filter(([, v]) => v).map(([k]) => k);
-    if (!selectedIds.length && !selectedNoches.length && !selectedApps.length) {
-      alert('Selecciona al menos un ítem para liquidar.');
-      return;
-    }
-    const now = new Date();
-    const newLiq = {
-      fecha:          now.toISOString().split('T')[0],
-      hora:           now.toTimeString().slice(0, 5),
-      registrado_por: session?.nombre || 'Desconocido',
-      item_ids:       selectedIds,
-      noches:         selectedNoches,
-      items_snapshot: selectedIds.map(id => (liquidHosp.consumo || []).find(item => item.id === id)).filter(Boolean),
-    };
-    const updates = { liquidaciones_parciales: [...(liquidHosp.liquidaciones_parciales || []), newLiq] };
-    if (selectedApps.length) {
-      updates.aplicaciones_liquidadas = [...(liquidHosp.aplicaciones_liquidadas || []), ...selectedApps];
-    }
-    editHosp(liquidHosp.id, updates);
-    setLiquidModal(false);
   };
 
   return (
@@ -438,7 +404,7 @@ export default function HospitalizationPage() {
                           )}
                           {isMedico && (
                             <>
-                              <button onClick={() => openLiquidParcial(h)} style={btnStyle('#8e44ad')}>💰 Liq. Parcial</button>
+                              <button onClick={() => openAbonos(h)} style={btnStyle('#8e44ad')}>💰 Abonos</button>
                               <button onClick={() => openAlta(h)} style={btnStyle('var(--color-success)')}>✅ Alta</button>
                               <button onClick={() => handleDeslinde(h)} style={btnStyle('#b45309')}>📋 Deslinde</button>
                               <button onClick={() => handleFallecido(h)} style={btnStyle('var(--color-danger)')}>💀 Fallecido</button>
@@ -545,39 +511,22 @@ export default function HospitalizationPage() {
                   <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', padding: '0.75rem', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>Aún no se han registrado aplicaciones.</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: 340, overflowY: 'auto' }}>
-                    {[...selected.aplicaciones].reverse().map((a, i) => {
-                      const liquidadasKeys = selected.aplicaciones_liquidadas || [];
-                      return (
-                        <div key={i} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.85rem', fontSize: '0.8rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                            <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>💊 Aplicación</span>
-                            <span style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{a.fecha} {a.hora} · Por: <strong>{a.aplicado_por}</strong></span>
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                            {a.medicamentos?.map((m, mi) => {
-                              const key = `${a.fecha}_${a.hora}_${m.medicamento}`;
-                              const liquidado = liquidadasKeys.includes(key);
-                              return (
-                                <div key={mi} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0.5rem', borderRadius: 'var(--radius-sm)', background: liquidado ? 'var(--color-success-bg)' : 'var(--color-bg)' }}>
-                                  <span style={{ flex: 1, fontSize: '0.8rem' }}>· {m.medicamento} — {m.dosis} {m.unidad}</span>
-                                  {liquidado ? (
-                                    <span style={{ fontSize: '0.65rem', background: 'var(--color-success)', color: 'white', padding: '1px 7px', borderRadius: 999, whiteSpace: 'nowrap' }}>✓ Liquidado</span>
-                                  ) : isMedico ? (
-                                    <button
-                                      onClick={() => handleLiquidarAplicacion(selected, a.fecha, a.hora, m.medicamento)}
-                                      style={{ fontSize: '0.65rem', background: 'none', border: '1px solid #8e44ad', color: '#8e44ad', padding: '1px 7px', borderRadius: 999, cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}
-                                    >
-                                      💰 Liquidar
-                                    </button>
-                                  ) : null}
-                                </div>
-                              );
-                            })}
-                          </div>
-                          {a.notas && <div style={{ marginTop: '0.4rem', color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>📝 {a.notas}</div>}
+                    {[...selected.aplicaciones].reverse().map((a, i) => (
+                      <div key={i} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.85rem', fontSize: '0.8rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                          <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>💊 Aplicación</span>
+                          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{a.fecha} {a.hora} · Por: <strong>{a.aplicado_por}</strong></span>
                         </div>
-                      );
-                    })}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                          {a.medicamentos?.map((m, mi) => (
+                            <div key={mi} style={{ padding: '0.3rem 0.5rem', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)', fontSize: '0.8rem' }}>
+                              · {m.medicamento} — {m.dosis} {m.unidad}
+                            </div>
+                          ))}
+                        </div>
+                        {a.notas && <div style={{ marginTop: '0.4rem', color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>📝 {a.notas}</div>}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -596,37 +545,48 @@ export default function HospitalizationPage() {
                 </div>
                 {!selected.consumo?.length ? (
                   <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', padding: '0.75rem', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>Sin ítems registrados.</p>
-                ) : (() => {
-                  const liquidatedIds = new Set((selected.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: 220, overflowY: 'auto' }}>
-                      {selected.consumo.map(item => {
-                        const liquidado = liquidatedIds.has(item.id);
-                        return (
-                          <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0.65rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: liquidado ? 'var(--color-success-bg)' : 'var(--color-white)', fontSize: '0.8rem' }}>
-                            <span style={{ flex: 1 }}>{item.descripcion}</span>
-                            <span style={{ fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>x{item.cantidad}</span>
-                            {liquidado
-                              ? <span style={{ fontSize: '0.68rem', background: 'var(--color-success)', color: 'white', padding: '1px 6px', borderRadius: 999 }}>Liquidado</span>
-                              : <span style={{ fontSize: '0.68rem', background: '#fff3cd', color: '#856404', padding: '1px 6px', borderRadius: 999 }}>Pendiente</span>
-                            }
-                          </div>
-                        );
-                      })}
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: 220, overflowY: 'auto' }}>
+                    {selected.consumo.map(item => (
+                      <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0.65rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'var(--color-white)', fontSize: '0.8rem' }}>
+                        <span style={{ flex: 1 }}>{item.descripcion}</span>
+                        <span style={{ fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>x{item.cantidad}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Abonos */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
+                    💰 Abonos ({selected.abonos?.length || 0})
+                  </div>
+                  {isMedico && selected.status === 'activo' && (
+                    <button onClick={() => { setSelectedId(null); openAbonos(selected); }} style={{ padding: '0.3rem 0.75rem', background: 'var(--color-white)', border: '1px solid #8e44ad', borderRadius: 'var(--radius-sm)', color: '#8e44ad', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600 }}>
+                      + Abono
+                    </button>
+                  )}
+                </div>
+                {!(selected.abonos?.length) ? (
+                  <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', padding: '0.75rem', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>Sin abonos registrados.</p>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', maxHeight: 180, overflowY: 'auto' }}>
+                      {selected.abonos.map(ab => (
+                        <div key={ab.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0.65rem', border: '1px solid #d8b4fe', borderRadius: 'var(--radius-sm)', background: '#faf5ff', fontSize: '0.8rem' }}>
+                          <span style={{ flex: 1, fontWeight: 500 }}>{ab.descripcion}</span>
+                          <span style={{ fontWeight: 700, color: '#8e44ad', whiteSpace: 'nowrap' }}>{fmtCOP(ab.valor)}</span>
+                        </div>
+                      ))}
                     </div>
-                  );
-                })()}
-                {selected.status === 'activo' && isMedico && (() => {
-                  const liquidatedIds = new Set((selected.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
-                  const pendingCount = (selected.consumo || []).filter(item => !liquidatedIds.has(item.id)).length;
-                  return pendingCount > 0 ? (
-                    <div style={{ marginTop: '0.6rem' }}>
-                      <button onClick={() => { setSelectedId(null); openLiquidParcial(selected); }} style={{ ...btnStyle('#8e44ad'), padding: '0.4rem 0.85rem', fontSize: '0.78rem' }}>
-                        💰 Liquidar ítems ({pendingCount} pendiente{pendingCount !== 1 ? 's' : ''})
-                      </button>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '0.85rem', padding: '0.4rem 0.65rem', background: '#f3e8ff', borderRadius: 'var(--radius-sm)', marginTop: '0.35rem', color: '#8e44ad' }}>
+                      <span>Total abonado</span>
+                      <span>{fmtCOP(selected.abonos.reduce((sum, ab) => sum + (ab.valor || 0), 0))}</span>
                     </div>
-                  ) : null;
-                })()}
+                  </>
+                )}
               </div>
 
             </div>
@@ -847,6 +807,27 @@ export default function HospitalizationPage() {
                   </div>
                 )}
 
+                {/* Abonos */}
+                {(altaHosp.abonos || []).length > 0 && (
+                  <div style={{ background: '#f3e8ff', border: '1px solid #d8b4fe', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8e44ad', marginBottom: '0.6rem' }}>
+                      💰 Abonos recibidos ({altaHosp.abonos.length})
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginBottom: '0.6rem' }}>
+                      {altaHosp.abonos.map(ab => (
+                        <div key={ab.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', padding: '0.25rem 0', borderBottom: '1px dashed #d8b4fe' }}>
+                          <span>{ab.descripcion}</span>
+                          <span style={{ fontWeight: 600, color: '#8e44ad', whiteSpace: 'nowrap', marginLeft: '1rem' }}>{fmtCOP(ab.valor)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '0.9rem', paddingTop: '0.4rem', borderTop: '2px solid #d8b4fe', color: '#8e44ad' }}>
+                      <span>Total abonado</span>
+                      <span>{fmtCOP(altaHosp.abonos.reduce((sum, ab) => sum + (ab.valor || 0), 0))}</span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Action buttons */}
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                   <button
@@ -984,6 +965,26 @@ export default function HospitalizationPage() {
                         ))}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {(resumenHosp.abonos || []).length > 0 && (
+                  <div style={{ background: '#f3e8ff', border: '1px solid #d8b4fe', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8e44ad', marginBottom: '0.5rem' }}>
+                      💰 Abonos recibidos ({resumenHosp.abonos.length})
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginBottom: '0.5rem' }}>
+                      {resumenHosp.abonos.map(ab => (
+                        <div key={ab.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', padding: '0.2rem 0', borderBottom: '1px dashed #d8b4fe' }}>
+                          <span>{ab.descripcion}</span>
+                          <span style={{ fontWeight: 600, color: '#8e44ad', marginLeft: '1rem' }}>{fmtCOP(ab.valor)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '0.875rem', paddingTop: '0.35rem', borderTop: '2px solid #d8b4fe', color: '#8e44ad' }}>
+                      <span>Total abonado</span>
+                      <span>{fmtCOP(resumenHosp.abonos.reduce((sum, ab) => sum + (ab.valor || 0), 0))}</span>
+                    </div>
                   </div>
                 )}
 
@@ -1227,195 +1228,103 @@ export default function HospitalizationPage() {
         );
       })()}
 
-      {/* ══════════════ MODAL: LIQUIDACIÓN PARCIAL ══════════════ */}
-      {liquidModal && liquidHosp && (() => {
-        const today         = new Date().toISOString().split('T')[0];
-        const liquidatedIds = new Set((liquidHosp.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
-        const pendingItems  = (liquidHosp.consumo || []).filter(item => !liquidatedIds.has(item.id));
-        const allNoches     = buildNochesSummary(liquidHosp.ingreso_date, today, liquidHosp.liquidaciones_parciales);
-        const pendingNoches = allNoches.filter(n => !n.liquidado);
-        const liquidadasAppKeys = new Set(liquidHosp.aplicaciones_liquidadas || []);
-        const pendingAppItems   = (liquidHosp.aplicaciones || []).flatMap(a =>
-          (a.medicamentos || [])
-            .map(m => ({ key: `${a.fecha}_${a.hora}_${m.medicamento}`, medicamento: m.medicamento, dosis: m.dosis, unidad: m.unidad, fecha: a.fecha, hora: a.hora, aplicado_por: a.aplicado_por }))
-            .filter(item => !liquidadasAppKeys.has(item.key))
-        );
-        const selectedConsumoCount = Object.values(liquidChecked).filter(Boolean).length;
-        const selectedNochesCount  = Object.values(liquidNochesChecked).filter(Boolean).length;
-        const selectedAppCount     = Object.values(liquidAppChecked).filter(Boolean).length;
-        const selectedCount = selectedConsumoCount + selectedNochesCount + selectedAppCount;
-        return (
-          <div onClick={() => setLiquidModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', backdropFilter: 'blur(2px)', overflowY: 'auto' }}>
-            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 560, overflow: 'hidden', margin: 'auto' }}>
+      {/* ══════════════ MODAL: ABONOS ══════════════ */}
+      {abonoModal && abonoHosp && (
+        <div onClick={() => setAbonoModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', backdropFilter: 'blur(2px)', overflowY: 'auto' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 520, overflow: 'hidden', margin: 'auto' }}>
 
-              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', background: '#f3e8ff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <h3 style={{ fontFamily: 'var(--font-title)', color: '#8e44ad', fontSize: '1.05rem', margin: '0 0 0.15rem' }}>💰 Liquidación parcial</h3>
-                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{liquidHosp.patient_name} · Selecciona los ítems a cobrar ahora</p>
-                </div>
-                <button onClick={() => setLiquidModal(false)} style={{ width: 32, height: 32, background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)' }}>×</button>
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', background: '#f3e8ff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-title)', color: '#8e44ad', fontSize: '1.05rem', margin: '0 0 0.15rem' }}>💰 Abonos</h3>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{abonoHosp.patient_name} · {abonoHosp.client_name}</p>
               </div>
+              <button onClick={() => setAbonoModal(false)} style={{ width: 32, height: 32, background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)' }}>×</button>
+            </div>
 
-              <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
-                {/* Medicamentos aplicados — checkboxes */}
-                {pendingAppItems.length > 0 && (
-                  <div>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8e44ad', marginBottom: '0.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>💊 Medicamentos aplicados</span>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', fontWeight: 400, fontSize: '0.72rem', textTransform: 'none', letterSpacing: 0 }}>
-                        <input
-                          type="checkbox"
-                          checked={pendingAppItems.every(item => liquidAppChecked[item.key])}
-                          onChange={e => {
-                            const next = {};
-                            pendingAppItems.forEach(item => { next[item.key] = e.target.checked; });
-                            setLiquidAppChecked(next);
-                          }}
-                          style={{ accentColor: '#8e44ad' }}
-                        />
-                        Todos
-                      </label>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', maxHeight: 200, overflowY: 'auto' }}>
-                      {pendingAppItems.map(item => (
-                        <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0.85rem', border: `1px solid ${liquidAppChecked[item.key] ? '#8e44ad' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', background: liquidAppChecked[item.key] ? '#f3e8ff' : 'var(--color-white)', cursor: 'pointer', transition: 'all 0.15s' }}>
-                          <input
-                            type="checkbox"
-                            checked={!!liquidAppChecked[item.key]}
-                            onChange={e => setLiquidAppChecked(prev => ({ ...prev, [item.key]: e.target.checked }))}
-                            style={{ accentColor: '#8e44ad', width: 16, height: 16, flexShrink: 0 }}
-                          />
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{item.medicamento}</div>
-                            <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>{item.fecha} {item.hora} · Por: {item.aplicado_por}</div>
-                          </div>
-                          <span style={{ fontWeight: 700, fontSize: '0.9rem', color: liquidAppChecked[item.key] ? '#8e44ad' : 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{item.dosis} {item.unidad}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {pendingNoches.length === 0 && pendingItems.length === 0 && pendingAppItems.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-md)' }}>
-                    <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>✅</div>
-                    <p style={{ fontSize: '0.875rem' }}>Todo está liquidado. No hay ítems pendientes.</p>
-                  </div>
+              {/* Lista de abonos */}
+              <div>
+                <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8e44ad', marginBottom: '0.5rem' }}>
+                  Abonos registrados ({(abonoHosp.abonos || []).length})
+                </div>
+                {!(abonoHosp.abonos || []).length ? (
+                  <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '1.5rem', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-md)' }}>
+                    Sin abonos registrados aún.
+                  </p>
                 ) : (
-                  <>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', background: '#f3e8ff', padding: '0.6rem 0.85rem', borderRadius: 'var(--radius-sm)' }}>
-                      Marca lo que el cliente paga ahora. Lo no seleccionado quedará pendiente para el alta.
-                    </div>
-
-                    {/* Noches */}
-                    {pendingNoches.length > 0 && (
-                      <div>
-                        <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8e44ad', marginBottom: '0.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span>🌙 Noches de hospitalización</span>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', fontWeight: 400, fontSize: '0.72rem', textTransform: 'none', letterSpacing: 0 }}>
-                            <input
-                              type="checkbox"
-                              checked={pendingNoches.every(n => liquidNochesChecked[n.fecha])}
-                              onChange={e => {
-                                const next = {};
-                                pendingNoches.forEach(n => { next[n.fecha] = e.target.checked; });
-                                setLiquidNochesChecked(next);
-                              }}
-                              style={{ accentColor: '#8e44ad' }}
-                            />
-                            Todas
-                          </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', maxHeight: 280, overflowY: 'auto' }}>
+                    {abonoHosp.abonos.map(ab => (
+                      <div key={ab.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.65rem 0.85rem', border: '1px solid #d8b4fe', borderRadius: 'var(--radius-sm)', background: '#faf5ff' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{ab.descripcion}</div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>{ab.fecha} {ab.hora} · {ab.registrado_por}</div>
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                          {pendingNoches.map(n => (
-                            <label key={n.fecha} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0.85rem', border: `1px solid ${liquidNochesChecked[n.fecha] ? '#8e44ad' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', background: liquidNochesChecked[n.fecha] ? '#f3e8ff' : 'var(--color-white)', cursor: 'pointer', transition: 'all 0.15s' }}>
-                              <input
-                                type="checkbox"
-                                checked={!!liquidNochesChecked[n.fecha]}
-                                onChange={e => setLiquidNochesChecked(prev => ({ ...prev, [n.fecha]: e.target.checked }))}
-                                style={{ accentColor: '#8e44ad', width: 16, height: 16, flexShrink: 0 }}
-                              />
-                              <span style={{ flex: 1, fontWeight: 500, fontSize: '0.875rem' }}>Noche {n.idx}</span>
-                              <span style={{ fontSize: '0.82rem', color: liquidNochesChecked[n.fecha] ? '#8e44ad' : 'var(--color-text-muted)', fontWeight: 500 }}>{fmtNoche(n.fecha)}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Consumo items */}
-                    {pendingItems.length > 0 && (
-                      <div>
-                        <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8e44ad', marginBottom: '0.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span>📋 Hoja de consumo</span>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', fontWeight: 400, fontSize: '0.72rem', textTransform: 'none', letterSpacing: 0 }}>
-                            <input
-                              type="checkbox"
-                              checked={pendingItems.every(item => liquidChecked[item.id])}
-                              onChange={e => {
-                                const next = {};
-                                pendingItems.forEach(item => { next[item.id] = e.target.checked; });
-                                setLiquidChecked(next);
-                              }}
-                              style={{ accentColor: '#8e44ad' }}
-                            />
-                            Todos
-                          </label>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', maxHeight: 200, overflowY: 'auto' }}>
-                          {pendingItems.map(item => (
-                            <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0.85rem', border: `1px solid ${liquidChecked[item.id] ? '#8e44ad' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', background: liquidChecked[item.id] ? '#f3e8ff' : 'var(--color-white)', cursor: 'pointer', transition: 'all 0.15s' }}>
-                              <input
-                                type="checkbox"
-                                checked={!!liquidChecked[item.id]}
-                                onChange={e => setLiquidChecked(prev => ({ ...prev, [item.id]: e.target.checked }))}
-                                style={{ accentColor: '#8e44ad', width: 16, height: 16, flexShrink: 0 }}
-                              />
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{item.descripcion}</div>
-                                <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>{item.fecha} · Por: {item.registrado_por}</div>
-                              </div>
-                              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: liquidChecked[item.id] ? '#8e44ad' : 'var(--color-text-muted)' }}>x{item.cantidad}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* Liquidaciones anteriores */}
-                {(liquidHosp.liquidaciones_parciales || []).length > 0 && (
-                  <div style={{ background: 'var(--color-success-bg)', border: '1px solid var(--color-success)', borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.85rem' }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-success)', marginBottom: '0.35rem' }}>✅ Liquidaciones anteriores</div>
-                    {liquidHosp.liquidaciones_parciales.map((lp, i) => (
-                      <div key={i} style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', paddingBottom: '0.2rem' }}>
-                        <strong>{lp.fecha} {lp.hora}</strong> · {lp.items_snapshot?.map(it => `${it.descripcion} x${it.cantidad}`).join(', ')} — por {lp.registrado_por}
+                        <span style={{ fontWeight: 700, fontSize: '1rem', color: '#8e44ad', whiteSpace: 'nowrap' }}>{fmtCOP(ab.valor)}</span>
+                        {isMedico && (
+                          <button onClick={() => handleDeleteAbono(abonoHosp.id, ab.id)}
+                            style={{ background: 'var(--color-danger-bg)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '0.2rem 0.5rem', fontSize: '0.72rem', flexShrink: 0 }}>✕</button>
+                        )}
                       </div>
                     ))}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '0.9rem', padding: '0.5rem 0.85rem', background: '#f3e8ff', borderRadius: 'var(--radius-sm)', marginTop: '0.2rem', color: '#8e44ad' }}>
+                      <span>Total abonado</span>
+                      <span>{fmtCOP(abonoHosp.abonos.reduce((sum, ab) => sum + (ab.valor || 0), 0))}</span>
+                    </div>
                   </div>
                 )}
+              </div>
 
-                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', paddingTop: '0.5rem', borderTop: '1px solid var(--color-border)' }}>
-                  <button onClick={() => setLiquidModal(false)} style={{ padding: '0.55rem 1.1rem', background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Cancelar</button>
-                  {pendingItems.length > 0 && (
-                    <button
-                      onClick={handleLiquidParcial}
-                      disabled={selectedCount === 0}
-                      style={{ padding: '0.55rem 1.25rem', background: selectedCount > 0 ? '#8e44ad' : 'var(--color-border)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: selectedCount > 0 ? 'pointer' : 'default', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600 }}
-                    >
-                      💰 Liquidar {selectedCount > 0 ? `(${selectedCount} ítem${selectedCount !== 1 ? 's' : ''})` : ''}
-                    </button>
-                  )}
+              {/* Formulario nuevo abono */}
+              {isMedico && (
+                <div style={{ border: '1px solid #d8b4fe', borderRadius: 'var(--radius-md)', padding: '1rem', background: '#faf5ff' }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8e44ad', marginBottom: '0.75rem' }}>Registrar abono</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                    <div>
+                      <label style={labelStyle}>Descripción *</label>
+                      <input
+                        value={abonoDesc}
+                        onChange={e => setAbonoDesc(e.target.value)}
+                        placeholder="Ej: Abono hospitalización del 19 al 20 + ecografía"
+                        style={{ width: '100%', padding: '0.55rem 0.75rem', border: '1px solid #d8b4fe', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.875rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Valor ($) *</label>
+                      <input
+                        value={abonoValor}
+                        onChange={e => setAbonoValor(e.target.value)}
+                        type="number"
+                        placeholder="300000"
+                        style={{ width: '100%', padding: '0.55rem 0.75rem', border: '1px solid #d8b4fe', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.875rem' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <button
+                        onClick={handleAddAbono}
+                        disabled={!abonoDesc.trim() || !abonoValor}
+                        style={{ padding: '0.55rem 1.25rem', background: (abonoDesc.trim() && abonoValor) ? '#8e44ad' : 'var(--color-border)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: (abonoDesc.trim() && abonoValor) ? 'pointer' : 'default', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600 }}
+                      >
+                        + Registrar abono
+                      </button>
+                    </div>
+                  </div>
                 </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={() => setAbonoModal(false)} style={{ padding: '0.55rem 1.25rem', background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Cerrar</button>
               </div>
             </div>
           </div>
-        );
-      })()}
+        </div>
+      )}
     </div>
   );
+}
+
+function fmtCOP(val) {
+  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(val || 0);
 }
 
 function btnStyle(color) {
