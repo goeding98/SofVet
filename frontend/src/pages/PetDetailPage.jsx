@@ -70,6 +70,7 @@ export default function PetDetailPage() {
   const [editingProced,    setEditingProced]    = useState(null);
   const [editingHosp,      setEditingHosp]      = useState(null);
   const [activeDoc,      setActiveDoc]      = useState(null);
+  const [docTab,         setDocTab]         = useState('generar');
   const [sedeFilter,     setSedeFilter]     = useState(null);
   const [notaModal,      setNotaModal]      = useState(false);
   const [notaForm,       setNotaForm]       = useState({ titulo: '', observaciones: '' });
@@ -1042,81 +1043,98 @@ export default function PetDetailPage() {
       {(() => {
         const SEDES_DOC = { 1:'Santa Mónica', 2:'Colseguros', 3:'Ciudad Jardín', 4:'Domicilio' };
         const historial = [...petSignedDocs].sort((a, b) => b.id - a.id);
+        const tabStyle = (active) => ({
+          padding:'0.55rem 1.1rem', border:'none', borderBottom: active ? '2px solid var(--color-primary)' : '2px solid transparent',
+          background:'none', color: active ? 'var(--color-primary)' : 'var(--color-text-muted)',
+          fontFamily:'var(--font-body)', fontSize:'0.85rem', fontWeight: active ? 600 : 400, cursor:'pointer', whiteSpace:'nowrap',
+        });
         return (
           <Card title="Consentimientos y Documentos">
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(260px, 1fr))', gap:'1rem' }}>
-              {documents.map(doc => {
-                const sig = petSignedDocs.filter(s => s.document_id === doc.id && (s.tipo === 'firma' || s.tipo === 'impresion')).slice(-1)[0];
-                const esFirma = sig?.tipo === 'firma';
-                return (
-                  <div
-                    key={doc.id}
-                    style={{ border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', padding:'1rem', display:'flex', flexDirection:'column', gap:'0.6rem', transition:'var(--transition)' }}
-                    onMouseEnter={e => e.currentTarget.style.boxShadow = 'var(--shadow-sm)'}
-                    onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
-                  >
-                    <div style={{ display:'flex', alignItems:'center', gap:'0.6rem' }}>
-                      <div style={{ width:40, height:40, borderRadius:'var(--radius-sm)', background:'var(--color-info-bg)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.2rem', flexShrink:0 }}>
-                        {doc.icono}
-                      </div>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontWeight:600, fontSize:'0.82rem', color:'var(--color-text)', lineHeight:1.3 }}>{doc.nombre}</div>
-                        {sig
-                          ? <div style={{ fontSize:'0.7rem', color: esFirma ? 'var(--color-success)' : 'var(--color-primary)', fontWeight:600, marginTop:'0.15rem' }}>
-                              {esFirma ? `✅ Firmado el ${sig.signed_at}` : `📄 Generado el ${sig.signed_at}`}
-                            </div>
-                          : <div style={{ fontSize:'0.7rem', color:'var(--color-text-muted)', marginTop:'0.15rem' }}>Sin generar</div>
-                        }
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setActiveDoc(doc)}
-                      style={{ padding:'0.4rem 0.75rem', background: sig ? (esFirma ? 'var(--color-success-bg)' : 'var(--color-info-bg)') : 'var(--color-primary)', color: sig ? (esFirma ? 'var(--color-success)' : 'var(--color-primary)') : 'white', border: sig ? `1px solid ${esFirma ? 'var(--color-success)' : 'var(--color-primary)'}` : 'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, transition:'var(--transition)' }}
-                    >
-                      {sig ? '📄 Ver / Reimprimir' : '📄 Generar documento'}
-                    </button>
-                  </div>
-                );
-              })}
+            {/* Tabs */}
+            <div style={{ display:'flex', borderBottom:'1px solid var(--color-border)', marginBottom:'1.25rem', gap:0 }}>
+              <button style={tabStyle(docTab === 'generar')} onClick={() => setDocTab('generar')}>
+                📄 Generar documento
+              </button>
+              <button style={tabStyle(docTab === 'historial')} onClick={() => setDocTab('historial')}>
+                📋 Documentos guardados {historial.length > 0 && <span style={{ marginLeft:'0.35rem', background:'var(--color-primary)', color:'white', borderRadius:999, fontSize:'0.68rem', padding:'0.05rem 0.45rem', fontWeight:700 }}>{historial.length}</span>}
+              </button>
             </div>
 
-            {/* ── Historial de impresiones ── */}
-            {historial.length > 0 && (
-              <div style={{ marginTop:'1.5rem', borderTop:'1px solid var(--color-border)', paddingTop:'1.25rem' }}>
-                <div style={{ fontSize:'0.78rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:'var(--color-text-muted)', marginBottom:'0.75rem' }}>
-                  Historial de documentos generados
+            {/* Tab: Generar */}
+            {docTab === 'generar' && (
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(260px, 1fr))', gap:'1rem' }}>
+                {documents.map(doc => {
+                  const sig = petSignedDocs.filter(s => s.document_id === doc.id && (s.tipo === 'firma' || s.tipo === 'impresion')).slice(-1)[0];
+                  const esFirma = sig?.tipo === 'firma';
+                  return (
+                    <div
+                      key={doc.id}
+                      style={{ border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', padding:'1rem', display:'flex', flexDirection:'column', gap:'0.6rem', transition:'var(--transition)' }}
+                      onMouseEnter={e => e.currentTarget.style.boxShadow = 'var(--shadow-sm)'}
+                      onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+                    >
+                      <div style={{ display:'flex', alignItems:'center', gap:'0.6rem' }}>
+                        <div style={{ width:40, height:40, borderRadius:'var(--radius-sm)', background:'var(--color-info-bg)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.2rem', flexShrink:0 }}>
+                          {doc.icono}
+                        </div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontWeight:600, fontSize:'0.82rem', color:'var(--color-text)', lineHeight:1.3 }}>{doc.nombre}</div>
+                          {sig
+                            ? <div style={{ fontSize:'0.7rem', color: esFirma ? 'var(--color-success)' : 'var(--color-primary)', fontWeight:600, marginTop:'0.15rem' }}>
+                                {esFirma ? `✅ Firmado el ${sig.signed_at}` : `📄 Generado el ${sig.signed_at}`}
+                              </div>
+                            : <div style={{ fontSize:'0.7rem', color:'var(--color-text-muted)', marginTop:'0.15rem' }}>Sin generar</div>
+                          }
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setActiveDoc(doc)}
+                        style={{ padding:'0.4rem 0.75rem', background: sig ? (esFirma ? 'var(--color-success-bg)' : 'var(--color-info-bg)') : 'var(--color-primary)', color: sig ? (esFirma ? 'var(--color-success)' : 'var(--color-primary)') : 'white', border: sig ? `1px solid ${esFirma ? 'var(--color-success)' : 'var(--color-primary)'}` : 'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, transition:'var(--transition)' }}
+                      >
+                        {sig ? '📄 Ver / Reimprimir' : '📄 Generar documento'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Tab: Historial */}
+            {docTab === 'historial' && (
+              historial.length === 0 ? (
+                <div style={{ textAlign:'center', padding:'2.5rem 1rem', color:'var(--color-text-muted)' }}>
+                  <div style={{ fontSize:'2.5rem', marginBottom:'0.75rem' }}>📂</div>
+                  <p style={{ fontSize:'0.875rem' }}>No se han generado documentos para este paciente aún.</p>
                 </div>
+              ) : (
                 <div style={{ overflowX:'auto' }}>
-                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.8rem' }}>
+                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.82rem' }}>
                     <thead>
                       <tr style={{ background:'var(--color-bg)' }}>
                         {['Fecha','Documento','Tipo','Sede','Generado por'].map(h => (
-                          <th key={h} style={{ padding:'0.5rem 0.75rem', textAlign:'left', fontWeight:600, color:'var(--color-text-muted)', borderBottom:'1px solid var(--color-border)', whiteSpace:'nowrap' }}>{h}</th>
+                          <th key={h} style={{ padding:'0.55rem 0.85rem', textAlign:'left', fontWeight:600, color:'var(--color-text-muted)', borderBottom:'2px solid var(--color-border)', whiteSpace:'nowrap', fontSize:'0.72rem', textTransform:'uppercase', letterSpacing:'0.04em' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {historial.map((r, i) => (
-                        <tr key={r.id || i} style={{ borderBottom:'1px solid var(--color-border)' }}
-                          onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg)'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                        >
-                          <td style={{ padding:'0.5rem 0.75rem', whiteSpace:'nowrap', color:'var(--color-text-muted)' }}>{r.signed_at || '—'}</td>
-                          <td style={{ padding:'0.5rem 0.75rem', fontWeight:500, color:'var(--color-text)' }}>{r.document_nombre || '—'}</td>
-                          <td style={{ padding:'0.5rem 0.75rem' }}>
+                        <tr key={r.id || i} style={{ borderBottom:'1px solid var(--color-border)', background: i % 2 === 0 ? 'transparent' : 'var(--color-bg)' }}>
+                          <td style={{ padding:'0.6rem 0.85rem', whiteSpace:'nowrap', color:'var(--color-text-muted)' }}>{r.signed_at || '—'}</td>
+                          <td style={{ padding:'0.6rem 0.85rem', fontWeight:600, color:'var(--color-text)' }}>{r.document_nombre || '—'}</td>
+                          <td style={{ padding:'0.6rem 0.85rem' }}>
                             {r.tipo === 'firma'
-                              ? <span style={{ background:'var(--color-success-bg)', color:'var(--color-success)', borderRadius:'var(--radius-full)', padding:'0.15rem 0.55rem', fontSize:'0.72rem', fontWeight:600 }}>✍️ Firma</span>
-                              : <span style={{ background:'var(--color-info-bg)', color:'var(--color-info)', borderRadius:'var(--radius-full)', padding:'0.15rem 0.55rem', fontSize:'0.72rem', fontWeight:600 }}>🖨️ Impresión</span>
+                              ? <span style={{ background:'var(--color-success-bg)', color:'var(--color-success)', borderRadius:999, padding:'0.15rem 0.6rem', fontSize:'0.72rem', fontWeight:600 }}>✍️ Firma digital</span>
+                              : <span style={{ background:'var(--color-info-bg)', color:'var(--color-primary)', borderRadius:999, padding:'0.15rem 0.6rem', fontSize:'0.72rem', fontWeight:600 }}>🖨️ Impreso</span>
                             }
                           </td>
-                          <td style={{ padding:'0.5rem 0.75rem', color:'var(--color-text-muted)' }}>{r.sede_id ? SEDES_DOC[r.sede_id] : '—'}</td>
-                          <td style={{ padding:'0.5rem 0.75rem', color:'var(--color-text-muted)' }}>{r.veterinario || '—'}</td>
+                          <td style={{ padding:'0.6rem 0.85rem', color:'var(--color-text-muted)' }}>{r.sede_id ? SEDES_DOC[r.sede_id] : '—'}</td>
+                          <td style={{ padding:'0.6rem 0.85rem', color:'var(--color-text-muted)' }}>{r.veterinario || '—'}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              </div>
+              )
             )}
           </Card>
         );
