@@ -31,6 +31,7 @@ export default function SolicitarLabModal({ isOpen, onClose, onSave, pet }) {
       patient_name:     pet.name,
       estado:           'Solicitado',
       fecha_solicitado: new Date().toISOString().split('T')[0],
+      hora_solicitado:  new Date().toTimeString().slice(0, 5),
     });
     reset(); onClose();
   };

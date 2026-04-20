@@ -118,8 +118,9 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, onEdit, pet
       file_url:   archivos[0]?.url || null,
       archivos,
       pedido_id:  selectedPedido?.id || null,
-      created_by: session?.nombre || 'Desconocido',
-      fecha:      new Date().toISOString().split('T')[0],
+      created_by:  session?.nombre || 'Desconocido',
+      fecha:       new Date().toISOString().split('T')[0],
+      hora_subida: new Date().toTimeString().slice(0, 5),
     });
     reset(); onClose();
   };

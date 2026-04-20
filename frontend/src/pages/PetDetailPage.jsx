@@ -822,7 +822,7 @@ export default function PetDetailPage() {
                         </span>
                       </div>
                       <span style={{ fontSize:'0.72rem', color:'var(--color-text-muted)', whiteSpace:'nowrap' }}>
-                        Solicitado: {p.fecha_solicitado || '—'}
+                        Solicitado: {p.fecha_solicitado || '—'}{p.hora_solicitado ? ` a las ${p.hora_solicitado}` : ''}
                         {p.fecha_reportado && ` · Reportado: ${p.fecha_reportado}`}
                         {p.reportado_por && ` por ${p.reportado_por}`}
                       </span>
@@ -841,6 +841,11 @@ export default function PetDetailPage() {
                                 📄 {f.name}
                               </a>
                             ))}
+                            {(labResult.fecha || labResult.hora_subida || labResult.created_by) && (
+                              <p style={{ fontSize:'0.7rem', color:'var(--color-text-muted)', margin:'0.25rem 0 0' }}>
+                                Subido: {labResult.fecha || '—'}{labResult.hora_subida ? ` a las ${labResult.hora_subida}` : ''}{labResult.created_by ? ` · ${labResult.created_by}` : ''}
+                              </p>
+                            )}
                           </div>
                           <button
                             onClick={() => { setEditingLab(labResult); setLabModal(true); }}
