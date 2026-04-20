@@ -45,6 +45,7 @@ export default function DocumentModal({
   const [microchip, setMicrochip] = useState('');
   const [tab,       setTab]       = useState('preview');
   const [sigSaved,  setSigSaved]  = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   const canvasRef  = useRef(null);
   const drawingRef = useRef(false);
@@ -58,6 +59,7 @@ export default function DocumentModal({
       setMicrochip('');
       setTab('preview');
       setSigSaved(false);
+      setSaveError('');
       // canvas clear is deferred until it mounts
       setTimeout(() => clearCanvas(), 50);
     }
@@ -138,6 +140,7 @@ export default function DocumentModal({
     const canvas = canvasRef.current;
     if (isCanvasBlank(canvas)) return alert('Por favor dibuja una firma antes de guardar.');
 
+    setSaveError('');
     addSignedDoc({
       document_id:      doc.id,
       document_nombre:  doc.nombre,
@@ -149,6 +152,8 @@ export default function DocumentModal({
       tipo:             'firma',
       sede_id:          sedeActual || null,
       veterinario:      session?.nombre || null,
+    }, {
+      onError: (msg) => setSaveError(msg),
     });
     setSigSaved(true);
   };
@@ -169,7 +174,7 @@ export default function DocumentModal({
         sede_id:         sedeActual   || null,
         veterinario:     session?.nombre || null,
       }, {
-        onError: (msg) => console.error('[DocumentModal] Error guardando registro:', msg),
+        onError: (msg) => setSaveError(msg),
       });
     }
 
@@ -347,6 +352,11 @@ export default function DocumentModal({
         </div>
 
         {/* Footer */}
+        {saveError && (
+          <div style={{ padding:'0.6rem 1.5rem', background:'var(--color-danger-bg)', borderTop:'1px solid var(--color-danger)', fontSize:'0.8rem', color:'var(--color-danger)' }}>
+            ⚠️ Error al guardar: {saveError}
+          </div>
+        )}
         <div style={{ padding:'1rem 1.5rem', borderTop:'1px solid var(--color-border)', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0, background:'var(--color-bg)' }}>
           <div style={{ fontSize:'0.78rem', color:'var(--color-text-muted)' }}>
             {client
