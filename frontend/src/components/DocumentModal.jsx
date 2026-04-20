@@ -155,6 +155,24 @@ export default function DocumentModal({
 
   // ── Print ──────────────────────────────────────────────────────────────────
   const handlePrint = () => {
+    // Guardar registro ANTES de abrir popup (si el popup es bloqueado, igual queda guardado)
+    if (patient) {
+      addSignedDoc({
+        document_id:     doc.id,
+        document_nombre: doc.nombre,
+        patient_id:      patient.id,
+        patient_name:    patient.name,
+        client_name:     client?.name || '',
+        signature_data:  null,
+        signed_at:       new Date().toLocaleDateString('es-CO'),
+        tipo:            'impresion',
+        sede_id:         sedeActual   || null,
+        veterinario:     session?.nombre || null,
+      }, {
+        onError: (msg) => console.error('[DocumentModal] Error guardando registro:', msg),
+      });
+    }
+
     const canvas = canvasRef.current;
     const hasSig = !isCanvasBlank(canvas);
     const sigBlock = hasSig
@@ -171,25 +189,9 @@ export default function DocumentModal({
 <script>window.onload=function(){window.print()};<\/script></body></html>`;
 
     const win = window.open('', '_blank');
-    if (!win) return alert('Tu navegador bloqueó la ventana emergente. Permite las ventanas emergentes para este sitio.');
+    if (!win) { alert('Tu navegador bloqueó la ventana emergente. Permite las ventanas emergentes para este sitio.'); return; }
     win.document.write(html);
     win.document.close();
-
-    // Registrar impresión en signed_documents
-    if (patient) {
-      addSignedDoc({
-        document_id:     doc.id,
-        document_nombre: doc.nombre,
-        patient_id:      patient.id,
-        patient_name:    patient.name,
-        client_name:     client?.name || '',
-        signature_data:  null,
-        signed_at:       new Date().toLocaleDateString('es-CO'),
-        tipo:            'impresion',
-        sede_id:         sedeActual        || null,
-        veterinario:     session?.nombre  || null,
-      });
-    }
   };
 
   if (!isOpen || !doc) return null;
