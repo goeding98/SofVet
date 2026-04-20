@@ -1243,72 +1243,86 @@ export default function HospitalizationPage() {
 
             <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
-              {/* Lista de abonos */}
-              <div>
-                <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8e44ad', marginBottom: '0.5rem' }}>
-                  Abonos registrados ({(abonoHosp.abonos || []).length})
-                </div>
-                {!(abonoHosp.abonos || []).length ? (
-                  <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '1.5rem', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-md)' }}>
-                    Sin abonos registrados aún.
-                  </p>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', maxHeight: 280, overflowY: 'auto' }}>
-                    {abonoHosp.abonos.map(ab => (
-                      <div key={ab.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.65rem 0.85rem', border: '1px solid #d8b4fe', borderRadius: 'var(--radius-sm)', background: '#faf5ff' }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{ab.descripcion}</div>
-                          <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>{ab.fecha} {ab.hora} · {ab.registrado_por}</div>
-                        </div>
-                        <span style={{ fontWeight: 700, fontSize: '1rem', color: '#8e44ad', whiteSpace: 'nowrap' }}>{fmtCOP(ab.valor)}</span>
-                        {isMedico && (
-                          <button onClick={() => handleDeleteAbono(abonoHosp.id, ab.id)}
-                            style={{ background: 'var(--color-danger-bg)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '0.2rem 0.5rem', fontSize: '0.72rem', flexShrink: 0 }}>✕</button>
-                        )}
-                      </div>
-                    ))}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '0.9rem', padding: '0.5rem 0.85rem', background: '#f3e8ff', borderRadius: 'var(--radius-sm)', marginTop: '0.2rem', color: '#8e44ad' }}>
-                      <span>Total abonado</span>
-                      <span>{fmtCOP(abonoHosp.abonos.reduce((sum, ab) => sum + (ab.valor || 0), 0))}</span>
-                    </div>
-                  </div>
-                )}
+              {/* Tabla de abonos */}
+              <div style={{ border: '1px solid #d8b4fe', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                  <thead>
+                    <tr style={{ background: '#f3e8ff' }}>
+                      <th style={{ padding: '0.6rem 0.85rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8e44ad' }}>Descripción</th>
+                      <th style={{ padding: '0.6rem 0.85rem', textAlign: 'right', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8e44ad', whiteSpace: 'nowrap' }}>Valor</th>
+                      {isMedico && <th style={{ width: 32 }} />}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!(abonoHosp.abonos || []).length ? (
+                      <tr>
+                        <td colSpan={isMedico ? 3 : 2} style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.82rem', fontStyle: 'italic' }}>
+                          Sin abonos registrados aún.
+                        </td>
+                      </tr>
+                    ) : (
+                      abonoHosp.abonos.map((ab, i) => (
+                        <tr key={ab.id} style={{ borderTop: '1px solid #ede9fe', background: i % 2 === 0 ? 'white' : '#faf5ff' }}>
+                          <td style={{ padding: '0.6rem 0.85rem' }}>
+                            <div style={{ fontWeight: 500 }}>{ab.descripcion}</div>
+                            <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', marginTop: '0.1rem' }}>{ab.fecha} {ab.hora} · {ab.registrado_por}</div>
+                          </td>
+                          <td style={{ padding: '0.6rem 0.85rem', textAlign: 'right', fontWeight: 700, color: '#8e44ad', whiteSpace: 'nowrap' }}>{fmtCOP(ab.valor)}</td>
+                          {isMedico && (
+                            <td style={{ padding: '0.4rem 0.5rem' }}>
+                              <button onClick={() => handleDeleteAbono(abonoHosp.id, ab.id)}
+                                style={{ background: 'none', color: 'var(--color-danger)', border: 'none', cursor: 'pointer', fontSize: '0.8rem', padding: '0.2rem 0.4rem' }}>✕</button>
+                            </td>
+                          )}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  {(abonoHosp.abonos || []).length > 0 && (
+                    <tfoot>
+                      <tr style={{ borderTop: '2px solid #d8b4fe', background: '#f3e8ff' }}>
+                        <td style={{ padding: '0.6rem 0.85rem', fontWeight: 700, color: '#8e44ad', fontSize: '0.875rem' }}>Total abonado</td>
+                        <td style={{ padding: '0.6rem 0.85rem', textAlign: 'right', fontWeight: 700, color: '#8e44ad', fontSize: '1rem', whiteSpace: 'nowrap' }}>
+                          {fmtCOP(abonoHosp.abonos.reduce((sum, ab) => sum + (ab.valor || 0), 0))}
+                        </td>
+                        {isMedico && <td />}
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
               </div>
 
               {/* Formulario nuevo abono */}
               {isMedico && (
-                <div style={{ border: '1px solid #d8b4fe', borderRadius: 'var(--radius-md)', padding: '1rem', background: '#faf5ff' }}>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8e44ad', marginBottom: '0.75rem' }}>Registrar abono</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                    <div>
-                      <label style={labelStyle}>Descripción *</label>
-                      <input
-                        value={abonoDesc}
-                        onChange={e => setAbonoDesc(e.target.value)}
-                        placeholder="Ej: Abono hospitalización del 19 al 20 + ecografía"
-                        style={{ width: '100%', padding: '0.55rem 0.75rem', border: '1px solid #d8b4fe', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.875rem' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Valor ($) *</label>
-                      <input
-                        value={abonoValor}
-                        onChange={e => setAbonoValor(e.target.value)}
-                        type="number"
-                        placeholder="300000"
-                        style={{ width: '100%', padding: '0.55rem 0.75rem', border: '1px solid #d8b4fe', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.875rem' }}
-                      />
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                      <button
-                        onClick={handleAddAbono}
-                        disabled={!abonoDesc.trim() || !abonoValor}
-                        style={{ padding: '0.55rem 1.25rem', background: (abonoDesc.trim() && abonoValor) ? '#8e44ad' : 'var(--color-border)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: (abonoDesc.trim() && abonoValor) ? 'pointer' : 'default', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600 }}
-                      >
-                        + Registrar abono
-                      </button>
-                    </div>
+                <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'flex-end' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ ...labelStyle, fontSize: '0.68rem' }}>Descripción *</label>
+                    <input
+                      value={abonoDesc}
+                      onChange={e => setAbonoDesc(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleAddAbono()}
+                      placeholder="Ej: Abono hospi del 19 al 20 + ecografía"
+                      style={{ width: '100%', padding: '0.55rem 0.75rem', border: '1px solid #d8b4fe', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.875rem' }}
+                    />
                   </div>
+                  <div style={{ width: 130 }}>
+                    <label style={{ ...labelStyle, fontSize: '0.68rem' }}>Valor ($) *</label>
+                    <input
+                      value={abonoValor}
+                      onChange={e => setAbonoValor(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleAddAbono()}
+                      type="number"
+                      placeholder="300000"
+                      style={{ width: '100%', padding: '0.55rem 0.75rem', border: '1px solid #d8b4fe', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.875rem' }}
+                    />
+                  </div>
+                  <button
+                    onClick={handleAddAbono}
+                    disabled={!abonoDesc.trim() || !abonoValor}
+                    style={{ padding: '0.55rem 1rem', background: (abonoDesc.trim() && abonoValor) ? '#8e44ad' : 'var(--color-border)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: (abonoDesc.trim() && abonoValor) ? 'pointer' : 'default', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}
+                  >
+                    + Agregar
+                  </button>
                 </div>
               )}
 
