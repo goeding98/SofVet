@@ -24,6 +24,7 @@ const statusBadge = (s) => {
     cobrada:    { bg: 'var(--color-success-bg)', color: 'var(--color-success)',  label: 'Cobrada'       },
     no_cobrada: { bg: '#fff8e1',                 color: '#b8860b',               label: 'Sin cobrar'    },
     fallecido:  { bg: '#f5f5f5',                 color: '#666',                  label: 'Fallecido'     },
+    deslinde:   { bg: '#fff3e0',                 color: '#b45309',               label: 'Deslinde'      },
   };
   const s2 = map[s] || map.activo;
   return <span style={{ background: s2.bg, color: s2.color, padding: '3px 10px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 600 }}>{s2.label}</span>;
@@ -185,8 +186,17 @@ export default function HospitalizationPage() {
   const handleFallecido = (h) => {
     if (!confirm(`⚠️ ¿Registrar fallecimiento de ${h.patient_name}? Esta acción no se puede deshacer.`)) return;
     const now = new Date();
-    editHosp(h.id, { status: 'fallecido', alta_date: now.toISOString().split('T')[0] });
+    editHosp(h.id, { status: 'fallecido', alta_date: now.toISOString().split('T')[0], alta_time: now.toTimeString().slice(0, 5), duration_days: calcDuration(h.ingreso_date, now.toISOString().split('T')[0]) });
     if (patients.find(p => p.id === h.patient_id)) editPatient(h.patient_id, { status: 'inactivo' });
+    if (selectedId === h.id) setSelectedId(null);
+  };
+
+  const handleDeslinde = (h) => {
+    if (!confirm(`⚠️ ¿Registrar salida por deslinde informado de ${h.patient_name}?\n\nEl propietario se lleva al paciente bajo su responsabilidad.`)) return;
+    const now = new Date();
+    const altaDate = now.toISOString().split('T')[0];
+    editHosp(h.id, { status: 'deslinde', alta_date: altaDate, alta_time: now.toTimeString().slice(0, 5), duration_days: calcDuration(h.ingreso_date, altaDate) });
+    if (patients.find(p => p.id === h.patient_id)) editPatient(h.patient_id, { status: 'activo' });
     if (selectedId === h.id) setSelectedId(null);
   };
 
@@ -430,6 +440,7 @@ export default function HospitalizationPage() {
                             <>
                               <button onClick={() => openLiquidParcial(h)} style={btnStyle('#8e44ad')}>💰 Liq. Parcial</button>
                               <button onClick={() => openAlta(h)} style={btnStyle('var(--color-success)')}>✅ Alta</button>
+                              <button onClick={() => handleDeslinde(h)} style={btnStyle('#b45309')}>📋 Deslinde</button>
                               <button onClick={() => handleFallecido(h)} style={btnStyle('var(--color-danger)')}>💀 Fallecido</button>
                             </>
                           )}
