@@ -59,13 +59,22 @@ export default function HospitalizationReportModal({ isOpen, onClose, onSave, on
     const fotosFinales = isEditing
       ? [...(initialData.fotos || []), ...fotos]
       : fotos;
+    const now     = new Date();
+    const hoy     = now.toISOString().split('T')[0];
+    const horaAhora = now.toTimeString().slice(0, 5);
     onSave({
       ...(isEditing ? { id: initialData.id } : {}),
       hospitalization_id: hospitalizationId,
       contenido,
       fotos: fotosFinales,
-      veterinario: session?.nombre || 'Desconocido',
-      fecha: isEditing ? initialData.fecha : new Date().toISOString().split('T')[0],
+      veterinario:   isEditing ? (initialData.veterinario || session?.nombre || 'Desconocido') : (session?.nombre || 'Desconocido'),
+      fecha:         isEditing ? initialData.fecha : hoy,
+      hora:          isEditing ? initialData.hora  : horaAhora,
+      ...(isEditing ? {
+        editado_por:   session?.nombre || 'Desconocido',
+        fecha_edicion: hoy,
+        hora_edicion:  horaAhora,
+      } : {}),
     });
     reset(); onClose();
   };

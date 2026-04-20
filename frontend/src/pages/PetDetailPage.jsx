@@ -998,9 +998,14 @@ export default function PetDetailPage() {
                           {reps.map(r => (
                             <div key={r.id} style={{ background: isActive ? 'white' : 'var(--color-bg)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', padding:'0.6rem 0.75rem', position:'relative' }}>
                               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'0.5rem', marginBottom:'0.3rem' }}>
-                                <span style={{ fontSize:'0.68rem', color:'var(--color-text-muted)', fontWeight:600 }}>
-                                  📅 {r.fecha} {r.veterinario ? `· 👨‍⚕️ ${r.veterinario}` : ''}
-                                </span>
+                                <div style={{ fontSize:'0.68rem', color:'var(--color-text-muted)', fontWeight:600, display:'flex', flexDirection:'column', gap:'0.1rem' }}>
+                                  <span>📅 {r.fecha}{r.hora ? ` a las ${r.hora}` : ''}{r.veterinario ? ` · 👨‍⚕️ ${r.veterinario}` : ''}</span>
+                                  {r.editado_por && (
+                                    <span style={{ fontWeight:500, color:'#b45309' }}>
+                                      ✏️ Editado por {r.editado_por}{r.fecha_edicion ? ` · ${r.fecha_edicion}` : ''}{r.hora_edicion ? ` a las ${r.hora_edicion}` : ''}
+                                    </span>
+                                  )}
+                                </div>
                                 <button
                                   onClick={() => { setEditingReport(r); setHospRepModal(true); }}
                                   style={{ padding:'1px 7px', background:'white', border:'1px solid var(--color-border)', color:'var(--color-text-muted)', borderRadius:5, cursor:'pointer', fontSize:'0.65rem', fontWeight:600, fontFamily:'var(--font-body)', flexShrink:0 }}
