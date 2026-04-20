@@ -14,8 +14,9 @@ export default function LaboratoriosPage() {
   const { session } = useAuth();
 
   const isMedico = session?.rol === 'Médico' || session?.rol === 'Administrador';
-  // Domicilio (id=4) users and admins can see all sedes; others see only their sede + Domicilio
-  const canSeeAllSedes = isAdmin || session?.sede_id === 4;
+  const isLab    = session?.rol === 'Laboratorio';
+  // Admins, Lab users, and Domicilio users can see all sedes
+  const canSeeAllSedes = isAdmin || isLab || session?.sede_id === 4;
 
   // Restricted users default to "Todos" (their sede + Domicilio); admins keep sedeActual
   const [sedeFilter,  setSedeFilter]  = useState(canSeeAllSedes ? (sedeActual || null) : null);
@@ -25,6 +26,7 @@ export default function LaboratoriosPage() {
   const [saving,      setSaving]      = useState(null); // pedido id being saved
   const [editingLab,  setEditingLab]  = useState(null); // { lab, pedido } being edited
   const [editModal,   setEditModal]   = useState(false);
+  const [editSedePid, setEditSedePid] = useState(null); // pedido id whose sede is being edited
 
   // Sede filter logic:
   // - Admin / Domicilio users: sedeFilter=null → all; sedeFilter=X → only X
@@ -100,9 +102,9 @@ export default function LaboratoriosPage() {
 
       {/* Sede filter */}
       {canSeeAllSedes ? (
-        (isAdmin || sedesUsadas.length > 1) && (
+        (isAdmin || isLab || sedesUsadas.length > 1) && (
           <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap', marginBottom:'1.25rem' }}>
-            {isAdmin && (
+            {(isAdmin || isLab) && (
               <button onClick={() => setSedeFilter(null)}
                 style={{ padding:'0.3rem 0.85rem', borderRadius:999, fontSize:'0.75rem', fontWeight:600, cursor:'pointer', border:'1px solid', borderColor: sedeFilter === null ? 'var(--color-primary)' : 'var(--color-border)', background: sedeFilter === null ? 'var(--color-primary)' : 'var(--color-white)', color: sedeFilter === null ? 'white' : 'var(--color-text-muted)' }}
               >Todas las sedes</button>
@@ -202,7 +204,29 @@ export default function LaboratoriosPage() {
                             {p.procesamiento || 'Interno'}
                           </span>
                         </td>
-                        <td style={{ ...tdSt, color:'var(--color-text-muted)', fontSize:'0.78rem' }}>{sedeNombre(p.sede_id)}</td>
+                        <td style={{ ...tdSt, fontSize:'0.78rem' }}>
+                          {(isAdmin || isLab) && editSedePid === p.id ? (
+                            <div style={{ display:'flex', gap:'0.3rem', alignItems:'center' }}>
+                              <select
+                                defaultValue={p.sede_id}
+                                onChange={async e => { await editPedido(p.id, { sede_id: parseInt(e.target.value) }); setEditSedePid(null); }}
+                                style={{ padding:'2px 4px', fontSize:'0.75rem', border:'1px solid #2e7d50', borderRadius:'var(--radius-sm)' }}
+                                autoFocus
+                              >
+                                {SEDES.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                              </select>
+                              <button onClick={() => setEditSedePid(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-muted)', fontSize:'0.9rem', lineHeight:1 }}>×</button>
+                            </div>
+                          ) : (
+                            <span
+                              onClick={(isAdmin || isLab) ? () => setEditSedePid(p.id) : undefined}
+                              title={(isAdmin || isLab) ? 'Clic para cambiar sede' : undefined}
+                              style={{ color:'var(--color-text-muted)', cursor: (isAdmin || isLab) ? 'pointer' : 'default', textDecoration: (isAdmin || isLab) ? 'underline dotted' : 'none' }}
+                            >
+                              {sedeNombre(p.sede_id)}
+                            </span>
+                          )}
+                        </td>
                         <td style={{ ...tdSt, textAlign:'center' }}>
                           <button
                             onClick={() => toggleExpand(p.id)}
@@ -368,7 +392,29 @@ export default function LaboratoriosPage() {
                         {p.procesamiento || 'Interno'}
                       </span>
                     </td>
-                    <td style={{ ...tdSt, color:'var(--color-text-muted)', fontSize:'0.78rem' }}>{sedeNombre(p.sede_id)}</td>
+                    <td style={{ ...tdSt, fontSize:'0.78rem' }}>
+                      {(isAdmin || isLab) && editSedePid === p.id ? (
+                        <div style={{ display:'flex', gap:'0.3rem', alignItems:'center' }}>
+                          <select
+                            defaultValue={p.sede_id}
+                            onChange={async e => { await editPedido(p.id, { sede_id: parseInt(e.target.value) }); setEditSedePid(null); }}
+                            style={{ padding:'2px 4px', fontSize:'0.75rem', border:'1px solid #2e7d50', borderRadius:'var(--radius-sm)' }}
+                            autoFocus
+                          >
+                            {SEDES.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                          </select>
+                          <button onClick={() => setEditSedePid(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-text-muted)', fontSize:'0.9rem', lineHeight:1 }}>×</button>
+                        </div>
+                      ) : (
+                        <span
+                          onClick={(isAdmin || isLab) ? () => setEditSedePid(p.id) : undefined}
+                          title={(isAdmin || isLab) ? 'Clic para cambiar sede' : undefined}
+                          style={{ color:'var(--color-text-muted)', cursor: (isAdmin || isLab) ? 'pointer' : 'default', textDecoration: (isAdmin || isLab) ? 'underline dotted' : 'none' }}
+                        >
+                          {sedeNombre(p.sede_id)}
+                        </span>
+                      )}
+                    </td>
                     <td style={{ ...tdSt, textAlign:'center' }}>
                       <button
                         onClick={() => handleDeletePedido(p)}

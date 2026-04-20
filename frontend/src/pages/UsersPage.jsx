@@ -4,7 +4,7 @@ import { SEDES, sedeById } from '../utils/useSede';
 import Card from '../components/Card';
 import Button from '../components/Button';
 
-const ROLES = ['Administrador', 'Médico', 'Auxiliar', 'Caja'];
+const ROLES = ['Administrador', 'Médico', 'Auxiliar', 'Caja', 'Laboratorio'];
 
 function generateTempPassword() {
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
@@ -18,6 +18,7 @@ const rolColors = {
   Médico:        { bg: 'var(--color-success-bg)', color: 'var(--color-success)' },
   Auxiliar:      { bg: 'var(--color-warning-bg)', color: 'var(--color-warning)' },
   Caja:          { bg: '#f3e8ff', color: '#7c3aed' },
+  Laboratorio:   { bg: '#d1fae5', color: '#065f46' },
 };
 
 const estadoStyle = {
@@ -201,7 +202,7 @@ export default function UsersPage() {
                         <span style={{ background: rc.bg, color: rc.color, padding: '3px 10px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 600 }}>{user.rol}</span>
                       </td>
                       <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem' }}>
-                        {user.rol === 'Administrador'
+                        {(user.rol === 'Administrador' || user.rol === 'Laboratorio')
                           ? <span style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>Todas</span>
                           : sedeById(user.sede_id)
                             ? <span style={{ background: sedeById(user.sede_id).bg, color: sedeById(user.sede_id).color, padding: '2px 8px', borderRadius: 999, fontSize: '0.7rem', fontWeight: 600 }}>📍 {sedeById(user.sede_id).nombre}</span>
@@ -261,7 +262,7 @@ export default function UsersPage() {
                   {ROLES.map(r => <option key={r}>{r}</option>)}
                 </select>
               </div>
-              {editForm.rol !== 'Administrador' && (
+              {editForm.rol !== 'Administrador' && editForm.rol !== 'Laboratorio' && (
                 <div style={{ marginBottom: '1rem' }}>
                   <label style={labelStyle}>Sede asignada *</label>
                   <select value={editForm.sede_id || 1} onChange={e => setEditForm(f => ({ ...f, sede_id: parseInt(e.target.value) }))} style={{ width: '100%', padding: '0.6rem 0.75rem' }}>
@@ -350,7 +351,7 @@ export default function UsersPage() {
                       {ROLES.map(r => <option key={r}>{r}</option>)}
                     </select>
                   </div>
-                  {form.rol !== 'Administrador' && (
+                  {form.rol !== 'Administrador' && form.rol !== 'Laboratorio' && (
                   <div style={{ marginBottom: '1rem' }}>
                     <label style={labelStyle}>Sede asignada *</label>
                     <select value={form.sede_id} onChange={e => setForm(f => ({ ...f, sede_id: parseInt(e.target.value) }))} style={{ width: '100%', padding: '0.6rem 0.75rem' }}>

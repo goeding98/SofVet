@@ -75,7 +75,7 @@ export function AuthProvider({ children }) {
         nombre,
         password:             tempPassword,
         rol,
-        sede_id:              rol === 'Administrador' ? null : (sede_id || null),
+        sede_id:              (rol === 'Administrador' || rol === 'Laboratorio') ? null : (sede_id || null),
         estado:               'activo',
         must_change_password: true,
         fecha_creacion:       new Date().toISOString().split('T')[0],
@@ -94,7 +94,7 @@ export function AuthProvider({ children }) {
       nombre:   changes.nombre,
       username: changes.username?.toLowerCase(),
       rol:      changes.rol,
-      sede_id:  changes.rol === 'Administrador' ? null : (parseInt(changes.sede_id) || null),
+      sede_id:  (changes.rol === 'Administrador' || changes.rol === 'Laboratorio') ? null : (parseInt(changes.sede_id) || null),
       estado:   changes.estado,
     };
     const { error } = await supabase.from('sofvet_users').update(dbChanges).eq('id', id);
