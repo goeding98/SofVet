@@ -200,9 +200,38 @@ const documents = [
   </div></div>`,
   },
 
-  /* ── 7. Deslinde Informado ────────────────────────────────────────────── */
+  /* ── 7. Eutanasia ────────────────────────────────────────────────────── */
   {
     id: 7,
+    nombre: 'Autorización Eutanasia Compasiva',
+    icono: '🌿',
+    descripcion: 'Formato de autorización para procedimiento de eutanasia compasiva (Ley 84/89).',
+    template: `<div style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:30px;color:#1a1a1a;">
+  <div style="text-align:center;border-bottom:3px solid #4a5568;padding-bottom:16px;margin-bottom:24px;">
+    <h1 style="font-size:22px;color:#2d3748;margin:0 0 4px;letter-spacing:0.5px;">FORMATO AUTORIZACIÓN EUTANASIA COMPASIVA</h1>
+    <p style="margin:0;font-size:13px;color:#666;">Fecha: <strong>{{fecha}}</strong></p>
+  </div>
+  <p style="font-size:14px;line-height:1.8;">Por medio de la presente yo <strong>{{nombre_cliente}}</strong>, identificado(a) con la C.C. N° <strong>{{cedula_cliente}}</strong>, declaro ser el(la) tenedor(a) o la persona responsable del paciente <strong>{{nombre_mascota}}</strong>, con N° de Historia clínica <strong>{{numero_historia}}</strong>, de especie <strong>{{especie}}</strong>, raza <strong>{{raza}}</strong>, sexo <strong>{{sexo}}</strong>, peso <strong>{{peso}}</strong> kg, de edad <strong>{{edad}}</strong>, con N° microchip <strong>{{microchip}}</strong>.</p>
+  <p style="font-size:14px;line-height:1.8;">Solicito el procedimiento de eutanasia compasiva que se encuentra establecida en la <strong>Ley 84/89</strong>. Para esto autorizo al Médico Veterinario de <strong>DOGSPITAL</strong>, y declaro que este me ha explicado de forma clara la normatividad y la manera de realizar el procedimiento. Libero de toda responsabilidad tanto al médico veterinario como a <strong>DOGSPITAL</strong> de la decisión por mí tomada.</p>
+  <div style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;padding:14px 18px;margin:24px 0;font-size:13px;color:#555;line-height:1.7;">
+    <strong style="color:#2d3748;">Declaración del propietario:</strong> Manifiesto que he tomado esta decisión de manera libre, voluntaria e informada, después de haber recibido y comprendido la información médica sobre el estado de salud y pronóstico de mi mascota. Entiendo que el procedimiento es irreversible y conlleva el cese definitivo de las funciones vitales del animal.
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:48px;">
+    <div style="text-align:center;">
+      <div style="border-bottom:1px solid #333;height:60px;margin-bottom:10px;"></div>
+      <p style="margin:0;font-size:13px;line-height:1.7;"><strong>{{nombre_cliente}}</strong><br>C.C. {{cedula_cliente}}<br>Firma del responsable</p>
+    </div>
+    <div style="text-align:center;">
+      <div style="border-bottom:1px solid #333;height:60px;margin-bottom:10px;"></div>
+      <p style="margin:0;font-size:13px;line-height:1.7;"><strong>Médico Veterinario</strong><br>T.P. _______________<br>Firma Médico Veterinario encargado</p>
+    </div>
+  </div>
+</div>`,
+  },
+
+  /* ── 8. Deslinde Informado ────────────────────────────────────────────── */
+  {
+    id: 8,
     nombre: 'Deslinde Informado',
     icono: '⚠️',
     descripcion: 'Retiro voluntario del paciente de hospitalización contra indicación médica.',
