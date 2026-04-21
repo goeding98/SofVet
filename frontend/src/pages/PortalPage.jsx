@@ -713,8 +713,8 @@ export default function PortalPage() {
                 <p style={{ fontSize:'0.88rem', color:C.tealDark, lineHeight:1.75, margin:0, fontWeight:500 }}>
                   Sabemos que preparar el viaje de tu mascota puede ser un proceso <strong>confuso y abrumador</strong>: trámites, certificados, vacunas, plazos... y cada país tiene sus propias exigencias. En Pets &amp; Pets te acompañamos en <strong>cada paso del proceso de forma personalizada</strong>, asegurándonos de que todo esté en regla para que tú y tu compañero lleguen a su destino sin contratiempos.
                 </p>
-                <p style={{ fontSize:'0.82rem', color:C.muted, margin:'0.65rem 0 0', fontStyle:'italic' }}>
-                  Completa el formulario y nos pondremos en contacto contigo a la brevedad.
+                <p style={{ fontSize:'0.88rem', color:C.tealDark, margin:'0.65rem 0 0', fontWeight:800 }}>
+                  Rellena el formulario para obtener una llamada de asesoría gratuita.
                 </p>
               </div>
 
