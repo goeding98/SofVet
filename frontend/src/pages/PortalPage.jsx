@@ -472,9 +472,9 @@ export default function PortalPage() {
             <div style={{ textAlign:'center', marginTop:'1.25rem' }}>
               <button
                 onClick={() => { resetCert(); setPortalView('cert'); }}
-                style={{ background:'none', border:`1px solid ${C.border}`, borderRadius:999, padding:'0.45rem 1.2rem', cursor:'pointer', fontFamily:'inherit', color:C.muted, fontSize:'0.78rem', transition:'all 0.15s' }}
-                onMouseEnter={e => { e.currentTarget.style.color=C.teal; e.currentTarget.style.borderColor=C.teal; }}
-                onMouseLeave={e => { e.currentTarget.style.color=C.muted; e.currentTarget.style.borderColor=C.border; }}
+                style={{ background:'#b91c1c', border:'none', borderRadius:999, padding:'0.55rem 1.4rem', cursor:'pointer', fontFamily:'inherit', color:'white', fontSize:'0.82rem', fontWeight:700, transition:'all 0.15s', boxShadow:'0 2px 10px rgba(185,28,28,0.25)' }}
+                onMouseEnter={e => { e.currentTarget.style.background='#991b1b'; e.currentTarget.style.boxShadow='0 4px 16px rgba(185,28,28,0.35)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background='#b91c1c'; e.currentTarget.style.boxShadow='0 2px 10px rgba(185,28,28,0.25)'; }}
               >
                 ✈️ Certificado de viaje nacional / internacional
               </button>
