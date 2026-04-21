@@ -706,8 +706,15 @@ export default function PortalPage() {
                   <li>Certificado de salud expedido por médico veterinario</li>
                   <li>Para viajes internacionales: requisitos adicionales según el país de destino</li>
                 </ul>
-                <p style={{ fontSize:'0.78rem', color:C.muted, margin:'0.75rem 0 0', fontStyle:'italic' }}>
-                  Completa el formulario y nuestro equipo te contactará para coordinar la cita.
+              </div>
+
+              {/* Párrafo vendedor */}
+              <div style={{ padding:'1.1rem 1.5rem 0' }}>
+                <p style={{ fontSize:'0.88rem', color:C.tealDark, lineHeight:1.75, margin:0, fontWeight:500 }}>
+                  Sabemos que preparar el viaje de tu mascota puede ser un proceso <strong>confuso y abrumador</strong>: trámites, certificados, vacunas, plazos... y cada país tiene sus propias exigencias. En Pets &amp; Pets te acompañamos en <strong>cada paso del proceso de forma personalizada</strong>, asegurándonos de que todo esté en regla para que tú y tu compañero lleguen a su destino sin contratiempos.
+                </p>
+                <p style={{ fontSize:'0.82rem', color:C.muted, margin:'0.65rem 0 0', fontStyle:'italic' }}>
+                  Completa el formulario y nos pondremos en contacto contigo a la brevedad.
                 </p>
               </div>
 
