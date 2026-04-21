@@ -44,12 +44,22 @@ export default function ProcedimientosModal({ isOpen, onClose, onSave, pet, init
 
   const handleSave = () => {
     if (!descripcion.trim()) { setError('La descripción es requerida.'); return; }
+    const now = new Date();
+    const horaAhora = now.toTimeString().slice(0, 5);
+    const hoy = now.toISOString().split('T')[0];
     onSave({
       ...(isEditing ? { id: initialData.id } : {}),
       tipo, descripcion, anestesia, observaciones,
       sede_id: sedeId,
-      veterinario: session?.nombre || 'Desconocido',
-      ...(!isEditing ? { fecha: new Date().toISOString().split('T')[0] } : {}),
+      ...(isEditing ? {
+        editado_por:   session?.nombre || null,
+        hora_edicion:  horaAhora,
+        fecha_edicion: hoy,
+      } : {
+        veterinario:   session?.nombre || 'Desconocido',
+        fecha:         hoy,
+        hora_creacion: horaAhora,
+      }),
     });
     reset(); onClose();
   };

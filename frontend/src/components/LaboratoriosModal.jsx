@@ -89,13 +89,17 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, onEdit, pet
       setUploading(true);
       newArchivos = await uploadFiles(files, pet.id, setError);
       setUploading(false);
-      if (!newArchivos) return; // upload error already shown
+      if (!newArchivos) return;
     }
     const finalArchivos = [...existingArchivos, ...newArchivos];
+    const now = new Date();
     onEdit(labId, {
       resultados,
-      archivos:  finalArchivos,
-      file_url:  finalArchivos[0]?.url || null,
+      archivos:      finalArchivos,
+      file_url:      finalArchivos[0]?.url || null,
+      editado_por:   session?.nombre || null,
+      hora_edicion:  now.toTimeString().slice(0, 5),
+      fecha_edicion: now.toISOString().split('T')[0],
     });
     reset(); onClose();
   };

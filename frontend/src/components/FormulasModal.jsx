@@ -191,6 +191,9 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
       return;
     }
     setSaving(true);
+    const now = new Date();
+    const horaAhora = now.toTimeString().slice(0, 5);
+    const hoy = now.toISOString().split('T')[0];
     if (editingFormula) {
       const editorName = session?.nombre || null;
       await editFormula(editingFormula.id, {
@@ -198,16 +201,19 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
         productos:     prods,
         observaciones: createObs.trim() || null,
         editado_por:   editorName !== editingFormula.veterinario ? editorName : editingFormula.editado_por || null,
+        hora_edicion:  horaAhora,
+        fecha_edicion: hoy,
       });
     } else {
       await addFormula({
         patient_id:    pet.id,
         patient_name:  pet.name,
-        fecha:         createDate || new Date().toISOString().split('T')[0],
+        fecha:         createDate || hoy,
         productos:     prods,
         estado:        'Pendiente',
         veterinario:   session?.nombre || null,
         observaciones: createObs.trim() || null,
+        hora_creacion: horaAhora,
       });
     }
     setSaving(false);
@@ -361,12 +367,17 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
                   <div style={{ padding:'0.5rem 1rem', background:BRAND.bgRow, borderBottom:`1px solid ${BRAND.tealLt}`, fontSize:'0.78rem', display:'flex', flexDirection:'column', gap:'0.25rem' }}>
                     {f.veterinario && (
                       <div style={{ color:'var(--color-text-muted)' }}>
-                        👨‍⚕️ <strong style={{ color:'var(--color-text)' }}>{f.veterinario}</strong>
+                        👨‍⚕️ <strong style={{ color:'var(--color-text)' }}>{f.veterinario}</strong>{f.hora_creacion ? ` · ${f.hora_creacion}` : ''}
                       </div>
                     )}
                     {f.editado_por && f.editado_por !== f.veterinario && (
-                      <div style={{ color:'var(--color-text-muted)' }}>
-                        ✏️ Editado por <strong style={{ color:'var(--color-text)' }}>{f.editado_por}</strong>
+                      <div style={{ color:'#b45309' }}>
+                        ✏️ Editado por <strong>{f.editado_por}</strong>{f.hora_edicion ? ` · ${f.hora_edicion}` : ''}
+                      </div>
+                    )}
+                    {f.editado_por && f.editado_por === f.veterinario && (
+                      <div style={{ color:'#b45309' }}>
+                        ✏️ Editado{f.hora_edicion ? ` · ${f.hora_edicion}` : ''}
                       </div>
                     )}
                     {f.observaciones && (

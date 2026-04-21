@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { useSede, SEDES } from '../utils/useSede';
+import { useAuth } from '../utils/useAuth';
 
 const PRODUCTOS = {
   Perro: ['Drontal Plus', 'Milbemax', 'Nexgard Spectra', 'Bravecto', 'Panacur', 'Endogard'],
@@ -21,6 +22,7 @@ const iSt = {
 
 export default function DesparasitarModal({ isOpen, onClose, onSave, pet, initialData }) {
   const { sedeActual, isAdmin } = useSede();
+  const { session } = useAuth();
   const opciones = PRODUCTOS[pet?.species] || PRODUCTOS.Perro;
   const isEditing = !!initialData?.id;
 
@@ -55,16 +57,23 @@ export default function DesparasitarModal({ isOpen, onClose, onSave, pet, initia
   const handleSave = () => {
     if (!selected) return alert('Selecciona un producto.');
     if (!fecha)    return alert('La fecha es requerida.');
+    const now = new Date();
+    const horaAhora = now.toTimeString().slice(0, 5);
+    const hoy = now.toISOString().split('T')[0];
     onSave({
       ...(isEditing ? { id: initialData.id } : {}),
-      vaccine_name: `Desparasitación - ${selected}`,
-      date_applied: fecha,
-      next_dose:    proxima || null,
-      batch:        lote    || null,
-      vet:          vet     || null,
-      sede_id:      sedeId  || null,
-      dose:         '1ra dosis',
-      status:       'vigente',
+      vaccine_name:  `Desparasitación - ${selected}`,
+      date_applied:  fecha,
+      next_dose:     proxima || null,
+      batch:         lote    || null,
+      vet:           vet     || null,
+      sede_id:       sedeId  || null,
+      dose:          '1ra dosis',
+      status:        'vigente',
+      ...(isEditing
+        ? { editado_por: session?.nombre || null, hora_edicion: horaAhora, fecha_edicion: hoy }
+        : { hora_creacion: horaAhora }
+      ),
     });
   };
 

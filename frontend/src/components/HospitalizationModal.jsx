@@ -49,11 +49,15 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
     if (!motivo.trim()) return setError('El motivo de hospitalización es requerido.');
 
     if (isEditing) {
+      const now = new Date();
       editHosp(initialData.id, {
         motivo,
         diagnostico,
-        tratamiento: meds.filter(m => m.medicamento.trim()),
-        sede_id: sedeId,
+        tratamiento:   meds.filter(m => m.medicamento.trim()),
+        sede_id:       sedeId,
+        editado_por:   session?.nombre || null,
+        hora_edicion:  now.toTimeString().slice(0, 5),
+        fecha_edicion: now.toISOString().split('T')[0],
       });
       onClose();
       return;

@@ -84,11 +84,18 @@ export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft
   const handleSave = () => {
     if (!form.date) return alert('La fecha es requerida.');
     if (!form.diagnostico_final?.trim()) return alert('El diagnóstico final es requerido.');
-    onSave({ ...form, sede_id: sedeId || null });
+    const now = new Date();
+    const hoy = now.toISOString().split('T')[0];
+    const horaAhora = now.toTimeString().slice(0, 5);
+    if (mode === 'edit') {
+      onSave({ ...form, sede_id: sedeId || null, editado_por: session?.nombre || null, hora_edicion: horaAhora, fecha_edicion: hoy });
+    } else {
+      onSave({ ...form, sede_id: sedeId || null, veterinario: session?.nombre || null });
+    }
   };
 
   const handleSaveDraft = () => {
-    onSaveDraft({ ...form, sede_id: sedeId || null });
+    onSaveDraft({ ...form, sede_id: sedeId || null, veterinario: session?.nombre || null });
   };
 
   // Medicamentos

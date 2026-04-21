@@ -36,7 +36,7 @@ export default function PetDetailPage() {
   const { items: prepagada }   = useStore('prepagada');
   const { items: consultations, add: addConsultation, edit: editConsultation, remove: removeConsultation } = useStore('consultations');
   const { items: vaccines, add: addVaccine, edit: editVaccine, remove: removeVaccine } = useStore('vaccines');
-  const { items: imagingRecords, add: addImaging }     = useStore('imaging');
+  const { items: imagingRecords, add: addImaging, edit: editImaging } = useStore('imaging');
   const { items: formulas, add: addFormula, edit: editFormula } = useStore('formulas_medicas');
   const { items: procedimientos, add: addProcedimiento, edit: editProcedimiento } = useStore('procedimientos');
   const { items: laboratorios, add: addLaboratorio, edit: editLaboratorio } = useStore('laboratorios');
@@ -44,7 +44,7 @@ export default function PetDetailPage() {
   const { items: hospitalization }                     = useStore('hospitalization');
   const { items: signedDocs }  = useStore('signedDocuments');
   const { items: labPedidos, edit: editLabPedido, add: addLabPedido } = useStore('laboratorios_pedidos');
-  const { items: notasClincias, add: addNota } = useStore('notas_clinicas');
+  const { items: notasClincias, add: addNota, edit: editNota } = useStore('notas_clinicas');
 
   const { sedeActual, isAdmin: isAdminUser } = useSede();
   const { session } = useAuth();
@@ -53,6 +53,7 @@ export default function PetDetailPage() {
   const [editingConsult, setEditingConsult] = useState(null); // consultation being edited
   const [hospModal,      setHospModal]      = useState(false);
   const [imagingModal,   setImagingModal]   = useState(false);
+  const [editingImaging, setEditingImaging] = useState(null);
   const [procedModal,    setProcedModal]    = useState(false);
   const [labModal,       setLabModal]       = useState(false);
   const [labSolModal,    setLabSolModal]    = useState(false);
@@ -77,6 +78,7 @@ export default function PetDetailPage() {
   const [notaFile,       setNotaFile]       = useState(null);
   const [notaUploading,  setNotaUploading]  = useState(false);
   const [notaImageView,  setNotaImageView]  = useState(null);
+  const [editingNota,    setEditingNota]    = useState(null);
 
   const petId  = parseInt(id);
   const pet    = patients.find(p => p.id === petId);
@@ -240,6 +242,7 @@ export default function PetDetailPage() {
     if (editingConsult) {
       // Editing existing consultation
       editConsultation(editingConsult.id, { ...cleaned, estado: 'completada' });
+      // editado_por/hora_edicion/fecha_edicion already included in cleaned from ConsultationModal
       // Always handle formula when editing: create if new, update if already exists
       const hasFormulaData = formula_productos.length > 0 || data.observaciones?.trim();
       if (hasFormulaData) {
@@ -291,39 +294,56 @@ export default function PetDetailPage() {
   const handleSaveNota = async () => {
     if (!notaForm.titulo.trim()) return alert('El título es requerido.');
     setNotaUploading(true);
-    let imagen_url = null;
-    if (notaFile) {
-      imagen_url = await new Promise((resolve) => {
-        const img = new Image();
-        const blobUrl = URL.createObjectURL(notaFile);
-        img.onload = () => {
-          URL.revokeObjectURL(blobUrl);
-          const MAX = 1024;
-          let { width: w, height: h } = img;
-          if (w > MAX || h > MAX) { if (w >= h) { h = Math.round(h * MAX / w); w = MAX; } else { w = Math.round(w * MAX / h); h = MAX; } }
-          const canvas = document.createElement('canvas');
-          canvas.width = w; canvas.height = h;
-          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL('image/jpeg', 0.78));
-        };
-        img.onerror = () => { URL.revokeObjectURL(blobUrl); resolve(null); };
-        img.src = blobUrl;
+    const now = new Date();
+    const hoy = now.toISOString().split('T')[0];
+    const horaAhora = now.toTimeString().slice(0, 5);
+
+    if (editingNota) {
+      await editNota(editingNota.id, {
+        titulo:        notaForm.titulo.trim(),
+        observaciones: notaForm.observaciones.trim() || null,
+        editado_por:   session?.nombre || null,
+        fecha_edicion: hoy,
+        hora_edicion:  horaAhora,
       });
+      setNotaUploading(false);
+    } else {
+      let imagen_url = null;
+      if (notaFile) {
+        imagen_url = await new Promise((resolve) => {
+          const img = new Image();
+          const blobUrl = URL.createObjectURL(notaFile);
+          img.onload = () => {
+            URL.revokeObjectURL(blobUrl);
+            const MAX = 1024;
+            let { width: w, height: h } = img;
+            if (w > MAX || h > MAX) { if (w >= h) { h = Math.round(h * MAX / w); w = MAX; } else { w = Math.round(w * MAX / h); h = MAX; } }
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.78));
+          };
+          img.onerror = () => { URL.revokeObjectURL(blobUrl); resolve(null); };
+          img.src = blobUrl;
+        });
+      }
+      let err = null;
+      const result = await addNota({
+        patient_id:    petId,
+        titulo:        notaForm.titulo.trim(),
+        observaciones: notaForm.observaciones.trim() || null,
+        imagen_url,
+        autor:         session?.nombre || null,
+        created_at:    hoy,
+        hora_creacion: horaAhora,
+      }, { onError: (m) => { err = m; } });
+      setNotaUploading(false);
+      if (!result) return alert('❌ Error al guardar nota:\n\n' + err);
     }
-    let err = null;
-    const result = await addNota({
-      patient_id:    petId,
-      titulo:        notaForm.titulo.trim(),
-      observaciones: notaForm.observaciones.trim() || null,
-      imagen_url,
-      autor:         session?.nombre || null,
-      created_at:    new Date().toISOString().split('T')[0],
-    }, { onError: (m) => { err = m; } });
-    setNotaUploading(false);
-    if (!result) return alert('❌ Error al guardar nota:\n\n' + err);
     setNotaModal(false);
     setNotaForm({ titulo: '', observaciones: '' });
     setNotaFile(null);
+    setEditingNota(null);
   };
 
   const handleSaveProcedimiento = async (data) => {
@@ -386,6 +406,10 @@ export default function PetDetailPage() {
 
   const handleSaveImaging = (data) => {
     addImaging({ ...data, patient_id: petId, patient_name: pet.name, created_at: new Date().toISOString().split('T')[0] });
+  };
+
+  const handleEditImaging = (id, changes) => {
+    editImaging(id, changes);
   };
 
   const handleDownloadPDF = async () => {
@@ -693,7 +717,7 @@ export default function PetDetailPage() {
             <table style={{ width:'100%', borderCollapse:'collapse' }}>
               <thead>
                 <tr style={{ borderBottom:'2px solid var(--color-border)' }}>
-                  {['Fecha','Hora','Sede','Motivo','Diagnóstico final','Plan diagnóstico','Meds',''].map(h => (
+                  {['Fecha','Hora','Sede','Motivo','Diagnóstico final','Plan diagnóstico','Meds','Veterinario',''].map(h => (
                     <th key={h} style={{ padding:'0.65rem 1rem', textAlign:'left', fontSize:'0.72rem', fontWeight:600, color:'var(--color-text-muted)', textTransform:'uppercase', letterSpacing:'0.05em', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -729,6 +753,12 @@ export default function PetDetailPage() {
                           : <span style={{ color:'var(--color-text-muted)' }}>—</span>
                         }
                       </td>
+                      <td style={{ padding:'0.85rem 1rem', maxWidth:160 }}>
+                        <div style={{ fontSize:'0.75rem', color:'var(--color-text)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.veterinario || '—'}</div>
+                        {c.editado_por && (
+                          <div style={{ fontSize:'0.68rem', color:'#b45309', marginTop:'0.1rem', whiteSpace:'nowrap' }}>✏️ {c.editado_por}{c.hora_edicion ? ` ${c.hora_edicion}` : ''}</div>
+                        )}
+                      </td>
                       <td style={{ padding:'0.85rem 1rem' }}>
                         <span style={{ fontSize:'0.72rem', color:'var(--color-primary)', fontWeight:600 }}>✏️ Editar</span>
                       </td>
@@ -752,11 +782,25 @@ export default function PetDetailPage() {
               📝 Notas clínicas ({petNotas.length})
             </div>
             <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
-              {petNotas.map(n => (
+              {petNotas.map(n => {
+                const mismoAutor = n.editado_por && n.autor && n.editado_por === n.autor;
+                return (
                 <div key={n.id} style={{ border:'1px solid #f5c842', borderRadius:'var(--radius-md)', padding:'0.85rem 1rem', background:'#fffdf0' }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'0.3rem' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'0.3rem', gap:'0.5rem' }}>
                     <span style={{ fontWeight:700, color:'#8a6200', fontSize:'0.9rem' }}>{n.titulo}</span>
-                    <span style={{ fontSize:'0.68rem', color:'#b8860b' }}>{n.created_at}{n.autor ? ` · ${n.autor}` : ''}</span>
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexShrink:0 }}>
+                      <span style={{ fontSize:'0.68rem', color:'#b8860b', textAlign:'right' }}>
+                        {n.created_at}{n.hora_creacion ? ` ${n.hora_creacion}` : ''}{n.autor ? ` · ${n.autor}` : ''}
+                        {n.editado_por && (mismoAutor
+                          ? ` · Editado${n.hora_edicion ? ` ${n.hora_edicion}` : ''}`
+                          : ` · Editado por ${n.editado_por}${n.hora_edicion ? ` ${n.hora_edicion}` : ''}`
+                        )}
+                      </span>
+                      <button
+                        onClick={() => { setEditingNota(n); setNotaForm({ titulo: n.titulo, observaciones: n.observaciones || '' }); setNotaModal(true); }}
+                        style={{ padding:'2px 7px', background:'#fffbe6', border:'1px solid #f5c842', borderRadius:4, cursor:'pointer', fontSize:'0.72rem', color:'#8a6200', fontWeight:600 }}
+                      >✏️</button>
+                    </div>
                   </div>
                   {n.observaciones && (
                     <p style={{ margin:'0 0 0.6rem', fontSize:'0.82rem', color:'var(--color-text)', lineHeight:1.5 }}>{n.observaciones}</p>
@@ -770,7 +814,8 @@ export default function PetDetailPage() {
                     />
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -793,7 +838,10 @@ export default function PetDetailPage() {
                         {p.sede_id && sedeBadge(p.sede_id)}
                       </div>
                       <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
-                        <span style={{ fontSize:'0.72rem', color:'var(--color-text-muted)' }}>{p.fecha} · {p.veterinario || p.created_by || ''}</span>
+                        <span style={{ fontSize:'0.72rem', color:'var(--color-text-muted)' }}>
+                          {p.fecha}{p.hora_creacion ? ` ${p.hora_creacion}` : ''}{p.veterinario || p.created_by ? ` · ${p.veterinario || p.created_by}` : ''}
+                          {p.editado_por && <span style={{ color:'#b45309' }}> · ✏️ {p.editado_por}{p.hora_edicion ? ` ${p.hora_edicion}` : ''}</span>}
+                        </span>
                         <button
                           onClick={() => { setEditingProced(p); setProcedModal(true); }}
                           style={{ padding:'2px 8px', background:'white', border:`1px solid ${tipoCl}`, color:tipoCl, borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)' }}
@@ -859,6 +907,7 @@ export default function PetDetailPage() {
                             {(labResult.fecha || labResult.hora_subida || labResult.created_by) && (
                               <p style={{ fontSize:'0.7rem', color:'var(--color-text-muted)', margin:'0.25rem 0 0' }}>
                                 Subido: {labResult.fecha || '—'}{labResult.hora_subida ? ` a las ${labResult.hora_subida}` : ''}{labResult.created_by ? ` · ${labResult.created_by}` : ''}
+                                {labResult.editado_por && <span style={{ color:'#b45309' }}> · ✏️ Editado por {labResult.editado_por}{labResult.hora_edicion ? ` a las ${labResult.hora_edicion}` : ''}</span>}
                               </p>
                             )}
                           </div>
@@ -893,7 +942,16 @@ export default function PetDetailPage() {
                       <span style={{ fontWeight:700, fontSize:'0.875rem', color:'#1565c0' }}>{r.tipo}</span>
                       {r.sede_id && sedeBadge(r.sede_id)}
                     </div>
-                    <span style={{ fontSize:'0.75rem', color:'var(--color-text-muted)' }}>{r.date} · {r.created_by || ''}</span>
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+                      <span style={{ fontSize:'0.72rem', color:'var(--color-text-muted)' }}>
+                        {r.date}{r.hora_creacion ? ` ${r.hora_creacion}` : ''}{r.created_by ? ` · ${r.created_by}` : ''}
+                        {r.editado_por && <span style={{ color:'#b45309' }}> · ✏️ {r.editado_por}{r.hora_edicion ? ` ${r.hora_edicion}` : ''}</span>}
+                      </span>
+                      <button
+                        onClick={() => { setEditingImaging(r); setImagingModal(true); }}
+                        style={{ padding:'2px 8px', background:'white', border:'1px solid #1565c0', color:'#1565c0', borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)' }}
+                      >✏️ Editar</button>
+                    </div>
                   </div>
                   <p style={{ fontSize:'0.82rem', color:'var(--color-text)', margin:'0 0 0.4rem', lineHeight:1.5 }}>{r.resultado}</p>
                   {r.archivos?.length > 0 && (
@@ -938,7 +996,8 @@ export default function PetDetailPage() {
                         </div>
                         <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
                           <span style={{ fontSize:'0.72rem', color:'var(--color-text-muted)', whiteSpace:'nowrap' }}>
-                            {vDate}{vVet ? ` · ${vVet}` : ''}
+                            {vDate}{v.hora_creacion ? ` ${v.hora_creacion}` : ''}{vVet ? ` · ${vVet}` : ''}
+                            {v.editado_por && <span style={{ color:'#b45309' }}> · ✏️ {v.editado_por}{v.hora_edicion ? ` ${v.hora_edicion}` : ''}</span>}
                           </span>
                           <button
                             onClick={() => {
@@ -998,6 +1057,7 @@ export default function PetDetailPage() {
                     </p>
                     {h.diagnostico && <p style={{ fontSize:'0.78rem', color:'var(--color-text-muted)', margin:0 }}>Dx: {h.diagnostico}</p>}
                     {h.responsible_vet && <p style={{ fontSize:'0.72rem', color:'var(--color-text-muted)', margin:'0.2rem 0 0' }}>👨‍⚕️ {h.responsible_vet}</p>}
+                    {h.editado_por && <p style={{ fontSize:'0.7rem', color:'#b45309', margin:'0.1rem 0 0' }}>✏️ Editado por {h.editado_por}{h.hora_edicion ? ` a las ${h.hora_edicion}` : ''}</p>}
 
                     {/* Reportes de esta hospitalización */}
                     {(() => {
@@ -1151,13 +1211,13 @@ export default function PetDetailPage() {
       })()}
 
 
-      {/* ── Modal: Agregar nota clínica ── */}
+      {/* ── Modal: Agregar / Editar nota clínica ── */}
       {notaModal && (
-        <div onClick={() => setNotaModal(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem', backdropFilter:'blur(2px)' }}>
+        <div onClick={() => { setNotaModal(false); setEditingNota(null); setNotaForm({ titulo: '', observaciones: '' }); setNotaFile(null); }} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem', backdropFilter:'blur(2px)' }}>
           <div onClick={e => e.stopPropagation()} style={{ background:'var(--color-white)', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-lg)', width:'100%', maxWidth:500, overflow:'hidden' }}>
             <div style={{ padding:'1.1rem 1.5rem', borderBottom:'1px solid var(--color-border)', background:'#fffdf0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <h3 style={{ margin:0, fontFamily:'var(--font-title)', color:'#8a6200', fontSize:'1rem' }}>📝 Agregar nota clínica</h3>
-              <button onClick={() => setNotaModal(false)} style={{ background:'none', border:'none', fontSize:'1.1rem', cursor:'pointer', color:'var(--color-text-muted)' }}>×</button>
+              <h3 style={{ margin:0, fontFamily:'var(--font-title)', color:'#8a6200', fontSize:'1rem' }}>{editingNota ? '✏️ Editar nota clínica' : '📝 Agregar nota clínica'}</h3>
+              <button onClick={() => { setNotaModal(false); setEditingNota(null); setNotaForm({ titulo: '', observaciones: '' }); setNotaFile(null); }} style={{ background:'none', border:'none', fontSize:'1.1rem', cursor:'pointer', color:'var(--color-text-muted)' }}>×</button>
             </div>
             <div style={{ padding:'1.25rem 1.5rem', display:'flex', flexDirection:'column', gap:'0.9rem' }}>
               <div>
@@ -1180,6 +1240,7 @@ export default function PetDetailPage() {
                   style={{ width:'100%', padding:'0.6rem 0.75rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.875rem', resize:'vertical', boxSizing:'border-box' }}
                 />
               </div>
+              {!editingNota && (
               <div>
                 <label style={{ display:'block', fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', marginBottom:'0.3rem', color:'var(--color-text)' }}>Imagen (opcional)</label>
                 <input
@@ -1194,14 +1255,15 @@ export default function PetDetailPage() {
                   </div>
                 )}
               </div>
+              )}
               <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem', paddingTop:'0.25rem' }}>
-                <button onClick={() => setNotaModal(false)} style={{ padding:'0.55rem 1.1rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', color:'var(--color-text-muted)' }}>Cancelar</button>
+                <button onClick={() => { setNotaModal(false); setEditingNota(null); setNotaForm({ titulo: '', observaciones: '' }); setNotaFile(null); }} style={{ padding:'0.55rem 1.1rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', color:'var(--color-text-muted)' }}>Cancelar</button>
                 <button
                   onClick={handleSaveNota}
                   disabled={notaUploading}
                   style={{ padding:'0.55rem 1.4rem', background: notaUploading ? '#aaa' : '#b8860b', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor: notaUploading ? 'not-allowed' : 'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', fontWeight:700 }}
                 >
-                  {notaUploading ? '⏳ Subiendo...' : '💾 Guardar nota'}
+                  {notaUploading ? '⏳ Guardando...' : editingNota ? '💾 Guardar cambios' : '💾 Guardar nota'}
                 </button>
               </div>
             </div>
@@ -1235,7 +1297,7 @@ export default function PetDetailPage() {
 
       <HospitalizationModal isOpen={hospModal} onClose={() => { setHospModal(false); setEditingHosp(null); }} pet={pet} client={client} initialData={editingHosp} />
 
-      <ImagingModal isOpen={imagingModal} onClose={() => setImagingModal(false)} onSave={handleSaveImaging} pet={pet} />
+      <ImagingModal isOpen={imagingModal} onClose={() => { setImagingModal(false); setEditingImaging(null); }} onSave={handleSaveImaging} onEdit={handleEditImaging} pet={pet} initialData={editingImaging} />
 
       <ProcedimientosModal isOpen={procedModal} onClose={() => { setProcedModal(false); setEditingProced(null); }} onSave={handleSaveProcedimiento} pet={pet} initialData={editingProced} />
 

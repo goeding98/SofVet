@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { useSede, SEDES } from '../utils/useSede';
+import { useAuth } from '../utils/useAuth';
 
 const VACUNAS = {
   Perro: ['Puppy Virbac', 'Quíntuple', 'Séxtuple', 'Anti-rabia', 'KC'],
@@ -21,6 +22,7 @@ const iSt = {
 
 export default function VacunaModal({ isOpen, onClose, onSave, pet, initialData }) {
   const { sedeActual, isAdmin } = useSede();
+  const { session } = useAuth();
   const opciones  = VACUNAS[pet?.species] || [];
   const isEditing = !!initialData?.id;
 
@@ -64,6 +66,9 @@ export default function VacunaModal({ isOpen, onClose, onSave, pet, initialData 
 
   const handleSave = () => {
     if (!fecha) return alert('La fecha es requerida.');
+    const now = new Date();
+    const horaAhora = now.toTimeString().slice(0, 5);
+    const hoy = now.toISOString().split('T')[0];
     if (isEditing) {
       if (!selected) return alert('Selecciona una vacuna.');
       onSave({
@@ -76,18 +81,22 @@ export default function VacunaModal({ isOpen, onClose, onSave, pet, initialData 
         sede_id:      sedeId  || null,
         dose:         '1ra dosis',
         status:       'vigente',
+        editado_por:  session?.nombre || null,
+        hora_edicion: horaAhora,
+        fecha_edicion: hoy,
       });
     } else {
       if (!selected.length) return alert('Selecciona al menos una vacuna.');
       onSave(selected.map(v => ({
-        vaccine_name: v,
-        date_applied: fecha,
-        next_dose:    proxima || null,
-        batch:        lote    || null,
-        vet:          vet     || null,
-        sede_id:      sedeId  || null,
-        dose:         '1ra dosis',
-        status:       'vigente',
+        vaccine_name:  v,
+        date_applied:  fecha,
+        next_dose:     proxima || null,
+        batch:         lote    || null,
+        vet:           vet     || null,
+        sede_id:       sedeId  || null,
+        dose:          '1ra dosis',
+        status:        'vigente',
+        hora_creacion: horaAhora,
       })));
     }
   };
