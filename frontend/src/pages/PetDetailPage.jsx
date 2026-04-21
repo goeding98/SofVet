@@ -293,12 +293,22 @@ export default function PetDetailPage() {
     setNotaUploading(true);
     let imagen_url = null;
     if (notaFile) {
-      const safeName = notaFile.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
-      const path = `notas/${petId}/${Date.now()}_${safeName}`;
-      const { error: upErr } = await supabase.storage.from('notas-clinicas').upload(path, notaFile, { upsert: true });
-      if (upErr) { setNotaUploading(false); return alert('Error subiendo imagen: ' + upErr.message); }
-      const { data: urlData } = supabase.storage.from('notas-clinicas').getPublicUrl(path);
-      imagen_url = urlData.publicUrl;
+      imagen_url = await new Promise((resolve) => {
+        const img = new Image();
+        const blobUrl = URL.createObjectURL(notaFile);
+        img.onload = () => {
+          URL.revokeObjectURL(blobUrl);
+          const MAX = 1024;
+          let { width: w, height: h } = img;
+          if (w > MAX || h > MAX) { if (w >= h) { h = Math.round(h * MAX / w); w = MAX; } else { w = Math.round(w * MAX / h); h = MAX; } }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.78));
+        };
+        img.onerror = () => { URL.revokeObjectURL(blobUrl); resolve(null); };
+        img.src = blobUrl;
+      });
     }
     let err = null;
     const result = await addNota({
