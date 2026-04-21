@@ -43,15 +43,22 @@ export default function HospitalizationReportModal({ isOpen, onClose, onSave, on
     setError(''); setUploading(true);
 
     const fotos = [];
+    const uploadErrors = [];
     for (const file of files) {
-      const path = `hospitalizacion-reports/${hospitalizationId}/${new Date().toISOString().split('T')[0]}/${Date.now()}_${file.name}`;
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `${hospitalizationId}/${new Date().toISOString().split('T')[0]}/${Date.now()}_${safeName}`;
       const { error: upErr } = await supabase.storage.from('hospitalizacion-reports').upload(path, file, { upsert:true });
       if (!upErr) {
         const { data } = supabase.storage.from('hospitalizacion-reports').getPublicUrl(path);
         fotos.push({ name: file.name, url: data.publicUrl });
       } else {
-        fotos.push({ name: file.name, url: null });
+        uploadErrors.push(`${file.name}: ${upErr.message}`);
       }
+    }
+    if (uploadErrors.length) {
+      setUploading(false);
+      setError('Error al subir fotos: ' + uploadErrors.join(' | '));
+      return;
     }
 
     setUploading(false);
