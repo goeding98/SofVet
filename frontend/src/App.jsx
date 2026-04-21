@@ -24,6 +24,7 @@ import UsersPage from './pages/UsersPage';
 import ImportPage from './pages/ImportPage';
 import PrepagadaPage from './pages/PrepagadaPage';
 import HCRequestsPage from './pages/HCRequestsPage';
+import CertificadosViajePage from './pages/CertificadosViajePage';
 import PortalPage from './pages/PortalPage';
 
 function ProtectedLayout({ children }) {
@@ -84,9 +85,10 @@ function AppRoutes() {
       {/* Admin-only */}
       {isAdmin && (
         <>
-          <Route path="/users"       element={<ProtectedLayout><UsersPage /></ProtectedLayout>} />
-          <Route path="/import"      element={<ProtectedLayout><ImportPage /></ProtectedLayout>} />
-          <Route path="/hc-requests" element={<ProtectedLayout><HCRequestsPage /></ProtectedLayout>} />
+          <Route path="/users"                element={<ProtectedLayout><UsersPage /></ProtectedLayout>} />
+          <Route path="/import"               element={<ProtectedLayout><ImportPage /></ProtectedLayout>} />
+          <Route path="/hc-requests"          element={<ProtectedLayout><HCRequestsPage /></ProtectedLayout>} />
+          <Route path="/certificados-viaje"   element={<ProtectedLayout><CertificadosViajePage /></ProtectedLayout>} />
         </>
       )}
 

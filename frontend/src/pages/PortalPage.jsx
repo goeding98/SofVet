@@ -91,6 +91,19 @@ export default function PortalPage() {
   const [solModal,  setSolModal]  = useState(false);
   const [solPet,    setSolPet]    = useState(null);
 
+  // ── Certificado de viaje ──────────────────────────────────────────────────
+  const [cvCedula,   setCvCedula]   = useState('');
+  const [cvNombre,   setCvNombre]   = useState('');
+  const [cvTelefono, setCvTelefono] = useState('');
+  const [cvMascota,  setCvMascota]  = useState('');
+  const [cvEdad,     setCvEdad]     = useState('');
+  const [cvEspecie,  setCvEspecie]  = useState('');
+  const [cvDestino,  setCvDestino]  = useState('');
+  const [cvFecha,    setCvFecha]    = useState('');
+  const [cvSaving,   setCvSaving]   = useState(false);
+  const [cvOk,       setCvOk]       = useState(false);
+  const [cvErr,      setCvErr]      = useState('');
+
   // ── Cancel appointment ────────────────────────────────────────────────────
   const [cancelingId, setCancelingId] = useState(null); // id being confirmed
 
@@ -286,6 +299,27 @@ export default function PortalPage() {
 
   // ── Guest booking helpers ─────────────────────────────────────────────────
   const resetGuest = () => { setGStep(1); setGCedula(''); setGNombre(''); setGMascota(''); setGMotivo(''); setGSede(null); setGDate(''); setGSlots(null); setGTime(null); setGSaving(false); setGOk(false); setGErr(''); };
+  const resetCert  = () => { setCvCedula(''); setCvNombre(''); setCvTelefono(''); setCvMascota(''); setCvEdad(''); setCvEspecie(''); setCvDestino(''); setCvFecha(''); setCvSaving(false); setCvOk(false); setCvErr(''); };
+
+  const handleCertSubmit = async () => {
+    if (!cvCedula.trim() || !cvNombre.trim() || !cvTelefono.trim() || !cvMascota.trim() || !cvEdad.trim() || !cvEspecie || !cvDestino.trim() || !cvFecha)
+      return setCvErr('Por favor completa todos los campos.');
+    setCvSaving(true); setCvErr('');
+    const { error } = await supabase.from('certificados_viaje').insert({
+      cedula_tutor:   cvCedula.trim(),
+      nombre_tutor:   cvNombre.trim(),
+      telefono:       cvTelefono.trim(),
+      nombre_mascota: cvMascota.trim(),
+      edad_mascota:   cvEdad.trim(),
+      especie:        cvEspecie,
+      destino:        cvDestino.trim(),
+      fecha_tentativa: cvFecha,
+      estado:         'pendiente',
+    });
+    setCvSaving(false);
+    if (error) return setCvErr('Error al enviar la solicitud. Intenta de nuevo.');
+    setCvOk(true);
+  };
 
   const loadGuestSlots = async (date, sedeId) => {
     setGSlots(null); setGTime(null);
@@ -435,7 +469,18 @@ export default function PortalPage() {
               </button>
             </div>
 
-            <p style={{ textAlign:'center', color:C.muted, fontSize:'0.7rem', marginTop:'1.5rem' }}>© Pets &amp; Pets · Cali, Colombia</p>
+            <div style={{ textAlign:'center', marginTop:'1.25rem' }}>
+              <button
+                onClick={() => { resetCert(); setPortalView('cert'); }}
+                style={{ background:'none', border:`1px solid ${C.border}`, borderRadius:999, padding:'0.45rem 1.2rem', cursor:'pointer', fontFamily:'inherit', color:C.muted, fontSize:'0.78rem', transition:'all 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.color=C.teal; e.currentTarget.style.borderColor=C.teal; }}
+                onMouseLeave={e => { e.currentTarget.style.color=C.muted; e.currentTarget.style.borderColor=C.border; }}
+              >
+                ✈️ Certificado de viaje nacional / internacional
+              </button>
+            </div>
+
+            <p style={{ textAlign:'center', color:C.muted, fontSize:'0.7rem', marginTop:'1rem' }}>© Pets &amp; Pets · Cali, Colombia</p>
           </div>
         </div>
       )}
@@ -624,6 +669,106 @@ export default function PortalPage() {
           </div>
         );
       })()}
+
+      {/* ── CERTIFICADO DE VIAJE SCREEN ── */}
+      {!client && portalView === 'cert' && (
+        <div style={{ maxWidth:580, margin:'0 auto', padding:'2rem 1rem 3rem' }}>
+          <button onClick={() => setPortalView('choice')} style={{ background:'none', border:'none', color:C.teal, cursor:'pointer', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:600, marginBottom:'1rem', display:'flex', alignItems:'center', gap:'0.3rem' }}>
+            ← Volver
+          </button>
+
+          {cvOk ? (
+            <div style={{ background:'white', borderRadius:20, boxShadow:'0 4px 40px rgba(49,109,116,0.12)', padding:'2.5rem', textAlign:'center' }}>
+              <div style={{ width:60, height:60, borderRadius:'50%', background:`linear-gradient(135deg,${C.teal},${C.tealDark})`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.8rem', margin:'0 auto 1.25rem' }}>✅</div>
+              <h2 style={{ fontWeight:800, color:C.tealDark, margin:'0 0 0.75rem' }}>¡Solicitud recibida!</h2>
+              <p style={{ color:C.muted, fontSize:'0.9rem', lineHeight:1.6, margin:'0 0 1.5rem' }}>
+                Recibimos tu solicitud de certificado de viaje para <strong>{cvMascota}</strong>. Nuestro equipo se pondrá en contacto contigo al <strong>{cvTelefono}</strong> para coordinar la cita y los documentos necesarios.
+              </p>
+              <button onClick={() => { resetCert(); setPortalView('choice'); }} style={{ background:`linear-gradient(135deg,${C.teal},${C.tealDark})`, color:'white', border:'none', borderRadius:12, padding:'0.85rem 2rem', fontWeight:700, fontSize:'0.92rem', cursor:'pointer', fontFamily:'inherit' }}>
+                Volver al inicio
+              </button>
+            </div>
+          ) : (
+            <div style={{ background:'white', borderRadius:20, boxShadow:'0 4px 40px rgba(49,109,116,0.12)', overflow:'hidden' }}>
+              {/* Header */}
+              <div style={{ background:`linear-gradient(135deg,${C.teal},${C.tealDark})`, padding:'1.5rem 2rem', color:'white' }}>
+                <div style={{ fontSize:'2rem', marginBottom:'0.5rem' }}>✈️</div>
+                <h2 style={{ fontWeight:800, fontSize:'1.2rem', margin:'0 0 0.35rem' }}>Certificado de Viaje</h2>
+                <p style={{ fontSize:'0.82rem', opacity:0.85, margin:0, lineHeight:1.5 }}>Nacional e Internacional</p>
+              </div>
+
+              {/* Info box */}
+              <div style={{ background:`${C.teal}12`, borderBottom:`1px solid ${C.teal}20`, padding:'1.1rem 1.5rem' }}>
+                <p style={{ fontSize:'0.82rem', color:C.tealDark, fontWeight:600, margin:'0 0 0.5rem' }}>📋 ¿Qué necesita tu mascota para viajar?</p>
+                <ul style={{ margin:0, paddingLeft:'1.2rem', fontSize:'0.8rem', color:C.text, lineHeight:1.8 }}>
+                  <li>Vacuna antirrábica vigente (mínimo 30 días antes del viaje)</li>
+                  <li>Desparasitación interna y externa reciente</li>
+                  <li>Certificado de salud expedido por médico veterinario</li>
+                  <li>Para viajes internacionales: requisitos adicionales según el país de destino</li>
+                </ul>
+                <p style={{ fontSize:'0.78rem', color:C.muted, margin:'0.75rem 0 0', fontStyle:'italic' }}>
+                  Completa el formulario y nuestro equipo te contactará para coordinar la cita.
+                </p>
+              </div>
+
+              {/* Form */}
+              <div style={{ padding:'1.5rem' }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.85rem' }}>
+                  <div>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Cédula del tutor *</label>
+                    <input value={cvCedula} onChange={e=>setCvCedula(e.target.value)} placeholder="Número de cédula" style={inp} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Nombre completo *</label>
+                    <input value={cvNombre} onChange={e=>setCvNombre(e.target.value)} placeholder="Nombre y apellidos" style={inp} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Teléfono de contacto *</label>
+                    <input value={cvTelefono} onChange={e=>setCvTelefono(e.target.value)} placeholder="Celular o fijo" style={inp} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Nombre de la mascota *</label>
+                    <input value={cvMascota} onChange={e=>setCvMascota(e.target.value)} placeholder="Nombre" style={inp} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Edad de la mascota *</label>
+                    <input value={cvEdad} onChange={e=>setCvEdad(e.target.value)} placeholder="Ej: 3 años" style={inp} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Especie *</label>
+                    <select value={cvEspecie} onChange={e=>setCvEspecie(e.target.value)} style={{ ...inp, cursor:'pointer' }}>
+                      <option value="">Seleccionar…</option>
+                      <option value="Perro">Perro</option>
+                      <option value="Gato">Gato</option>
+                    </select>
+                  </div>
+                  <div style={{ gridColumn:'1/-1' }}>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Destino del viaje *</label>
+                    <input value={cvDestino} onChange={e=>setCvDestino(e.target.value)} placeholder="Ciudad o país de destino" style={inp} />
+                  </div>
+                  <div style={{ gridColumn:'1/-1' }}>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Fecha tentativa del viaje *</label>
+                    <select value={cvFecha} onChange={e=>setCvFecha(e.target.value)} style={{ ...inp, cursor:'pointer' }}>
+                      <option value="">Seleccionar rango…</option>
+                      <option value="1-3 meses">1 a 3 meses</option>
+                      <option value="3-6 meses">3 a 6 meses</option>
+                      <option value="6-12 meses">6 a 12 meses</option>
+                      <option value="+12 meses">Más de 12 meses</option>
+                    </select>
+                  </div>
+                </div>
+
+                {cvErr && <p style={{ color:C.danger, fontSize:'0.8rem', margin:'0.75rem 0 0', fontWeight:600 }}>{cvErr}</p>}
+
+                <button onClick={handleCertSubmit} disabled={cvSaving}
+                  style={{ width:'100%', marginTop:'1.25rem', padding:'0.9rem', background:cvSaving?'#aaa':`linear-gradient(135deg,${C.teal},${C.tealDark})`, color:'white', border:'none', borderRadius:12, cursor:cvSaving?'not-allowed':'pointer', fontWeight:800, fontSize:'0.95rem', fontFamily:'inherit', boxShadow:'0 4px 16px rgba(49,109,116,0.3)' }}>
+                  {cvSaving ? 'Enviando…' : '✈️ Enviar solicitud'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* PORTAL */}
       {client && data && (

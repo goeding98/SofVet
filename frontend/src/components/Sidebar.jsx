@@ -23,16 +23,19 @@ const otrosItems = [
 
 export default function Sidebar() {
   const { session, logout } = useAuth();
-  const [hcPending, setHcPending] = useState(0);
+  const [hcPending,   setHcPending]   = useState(0);
+  const [certPending, setCertPending] = useState(0);
 
   useEffect(() => {
     if (session?.rol !== 'Administrador') return;
-    const fetchCount = () => {
+    const fetchCounts = () => {
       supabase.from('hc_requests').select('id', { count:'exact', head:true }).eq('status','pendiente')
         .then(({ count }) => setHcPending(count || 0));
+      supabase.from('certificados_viaje').select('id', { count:'exact', head:true }).eq('estado','pendiente')
+        .then(({ count }) => setCertPending(count || 0));
     };
-    fetchCount();
-    const interval = setInterval(fetchCount, 30000);
+    fetchCounts();
+    const interval = setInterval(fetchCounts, 30000);
     return () => clearInterval(interval);
   }, [session]);
 
@@ -89,9 +92,10 @@ export default function Sidebar() {
           {session?.rol === 'Administrador' && (
             <>
               <SectionLabel>Administración</SectionLabel>
-              <MenuItem item={{ path: '/users',       label: 'Usuarios',       icon: '👥' }} />
-              <MenuItem item={{ path: '/import',      label: 'Importar datos', icon: '⬇️' }} />
-              <MenuItem item={{ path: '/hc-requests', label: 'Hist. Clínicas', icon: '📄' }} badge={hcPending} />
+              <MenuItem item={{ path: '/users',               label: 'Usuarios',           icon: '👥' }} />
+              <MenuItem item={{ path: '/import',              label: 'Importar datos',     icon: '⬇️' }} />
+              <MenuItem item={{ path: '/hc-requests',         label: 'Hist. Clínicas',     icon: '📄' }} badge={hcPending} />
+              <MenuItem item={{ path: '/certificados-viaje',  label: 'Cert. de Viaje',     icon: '✈️' }} badge={certPending} />
             </>
           )}
         </>
