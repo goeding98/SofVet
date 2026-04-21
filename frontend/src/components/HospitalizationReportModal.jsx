@@ -1,6 +1,27 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../utils/useAuth';
-import { supabase } from '../utils/supabaseClient';
+
+// Redimensiona y convierte a base64 — evita depender de Storage/RLS
+function resizeToBase64(file, maxPx = 1024, quality = 0.78) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const blobUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(blobUrl);
+      let { width: w, height: h } = img;
+      if (w > maxPx || h > maxPx) {
+        if (w >= h) { h = Math.round(h * maxPx / w); w = maxPx; }
+        else        { w = Math.round(w * maxPx / h); h = maxPx; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => { URL.revokeObjectURL(blobUrl); resolve(null); };
+    img.src = blobUrl;
+  });
+}
 
 const lSt = { display:'block', fontSize:'0.72rem', fontWeight:700, marginBottom:'0.3rem', textTransform:'uppercase', letterSpacing:'0.04em', color:'var(--color-text)' };
 
@@ -43,22 +64,9 @@ export default function HospitalizationReportModal({ isOpen, onClose, onSave, on
     setError(''); setUploading(true);
 
     const fotos = [];
-    const uploadErrors = [];
     for (const file of files) {
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const path = `${hospitalizationId}/${new Date().toISOString().split('T')[0]}/${Date.now()}_${safeName}`;
-      const { error: upErr } = await supabase.storage.from('hospitalizacion-reports').upload(path, file, { upsert:true });
-      if (!upErr) {
-        const { data } = supabase.storage.from('hospitalizacion-reports').getPublicUrl(path);
-        fotos.push({ name: file.name, url: data.publicUrl });
-      } else {
-        uploadErrors.push(`${file.name}: ${upErr.message}`);
-      }
-    }
-    if (uploadErrors.length) {
-      setUploading(false);
-      setError('Error al subir fotos: ' + uploadErrors.join(' | '));
-      return;
+      const b64 = await resizeToBase64(file);
+      if (b64) fotos.push({ name: file.name, url: b64 });
     }
 
     setUploading(false);
