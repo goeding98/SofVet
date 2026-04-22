@@ -43,12 +43,14 @@ export default function ClientsPage() {
   const [petModal, setPetModal]       = useState(false);
   const [petForm, setPetForm]         = useState(EMPTY_PET);
 
-  const [search, setSearch]           = useState('');
+  const [searchNombre,   setSearchNombre]   = useState('');
+  const [searchCedula,   setSearchCedula]   = useState('');
+  const [searchTelefono, setSearchTelefono] = useState('');
 
   const filtered = clients.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    (c.document || '').includes(search) ||
-    (c.phone || '').includes(search)
+    (!searchNombre   || (c.name || '').toLowerCase().includes(searchNombre.toLowerCase())) &&
+    (!searchCedula   || (c.document || '').includes(searchCedula)) &&
+    (!searchTelefono || (c.phone || '').includes(searchTelefono))
   );
 
   // ── Client CRUD ──────────────────────────────────────────────
@@ -190,13 +192,21 @@ export default function ClientsPage() {
 
       {/* Search + add */}
       <Card style={{ marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <input
-            placeholder="Buscar por nombre, cédula o teléfono..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ flex: 1, minWidth: 220, padding: '0.6rem 1rem' }}
-          />
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', flex: 1 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nombre</label>
+              <input placeholder="Buscar por nombre..." value={searchNombre} onChange={e => setSearchNombre(e.target.value)} style={{ width: '100%', padding: '0.6rem 0.85rem', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cédula</label>
+              <input placeholder="Número de documento..." value={searchCedula} onChange={e => setSearchCedula(e.target.value)} style={{ width: '100%', padding: '0.6rem 0.85rem', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Teléfono</label>
+              <input placeholder="Número de teléfono..." value={searchTelefono} onChange={e => setSearchTelefono(e.target.value)} style={{ width: '100%', padding: '0.6rem 0.85rem', boxSizing: 'border-box' }} />
+            </div>
+          </div>
           <Button onClick={openAdd} icon="+" variant="primary">Nuevo Cliente</Button>
         </div>
       </Card>

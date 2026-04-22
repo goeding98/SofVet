@@ -32,8 +32,11 @@ export default function PatientsPage() {
   const [modal, setModal]     = useState(false);
   const [form, setForm]       = useState(EMPTY_PET);
   const [editId, setEditId]   = useState(null);
-  const [search, setSearch]   = useState('');
-  const [filterClient, setFilterClient] = useState('');
+  const [searchNombre,   setSearchNombre]   = useState('');
+  const [searchHC,       setSearchHC]       = useState('');
+  const [searchCedula,   setSearchCedula]   = useState('');
+  const [searchTelefono, setSearchTelefono] = useState('');
+  const [filterClient,   setFilterClient]   = useState('');
 
   // When a client is selected from the dropdown, auto-fill owner info
   const handleClientChange = (clientId) => {
@@ -55,15 +58,12 @@ export default function PatientsPage() {
   clients.forEach(c => { clientDocMap[c.id] = c.document || ''; });
 
   const filtered = patients.filter(p => {
-    const q = search.toLowerCase();
-    const matchSearch = !search ||
-      (p.name || '').toLowerCase().includes(q) ||
-      (p.owner || '').toLowerCase().includes(q) ||
-      (p.no_historia || '').toLowerCase().includes(q) ||
-      (p.owner_phone || '').includes(search) ||
-      (clientDocMap[p.client_id] || '').includes(search);
-    const matchClient = !filterClient || p.client_id === parseInt(filterClient);
-    return matchSearch && matchClient;
+    const matchNombre   = !searchNombre   || (p.name || '').toLowerCase().includes(searchNombre.toLowerCase()) || (p.owner || '').toLowerCase().includes(searchNombre.toLowerCase());
+    const matchHC       = !searchHC       || (p.no_historia || '').includes(searchHC);
+    const matchCedula   = !searchCedula   || (clientDocMap[p.client_id] || '').includes(searchCedula);
+    const matchTelefono = !searchTelefono || (p.owner_phone || '').includes(searchTelefono);
+    const matchClient   = !filterClient   || p.client_id === parseInt(filterClient);
+    return matchNombre && matchHC && matchCedula && matchTelefono && matchClient;
   });
 
   const openAdd = () => {
@@ -180,22 +180,24 @@ export default function PatientsPage() {
 
       {/* Search bar */}
       <Card style={{ marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', gap: '0.75rem', flex: 1, flexWrap: 'wrap' }}>
-            <input
-              placeholder="Buscar por nombre, HC, cédula o teléfono del dueño..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{ flex: 1, minWidth: 180, padding: '0.6rem 1rem' }}
-            />
-            <select
-              value={filterClient}
-              onChange={e => setFilterClient(e.target.value)}
-              style={{ padding: '0.6rem 0.75rem', minWidth: 180 }}
-            >
-              <option value="">Todos los clientes</option>
-              {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', flex: 1 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nombre</label>
+              <input placeholder="Mascota o propietario..." value={searchNombre} onChange={e => setSearchNombre(e.target.value)} style={{ width: '100%', padding: '0.6rem 0.85rem', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hist. Clínica</label>
+              <input placeholder="Número de HC..." value={searchHC} onChange={e => setSearchHC(e.target.value)} style={{ width: '100%', padding: '0.6rem 0.85rem', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cédula del tutor</label>
+              <input placeholder="Documento..." value={searchCedula} onChange={e => setSearchCedula(e.target.value)} style={{ width: '100%', padding: '0.6rem 0.85rem', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Teléfono</label>
+              <input placeholder="Teléfono del tutor..." value={searchTelefono} onChange={e => setSearchTelefono(e.target.value)} style={{ width: '100%', padding: '0.6rem 0.85rem', boxSizing: 'border-box' }} />
+            </div>
           </div>
           <Button onClick={openAdd} icon="+" variant="primary">Nueva Mascota</Button>
         </div>
