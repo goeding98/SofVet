@@ -1298,7 +1298,7 @@ export default function HospitalizationPage() {
               </div>
 
               {/* Formulario nuevo abono */}
-              {isMedico && (
+              {(isAuxiliar || isMedico || isCaja) && (
                 <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'flex-end' }}>
                   <div style={{ flex: 1 }}>
                     <label style={{ ...labelStyle, fontSize: '0.68rem' }}>Descripción *</label>
