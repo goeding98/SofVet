@@ -51,10 +51,17 @@ export default function PatientsPage() {
     }
   };
 
+  const clientDocMap = {};
+  clients.forEach(c => { clientDocMap[c.id] = c.document || ''; });
+
   const filtered = patients.filter(p => {
+    const q = search.toLowerCase();
     const matchSearch = !search ||
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      (p.owner || '').toLowerCase().includes(search.toLowerCase());
+      (p.name || '').toLowerCase().includes(q) ||
+      (p.owner || '').toLowerCase().includes(q) ||
+      (p.no_historia || '').toLowerCase().includes(q) ||
+      (p.owner_phone || '').includes(search) ||
+      (clientDocMap[p.client_id] || '').includes(search);
     const matchClient = !filterClient || p.client_id === parseInt(filterClient);
     return matchSearch && matchClient;
   });
@@ -176,7 +183,7 @@ export default function PatientsPage() {
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: '0.75rem', flex: 1, flexWrap: 'wrap' }}>
             <input
-              placeholder="Buscar por nombre o propietario..."
+              placeholder="Buscar por nombre, HC, cédula o teléfono del dueño..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               style={{ flex: 1, minWidth: 180, padding: '0.6rem 1rem' }}
