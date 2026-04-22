@@ -611,7 +611,7 @@ export default function HospitalizationPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
-                    {['Cliente', 'Mascota', 'Fecha ingreso', 'Fecha alta', 'Duración', 'Aplicaciones', 'Acciones'].map(h => (
+                    {['Cliente', 'Mascota', 'Sede', 'Fecha ingreso', 'Fecha alta', 'Duración', 'Aplicaciones', 'Acciones'].map(h => (
                       <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -629,6 +629,7 @@ export default function HospitalizationPage() {
                             <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{h.patient_name}</span>
                           </div>
                         </td>
+                        <td style={{ padding: '0.85rem 1rem' }}>{sedeBadge(h.sede_id)}</td>
                         <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem' }}>{h.ingreso_date}</td>
                         <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem' }}>{h.alta_date || '—'}</td>
                         <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem' }}>
