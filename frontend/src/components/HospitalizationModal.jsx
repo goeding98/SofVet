@@ -14,7 +14,7 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
   const { session } = useAuth();
   const { sedeActual, isAdmin } = useSede();
   const isDomicilio = session?.sede_id === 4;
-  const { add: addHosp, edit: editHosp } = useStore('hospitalization');
+  const { add: addHosp, edit: editHosp, items: allHosps } = useStore('hospitalization');
   const { items: patients, edit: editPatient } = useStore('patients');
   const isEditing = !!initialData?.id;
 
@@ -47,6 +47,11 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
   const handleSave = () => {
     setError('');
     if (!motivo.trim()) return setError('El motivo de hospitalización es requerido.');
+
+    if (!isEditing) {
+      const existente = allHosps.find(h => h.patient_id === pet.id && h.status === 'activo');
+      if (existente) return setError(`${pet.name} ya tiene una hospitalización activa desde el ${existente.ingreso_date}. Debe darse de alta antes de crear una nueva.`);
+    }
 
     if (isEditing) {
       const now = new Date();
