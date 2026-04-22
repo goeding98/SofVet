@@ -5,11 +5,21 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 
-const EMPTY_PET = { name: '', species: 'Perro', breed: '', age: '', weight: '', sex: 'Macho', esterilizado: 'No', caracter: 'Dócil', status: 'activo' };
+const EMPTY_PET = { name: '', species: 'Perro', breed: '', birth_date: '', weight: '', sex: 'Macho', esterilizado: 'No', caracter: 'Dócil', status: 'activo' };
+
+const calcAge = (birthDate) => {
+  if (!birthDate) return 0;
+  const birth = new Date(birthDate + 'T12:00');
+  const now = new Date();
+  let y = now.getFullYear() - birth.getFullYear();
+  const m = now.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) y--;
+  return Math.max(0, y);
+};
 const SPECIES = ['Perro', 'Gato', 'Conejo', 'Ave', 'Reptil', 'Otro'];
 
 const validatePet = (f) => {
-  if (!f.name.trim() || !f.breed.trim() || !f.age || !f.weight || !f.sex || !f.esterilizado || !f.caracter) {
+  if (!f.name.trim() || !f.breed.trim() || !f.birth_date || !f.weight || !f.sex || !f.esterilizado || !f.caracter) {
     alert('Por favor completa todos los campos requeridos.');
     return false;
   }
@@ -55,7 +65,8 @@ export default function ClientDetailPage() {
       owner: client.name,
       owner_phone: client.phone,
       owner_email: client.email,
-      age: parseInt(petForm.age) || 0,
+      birth_date: petForm.birth_date,
+      age: calcAge(petForm.birth_date),
       weight: parseFloat(petForm.weight) || 0,
       created_at: new Date().toISOString().split('T')[0],
     };
@@ -202,7 +213,21 @@ export default function ClientDetailPage() {
           {F('Especie', 'species', 'text', SPECIES)}
           {F('Raza *', 'breed')}
           {F('Sexo *', 'sex', 'text', ['Macho', 'Hembra'])}
-          {F('Edad (años) *', 'age', 'number')}
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={labelStyle}>Fecha de nacimiento *</label>
+            <input
+              type="date"
+              value={petForm.birth_date || ''}
+              max={new Date().toISOString().split('T')[0]}
+              onChange={e => setPetForm(f => ({ ...f, birth_date: e.target.value }))}
+              style={{ width: '100%', padding: '0.6rem 0.75rem', boxSizing: 'border-box' }}
+            />
+            {petForm.birth_date && (
+              <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: '0.3rem' }}>
+                Edad calculada: <strong>{calcAge(petForm.birth_date)} años</strong>
+              </div>
+            )}
+          </div>
           {F('Peso (kg) *', 'weight', 'number')}
           {F('Esterilizado *', 'esterilizado', 'text', ['No', 'Sí'])}
           {F('Carácter *', 'caracter', 'text', ['Dócil', 'Calmado', 'Nervioso', 'Agresivo'])}
