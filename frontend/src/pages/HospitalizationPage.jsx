@@ -115,6 +115,7 @@ export default function HospitalizationPage() {
   const isAdmin    = session?.rol === 'Administrador';
   const isAuxiliar = session?.rol === 'Auxiliar';
   const isMedico   = session?.rol === 'Médico' || session?.rol === 'Administrador';
+  const isCaja     = session?.rol === 'Caja';
   // Domicilio (id=4) users and admins can see all sedes; others see only their sede
   const canSeeAllSedes = isAdmin || session?.sede_id === 4;
   const [hospSedeFilter, setHospSedeFilter] = useState(canSeeAllSedes ? null : session?.sede_id || null);
@@ -399,10 +400,10 @@ export default function HospitalizationPage() {
                           {(isAuxiliar || isMedico) && (
                             <button onClick={() => openApply(h)} style={btnStyle('var(--color-secondary)')}>💊 Tratamiento</button>
                           )}
-                          {(isAuxiliar || isMedico) && (
+                          {(isAuxiliar || isMedico || isCaja) && (
                             <button onClick={() => openConsumo(h)} style={btnStyle('#e67e22')}>📋 Consumo</button>
                           )}
-                          {isMedico && (
+                          {(isMedico || isCaja) && (
                             <>
                               <button onClick={() => openAbonos(h)} style={btnStyle('#8e44ad')}>💰 Abonos</button>
                               <button onClick={() => openAlta(h)} style={btnStyle('var(--color-success)')}>✅ Alta</button>
@@ -537,7 +538,7 @@ export default function HospitalizationPage() {
                   <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
                     Hoja de consumo ({selected.consumo?.length || 0} ítems)
                   </div>
-                  {(isAuxiliar || isMedico) && selected.status === 'activo' && (
+                  {(isAuxiliar || isMedico || isCaja) && selected.status === 'activo' && (
                     <button onClick={() => { setSelectedId(null); openConsumo(selected); }} style={{ padding: '0.3rem 0.75rem', background: 'var(--color-white)', border: '1px solid #e67e22', borderRadius: 'var(--radius-sm)', color: '#e67e22', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600 }}>
                       + Agregar ítem
                     </button>
@@ -563,7 +564,7 @@ export default function HospitalizationPage() {
                   <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
                     💰 Abonos ({selected.abonos?.length || 0})
                   </div>
-                  {isMedico && selected.status === 'activo' && (
+                  {(isMedico || isCaja) && selected.status === 'activo' && (
                     <button onClick={() => { setSelectedId(null); openAbonos(selected); }} style={{ padding: '0.3rem 0.75rem', background: 'var(--color-white)', border: '1px solid #8e44ad', borderRadius: 'var(--radius-sm)', color: '#8e44ad', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600 }}>
                       + Abono
                     </button>
