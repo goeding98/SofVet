@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
+import { useAuth } from '../utils/useAuth';
 import Card from '../components/Card';
 import Table from '../components/Table';
 import Button from '../components/Button';
@@ -26,6 +27,8 @@ const badge = (status) => {
 
 export default function PatientsPage() {
   const navigate = useNavigate();
+  const { session } = useAuth();
+  const isAdmin = session?.rol === 'Administrador';
   const { items: clients }                        = useStore('clients');
   const { items: patients, add, edit, remove }    = useStore('patients');
 
@@ -224,7 +227,7 @@ export default function PatientsPage() {
           columns={columns}
           data={filtered}
           onEdit={openEdit}
-          onDelete={handleDelete}
+          onDelete={isAdmin ? handleDelete : undefined}
           emptyMessage="No hay mascotas registradas. Selecciona un cliente y agrégale una."
         />
       </Card>
