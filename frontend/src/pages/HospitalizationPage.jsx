@@ -403,7 +403,7 @@ export default function HospitalizationPage() {
                           {(isAuxiliar || isMedico || isCaja) && (
                             <button onClick={() => openConsumo(h)} style={btnStyle('#e67e22')}>📋 Consumo</button>
                           )}
-                          {(isMedico || isCaja) && (
+                          {(isAuxiliar || isMedico || isCaja) && (
                             <>
                               <button onClick={() => openAbonos(h)} style={btnStyle('#8e44ad')}>💰 Abonos</button>
                               <button onClick={() => openAlta(h)} style={btnStyle('var(--color-success)')}>✅ Alta</button>
@@ -564,7 +564,7 @@ export default function HospitalizationPage() {
                   <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
                     💰 Abonos ({selected.abonos?.length || 0})
                   </div>
-                  {(isMedico || isCaja) && selected.status === 'activo' && (
+                  {(isAuxiliar || isMedico || isCaja) && selected.status === 'activo' && (
                     <button onClick={() => { setSelectedId(null); openAbonos(selected); }} style={{ padding: '0.3rem 0.75rem', background: 'var(--color-white)', border: '1px solid #8e44ad', borderRadius: 'var(--radius-sm)', color: '#8e44ad', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600 }}>
                       + Abono
                     </button>
