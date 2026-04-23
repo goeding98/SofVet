@@ -295,17 +295,20 @@ export default function PetDetailPage() {
     if (!notaForm.titulo.trim()) return alert('El título es requerido.');
     setNotaUploading(true);
     const now = new Date();
-    const hoy = now.toISOString().split('T')[0];
+    const hoy = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
     const horaAhora = now.toTimeString().slice(0, 5);
 
     if (editingNota) {
-      await editNota(editingNota.id, {
+      const editPayload = {
         titulo:        notaForm.titulo.trim(),
         observaciones: notaForm.observaciones.trim() || null,
         editado_por:   session?.nombre || null,
         fecha_edicion: hoy,
         hora_edicion:  horaAhora,
-      });
+      };
+      if (isAdminUser && notaForm.fecha_creacion) editPayload.created_at    = notaForm.fecha_creacion;
+      if (isAdminUser && notaForm.hora_creacion)  editPayload.hora_creacion = notaForm.hora_creacion;
+      await editNota(editingNota.id, editPayload);
       setNotaUploading(false);
     } else {
       let imagen_url = null;
@@ -797,7 +800,7 @@ export default function PetDetailPage() {
                         )}
                       </span>
                       <button
-                        onClick={() => { setEditingNota(n); setNotaForm({ titulo: n.titulo, observaciones: n.observaciones || '' }); setNotaModal(true); }}
+                        onClick={() => { setEditingNota(n); setNotaForm({ titulo: n.titulo, observaciones: n.observaciones || '', fecha_creacion: n.created_at || '', hora_creacion: n.hora_creacion || '' }); setNotaModal(true); }}
                         style={{ padding:'2px 7px', background:'#fffbe6', border:'1px solid #f5c842', borderRadius:4, cursor:'pointer', fontSize:'0.72rem', color:'#8a6200', fontWeight:600 }}
                       >✏️</button>
                     </div>
@@ -1240,6 +1243,23 @@ export default function PetDetailPage() {
                   style={{ width:'100%', padding:'0.6rem 0.75rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.875rem', resize:'vertical', boxSizing:'border-box' }}
                 />
               </div>
+              {editingNota && isAdminUser && (
+                <div style={{ background:'#fef3c7', border:'1px solid #f59e0b', borderRadius:'var(--radius-sm)', padding:'0.75rem', display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+                  <div style={{ fontSize:'0.7rem', fontWeight:700, color:'#92400e', textTransform:'uppercase', letterSpacing:'0.05em' }}>🔧 Corrección de fecha/hora (solo admin)</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem' }}>
+                    <div>
+                      <label style={{ display:'block', fontSize:'0.7rem', fontWeight:600, color:'#92400e', marginBottom:'0.25rem' }}>Fecha de creación</label>
+                      <input type="date" value={notaForm.fecha_creacion || ''} onChange={e => setNotaForm(f => ({ ...f, fecha_creacion: e.target.value }))}
+                        style={{ width:'100%', padding:'0.45rem 0.6rem', border:'1px solid #f59e0b', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.82rem', boxSizing:'border-box' }} />
+                    </div>
+                    <div>
+                      <label style={{ display:'block', fontSize:'0.7rem', fontWeight:600, color:'#92400e', marginBottom:'0.25rem' }}>Hora de creación</label>
+                      <input type="time" value={notaForm.hora_creacion || ''} onChange={e => setNotaForm(f => ({ ...f, hora_creacion: e.target.value }))}
+                        style={{ width:'100%', padding:'0.45rem 0.6rem', border:'1px solid #f59e0b', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.82rem', boxSizing:'border-box' }} />
+                    </div>
+                  </div>
+                </div>
+              )}
               {!editingNota && (
               <div>
                 <label style={{ display:'block', fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', marginBottom:'0.3rem', color:'var(--color-text)' }}>Imagen (opcional)</label>
