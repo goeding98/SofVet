@@ -7,6 +7,7 @@ import { useAuth } from '../utils/useAuth';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import ConsultationModal from '../components/ConsultationModal';
+import ControlModal from '../components/ControlModal';
 import DocumentModal from '../components/DocumentModal';
 import HospitalizationModal from '../components/HospitalizationModal';
 import ImagingModal from '../components/ImagingModal';
@@ -45,6 +46,7 @@ export default function PetDetailPage() {
   const { items: signedDocs }  = useStore('signedDocuments');
   const { items: labPedidos, edit: editLabPedido, add: addLabPedido } = useStore('laboratorios_pedidos');
   const { items: notasClincias, add: addNota, edit: editNota } = useStore('notas_clinicas');
+  const { items: controles, add: addControl, edit: editControl, remove: removeControl } = useStore('controles');
 
   const { sedeActual, isAdmin: isAdminUser } = useSede();
   const { session } = useAuth();
@@ -79,6 +81,8 @@ export default function PetDetailPage() {
   const [notaUploading,  setNotaUploading]  = useState(false);
   const [notaImageView,  setNotaImageView]  = useState(null);
   const [editingNota,    setEditingNota]    = useState(null);
+  const [controlModal,   setControlModal]   = useState(false);
+  const [editingControl, setEditingControl] = useState(null);
 
   const petId  = parseInt(id);
   const pet    = patients.find(p => p.id === petId);
@@ -125,6 +129,10 @@ export default function PetDetailPage() {
     .filter(n => n.patient_id === petId)
     .sort((a, b) => b.created_at?.localeCompare(a.created_at));
 
+  const petControles = controles
+    .filter(c => c.patient_id === petId)
+    .sort((a, b) => `${b.date}${b.time || ''}`.localeCompare(`${a.date}${a.time || ''}`));
+
   const activeHosp = hospitalization.find(h => h.patient_id === petId && h.status === 'activo');
   const petHospitals = hospitalization
     .filter(h => h.patient_id === petId)
@@ -167,6 +175,7 @@ export default function PetDetailPage() {
 
   const quickActions = [
     { label: 'Nueva Consulta',   icon: '🩺', action: () => { setEditingConsult(null); setConsultModal(true); },                                                 color: 'var(--color-primary)', primary: true  },
+    { label: 'Control',          icon: '📋', action: () => { setEditingControl(null); setControlModal(true); }, color: '#316d74' },
     { label: isHospitalized ? 'Hospitalizado' : 'Hospitalizar', icon: '🏥', action: () => !isHospitalized && setHospModal(true), color: 'var(--color-danger)',  disabled: isHospitalized },
     { label: 'Vacunar',          icon: '💉', action: () => setVacunaModal(true),       color: 'var(--color-secondary)'               },
     { label: 'Desparasitar',     icon: '🪱', action: () => setDesparasitarModal(true), color: '#7c5cbf'                               },
@@ -289,6 +298,24 @@ export default function PetDetailPage() {
   const handleSolicitarLab = async (data) => {
     await addLabPedido({ ...data, patient_id: petId });
     setLabSolModal(false);
+  };
+
+  const handleSaveControl = async (data) => {
+    const cleaned = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v === '' ? null : v]));
+    if (editingControl) {
+      editControl(editingControl.id, cleaned);
+    } else {
+      const now = new Date();
+      const hoy = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+      let saveError = null;
+      const result = await addControl(
+        { ...cleaned, patient_id: petId, patient_name: pet.name, created_at: hoy },
+        { onError: (msg) => { saveError = msg; } }
+      );
+      if (!result) { alert('❌ Error al guardar control:\n\n' + saveError); return; }
+    }
+    setControlModal(false);
+    setEditingControl(null);
   };
 
   const handleSaveNota = async () => {
@@ -665,7 +692,7 @@ export default function PetDetailPage() {
 
       {/* Historia Clínica */}
       <Card
-        title={`Historia Clínica (${petConsults.length} consultas · ${petImaging.length} imág · ${petProcedimientos.length} proced · ${petLabPedidos.length} labs · ${petNotas.length} notas)`}
+        title={`Historia Clínica (${petConsults.length} consultas · ${petControles.length} controles · ${petImaging.length} imág · ${petProcedimientos.length} proced · ${petLabPedidos.length} labs · ${petNotas.length} notas)`}
         action={
           <div style={{ display:'flex', gap:'0.5rem' }}>
             <button onClick={handleDownloadPDF} style={{ padding:'0.4rem 0.85rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, color:'var(--color-text-muted)', display:'flex', alignItems:'center', gap:'0.35rem' }}>
@@ -674,6 +701,7 @@ export default function PetDetailPage() {
             <button onClick={() => { setNotaForm({ titulo:'', observaciones:'' }); setNotaFile(null); setNotaModal(true); }} style={{ padding:'0.4rem 0.85rem', background:'var(--color-white)', border:'1px solid #b8860b', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, color:'#b8860b', display:'flex', alignItems:'center', gap:'0.35rem' }}>
               📝 Agregar nota
             </button>
+            <Button size="sm" variant="secondary" onClick={() => { setEditingControl(null); setControlModal(true); }}>📋 Nuevo control</Button>
             <Button size="sm" variant="primary" onClick={() => { setEditingConsult(null); setConsultModal(true); }}>+ Nueva consulta</Button>
           </div>
         }
@@ -775,6 +803,61 @@ export default function PetDetailPage() {
                 Mostrando las últimas 5 de {petConsults.length} consultas.
               </p>
             )}
+          </div>
+        )}
+
+        {/* Controles */}
+        {petControles.length > 0 && (
+          <div style={{ marginTop:'1.5rem', borderTop:'2px solid #d1f0eb', paddingTop:'1.25rem' }}>
+            <div style={{ fontSize:'0.8rem', fontWeight:700, color:'#316d74', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:'0.85rem' }}>
+              📋 Controles ({petControles.length})
+            </div>
+            <div style={{ overflowX:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom:'2px solid var(--color-border)' }}>
+                    {['Fecha','Hora','Sede','Motivo de control','Hallazgos','Meds','Veterinario',''].map(h => (
+                      <th key={h} style={{ padding:'0.55rem 0.85rem', textAlign:'left', fontSize:'0.72rem', fontWeight:600, color:'var(--color-text-muted)', textTransform:'uppercase', letterSpacing:'0.05em', whiteSpace:'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {petControles.map((c, idx) => (
+                    <tr
+                      key={c.id}
+                      onClick={() => { setEditingControl(c); setControlModal(true); }}
+                      style={{ borderBottom:'1px solid var(--color-border)', background: idx%2===0 ? 'transparent' : 'rgba(49,109,116,0.02)', cursor:'pointer' }}
+                      title="Haz clic para editar este control"
+                    >
+                      <td style={{ padding:'0.75rem 0.85rem', fontSize:'0.875rem', whiteSpace:'nowrap', fontWeight:500 }}>{c.date}</td>
+                      <td style={{ padding:'0.75rem 0.85rem', fontSize:'0.875rem', color:'var(--color-text-muted)', whiteSpace:'nowrap' }}>{c.time || '—'}</td>
+                      <td style={{ padding:'0.75rem 0.85rem', fontSize:'0.875rem', whiteSpace:'nowrap' }}>{sedeBadge(c.sede_id)}</td>
+                      <td style={{ padding:'0.75rem 0.85rem', fontSize:'0.875rem', maxWidth:200 }}>
+                        <div style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.motivo_control || '—'}</div>
+                      </td>
+                      <td style={{ padding:'0.75rem 0.85rem', fontSize:'0.875rem', maxWidth:200 }}>
+                        <div style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'var(--color-text-muted)' }}>{c.hallazgos || '—'}</div>
+                      </td>
+                      <td style={{ padding:'0.75rem 0.85rem', fontSize:'0.875rem', textAlign:'center' }}>
+                        {c.medicamentos_aplicados?.length > 0
+                          ? <span style={{ background:'var(--color-info-bg)', color:'var(--color-primary)', padding:'2px 8px', borderRadius:999, fontSize:'0.72rem', fontWeight:600 }}>{c.medicamentos_aplicados.length}</span>
+                          : <span style={{ color:'var(--color-text-muted)' }}>—</span>
+                        }
+                      </td>
+                      <td style={{ padding:'0.75rem 0.85rem', maxWidth:140 }}>
+                        <div style={{ fontSize:'0.75rem', color:'var(--color-text)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.veterinario || '—'}</div>
+                        {c.editado_por && (
+                          <div style={{ fontSize:'0.68rem', color:'#b45309', marginTop:'0.1rem', whiteSpace:'nowrap' }}>✏️ {c.editado_por}{c.hora_edicion ? ` ${c.hora_edicion}` : ''}</div>
+                        )}
+                      </td>
+                      <td style={{ padding:'0.75rem 0.85rem' }}>
+                        <span style={{ fontSize:'0.72rem', color:'#316d74', fontWeight:600 }}>✏️ Editar</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -1313,6 +1396,16 @@ export default function PetDetailPage() {
           formula_productos: formulas.find(f => f.patient_id === petId && f.fecha === editingConsult.date)?.productos || editingConsult.formula_productos || [],
         } : null}
         mode={editingConsult ? (editingConsult.estado === 'incompleta' ? 'incomplete' : 'edit') : 'new'}
+      />
+
+      <ControlModal
+        isOpen={controlModal}
+        onClose={() => { setControlModal(false); setEditingControl(null); }}
+        onSave={handleSaveControl}
+        onDelete={(id) => { removeControl(id); setControlModal(false); setEditingControl(null); }}
+        pet={pet}
+        initialData={editingControl}
+        mode={editingControl ? 'edit' : 'new'}
       />
 
       <HospitalizationModal isOpen={hospModal} onClose={() => { setHospModal(false); setEditingHosp(null); }} pet={pet} client={client} initialData={editingHosp} />

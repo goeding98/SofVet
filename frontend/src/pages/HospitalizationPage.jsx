@@ -150,6 +150,10 @@ export default function HospitalizationPage() {
   const [consumoNewDesc, setConsumoNewDesc] = useState('');
   const [consumoNewCant, setConsumoNewCant] = useState('');
 
+  // ── delete application (admin) ──────────────────────────────────────────
+  const [editAppHostId,    setEditAppHostId]    = useState(null); // hosp id whose apps are in edit mode
+  const [pendingDeleteApp, setPendingDeleteApp] = useState(null); // { hospId, appIdx }
+
   // ── abonos modal ────────────────────────────────────────────────────────
   const [abonoModal,  setAbonoModal]  = useState(false);
   const [abonoHospId, setAbonoHospId] = useState(null);
@@ -247,6 +251,17 @@ export default function HospitalizationPage() {
     };
     editHosp(applyHospId, { aplicaciones: [...(applyHosp.aplicaciones || []), newApp] });
     setApplyModal(false);
+  };
+
+  const handleDeleteApp = () => {
+    if (!pendingDeleteApp) return;
+    const { hospId, appIdx } = pendingDeleteApp;
+    const hosp = hosps.find(h => h.id === hospId);
+    if (hosp) {
+      const newApps = (hosp.aplicaciones || []).filter((_, idx) => idx !== appIdx);
+      editHosp(hospId, { aplicaciones: newApps });
+    }
+    setPendingDeleteApp(null);
   };
 
   // ── edit treatment ──────────────────────────────────────────────────────
@@ -505,32 +520,57 @@ export default function HospitalizationPage() {
                   <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
                     Historial de aplicaciones ({selected.aplicaciones?.length || 0})
                   </div>
-                  {selected.status === 'activo' && (isAuxiliar || isMedico) && (
-                    <button onClick={() => { setSelectedId(null); openApply(selected); }} style={{ padding: '0.3rem 0.75rem', background: 'var(--color-white)', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius-sm)', color: 'var(--color-primary)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600 }}>
-                      💊 Registrar aplicación
-                    </button>
-                  )}
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    {isAdmin && (selected.aplicaciones?.length > 0) && (
+                      <button
+                        onClick={() => setEditAppHostId(editAppHostId === selected.id ? null : selected.id)}
+                        style={{ padding: '0.3rem 0.75rem', background: editAppHostId === selected.id ? '#fdecea' : 'var(--color-white)', border: `1px solid ${editAppHostId === selected.id ? 'var(--color-danger)' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', color: editAppHostId === selected.id ? 'var(--color-danger)' : 'var(--color-text-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600 }}
+                      >
+                        {editAppHostId === selected.id ? '✕ Salir de edición' : '🗑️ Eliminar aplicación'}
+                      </button>
+                    )}
+                    {selected.status === 'activo' && (isAuxiliar || isMedico) && (
+                      <button onClick={() => { setSelectedId(null); openApply(selected); }} style={{ padding: '0.3rem 0.75rem', background: 'var(--color-white)', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius-sm)', color: 'var(--color-primary)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600 }}>
+                        💊 Registrar aplicación
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {!selected.aplicaciones?.length ? (
                   <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', padding: '0.75rem', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>Aún no se han registrado aplicaciones.</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: 340, overflowY: 'auto' }}>
-                    {[...selected.aplicaciones].reverse().map((a, i) => (
-                      <div key={i} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.85rem', fontSize: '0.8rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                          <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>💊 Aplicación</span>
-                          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{a.fecha} {a.hora} · Por: <strong>{a.aplicado_por}</strong></span>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                          {a.medicamentos?.map((m, mi) => (
-                            <div key={mi} style={{ padding: '0.3rem 0.5rem', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)', fontSize: '0.8rem' }}>
-                              · {m.medicamento} — {m.dosis} {m.unidad}
+                    {[...selected.aplicaciones].reverse().map((a, i) => {
+                      const origIdx = selected.aplicaciones.length - 1 - i;
+                      const inEditMode = editAppHostId === selected.id;
+                      return (
+                        <div key={i} style={{ border: `1px solid ${inEditMode ? '#fca5a5' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.85rem', fontSize: '0.8rem', background: inEditMode ? '#fff8f8' : 'var(--color-white)', position: 'relative' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem', gap: '0.5rem' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>💊 Aplicación</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{a.fecha} {a.hora} · Por: <strong>{a.aplicado_por}</strong></span>
+                              {inEditMode && (
+                                <button
+                                  onClick={() => setPendingDeleteApp({ hospId: selected.id, appIdx: origIdx })}
+                                  style={{ padding: '0.15rem 0.5rem', background: 'var(--color-danger)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 700, lineHeight: 1.2, flexShrink: 0 }}
+                                  title="Eliminar esta aplicación"
+                                >
+                                  ✕
+                                </button>
+                              )}
                             </div>
-                          ))}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                            {a.medicamentos?.map((m, mi) => (
+                              <div key={mi} style={{ padding: '0.3rem 0.5rem', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)', fontSize: '0.8rem' }}>
+                                · {m.medicamento} — {m.dosis} {m.unidad}
+                              </div>
+                            ))}
+                          </div>
+                          {a.notas && <div style={{ marginTop: '0.4rem', color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>📝 {a.notas}</div>}
                         </div>
-                        {a.notas && <div style={{ marginTop: '0.4rem', color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>📝 {a.notas}</div>}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1334,6 +1374,41 @@ export default function HospitalizationPage() {
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button onClick={() => setAbonoModal(false)} style={{ padding: '0.55rem 1.25rem', background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Cerrar</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Confirmación eliminar aplicación (admin) ── */}
+      {pendingDeleteApp && (
+        <div
+          onClick={() => setPendingDeleteApp(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(2px)' }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', padding: '2rem 2rem 1.5rem', width: '100%', maxWidth: 400, textAlign: 'center' }}
+          >
+            <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🗑️</div>
+            <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-danger)', fontSize: '1.1rem', marginBottom: '0.5rem' }}>
+              ¿Eliminar esta aplicación?
+            </h3>
+            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+              Esta acción es permanente y no se puede deshacer. La aplicación será eliminada del historial de esta hospitalización.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+              <button
+                onClick={() => setPendingDeleteApp(null)}
+                style={{ padding: '0.6rem 1.25rem', background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-text-muted)', fontWeight: 500 }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteApp}
+                style={{ padding: '0.6rem 1.5rem', background: 'var(--color-danger)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 700 }}
+              >
+                Sí, eliminar
+              </button>
             </div>
           </div>
         </div>
