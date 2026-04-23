@@ -454,7 +454,7 @@ export default function PetDetailPage() {
 
     const fld = (label, value) => {
       if (!value || value.toString().trim() === '') return '';
-      return `<div style="display:flex;gap:8px;margin-bottom:5px;font-size:11px;line-height:1.5"><span style="font-weight:700;color:#444;min-width:170px;flex-shrink:0">${label}:</span><span style="color:#222">${value}</span></div>`;
+      return `<div style="display:flex;gap:8px;margin-bottom:5px;font-size:11px;line-height:1.5"><span style="font-weight:700;color:#444;min-width:170px;flex-shrink:0">${label}:</span><span style="color:#222;white-space:pre-wrap">${value.toString().replace(/\n/g,'<br>')}</span></div>`;
     };
 
     const renderEvent = (ev) => {
@@ -803,7 +803,7 @@ export default function PetDetailPage() {
                     </div>
                   </div>
                   {n.observaciones && (
-                    <p style={{ margin:'0 0 0.6rem', fontSize:'0.82rem', color:'var(--color-text)', lineHeight:1.5 }}>{n.observaciones}</p>
+                    <p style={{ margin:'0 0 0.6rem', fontSize:'0.82rem', color:'var(--color-text)', lineHeight:1.5, whiteSpace:'pre-wrap' }}>{n.observaciones}</p>
                   )}
                   {n.imagen_url && (
                     <img
@@ -848,9 +848,9 @@ export default function PetDetailPage() {
                         >✏️ Editar</button>
                       </div>
                     </div>
-                    <p style={{ fontSize:'0.82rem', color:'var(--color-text)', margin:'0 0 0.2rem', fontWeight:600 }}>{p.descripcion}</p>
+                    <p style={{ fontSize:'0.82rem', color:'var(--color-text)', margin:'0 0 0.2rem', fontWeight:600, whiteSpace:'pre-wrap' }}>{p.descripcion}</p>
                     {p.anestesia && <p style={{ fontSize:'0.78rem', color:'var(--color-text-muted)', margin:0 }}>💉 Anestesia: {p.anestesia}</p>}
-                    {p.observaciones && <p style={{ fontSize:'0.78rem', color:'var(--color-text-muted)', margin:'0.2rem 0 0' }}>{p.observaciones}</p>}
+                    {p.observaciones && <p style={{ fontSize:'0.78rem', color:'var(--color-text-muted)', margin:'0.2rem 0 0', whiteSpace:'pre-wrap' }}>{p.observaciones}</p>}
                   </div>
                 );
               })}
@@ -896,7 +896,7 @@ export default function PetDetailPage() {
                         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'0.5rem', flexWrap:'wrap' }}>
                           <div style={{ flex:1 }}>
                             {labResult.resultados && (
-                              <p style={{ fontSize:'0.8rem', color:'var(--color-text)', margin:'0 0 0.3rem', lineHeight:1.5 }}>{labResult.resultados}</p>
+                              <p style={{ fontSize:'0.8rem', color:'var(--color-text)', margin:'0 0 0.3rem', lineHeight:1.5, whiteSpace:'pre-wrap' }}>{labResult.resultados}</p>
                             )}
                             {(labResult.archivos?.length > 0 ? labResult.archivos : labResult.file_url ? [{ name: 'Ver PDF adjunto', url: labResult.file_url }] : []).map((f, fi) => (
                               <a key={fi} href={f.url} target="_blank" rel="noopener noreferrer"
@@ -953,7 +953,7 @@ export default function PetDetailPage() {
                       >✏️ Editar</button>
                     </div>
                   </div>
-                  <p style={{ fontSize:'0.82rem', color:'var(--color-text)', margin:'0 0 0.4rem', lineHeight:1.5 }}>{r.resultado}</p>
+                  <p style={{ fontSize:'0.82rem', color:'var(--color-text)', margin:'0 0 0.4rem', lineHeight:1.5, whiteSpace:'pre-wrap' }}>{r.resultado}</p>
                   {r.archivos?.length > 0 && (
                     <div style={{ display:'flex', flexWrap:'wrap', gap:'0.35rem', marginTop:'0.3rem' }}>
                       {r.archivos.map((a, i) => (
