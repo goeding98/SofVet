@@ -255,11 +255,20 @@ export default function HospitalizationPage() {
 
   const handleDeleteApp = () => {
     if (!pendingDeleteApp) return;
-    const { hospId, appIdx } = pendingDeleteApp;
+    const { hospId, appIdx, medIdx } = pendingDeleteApp;
     const hosp = hosps.find(h => h.id === hospId);
     if (hosp) {
-      const newApps = (hosp.aplicaciones || []).filter((_, idx) => idx !== appIdx);
-      editHosp(hospId, { aplicaciones: newApps });
+      const apps = [...(hosp.aplicaciones || [])];
+      const app  = { ...apps[appIdx] };
+      const newMeds = (app.medicamentos || []).filter((_, idx) => idx !== medIdx);
+      if (newMeds.length === 0) {
+        // Remove the whole application if no medications remain
+        apps.splice(appIdx, 1);
+      } else {
+        app.medicamentos = newMeds;
+        apps[appIdx] = app;
+      }
+      editHosp(hospId, { aplicaciones: apps });
     }
     setPendingDeleteApp(null);
   };
@@ -544,26 +553,22 @@ export default function HospitalizationPage() {
                       const origIdx = selected.aplicaciones.length - 1 - i;
                       const inEditMode = editAppHostId === selected.id;
                       return (
-                        <div key={i} style={{ border: `1px solid ${inEditMode ? '#fca5a5' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.85rem', fontSize: '0.8rem', background: inEditMode ? '#fff8f8' : 'var(--color-white)', position: 'relative' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem', gap: '0.5rem' }}>
+                        <div key={i} style={{ border: `1px solid ${inEditMode ? '#fca5a5' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.85rem', fontSize: '0.8rem', background: inEditMode ? '#fff8f8' : 'var(--color-white)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem' }}>
                             <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>💊 Aplicación</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <span style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{a.fecha} {a.hora} · Por: <strong>{a.aplicado_por}</strong></span>
-                              {inEditMode && (
-                                <button
-                                  onClick={() => setPendingDeleteApp({ hospId: selected.id, appIdx: origIdx })}
-                                  style={{ padding: '0.15rem 0.5rem', background: 'var(--color-danger)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 700, lineHeight: 1.2, flexShrink: 0 }}
-                                  title="Eliminar esta aplicación"
-                                >
-                                  ✕
-                                </button>
-                              )}
-                            </div>
+                            <span style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{a.fecha} {a.hora} · Por: <strong>{a.aplicado_por}</strong></span>
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                             {a.medicamentos?.map((m, mi) => (
-                              <div key={mi} style={{ padding: '0.3rem 0.5rem', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)', fontSize: '0.8rem' }}>
-                                · {m.medicamento} — {m.dosis} {m.unidad}
+                              <div key={mi} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.3rem 0.5rem', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)', fontSize: '0.8rem', gap: '0.5rem' }}>
+                                <span>· {m.medicamento} — {m.dosis} {m.unidad}</span>
+                                {inEditMode && (
+                                  <button
+                                    onClick={() => setPendingDeleteApp({ hospId: selected.id, appIdx: origIdx, medIdx: mi })}
+                                    style={{ padding: '0.1rem 0.45rem', background: 'var(--color-danger)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.3, flexShrink: 0 }}
+                                    title="Eliminar este medicamento"
+                                  >✕</button>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -1391,10 +1396,10 @@ export default function HospitalizationPage() {
           >
             <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🗑️</div>
             <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-danger)', fontSize: '1.1rem', marginBottom: '0.5rem' }}>
-              ¿Eliminar esta aplicación?
+              ¿Eliminar este medicamento?
             </h3>
             <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1.5rem', lineHeight: 1.5 }}>
-              Esta acción es permanente y no se puede deshacer. La aplicación será eliminada del historial de esta hospitalización.
+              Esta acción es permanente y no se puede deshacer. El medicamento será eliminado de esa aplicación. Si era el único, se eliminará toda la aplicación.
             </p>
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
               <button
