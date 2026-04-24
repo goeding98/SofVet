@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../utils/useAuth';
 import { useSede, SEDES, sedeById } from '../utils/useSede';
+import ChangePasswordModal from './ChangePasswordModal';
 
 const rolColors = {
   Administrador: { bg: '#e8f0ff', color: '#2e5cbf' },
@@ -35,6 +37,7 @@ function resolvePage(pathname) {
 export default function Navbar() {
   const { session } = useAuth();
   const { sedeActual, setSedeActual, isAdmin } = useSede();
+  const [showPwdModal, setShowPwdModal] = useState(false);
   const location    = useLocation();
   const currentPage = resolvePage(location.pathname);
   const rc          = rolColors[session?.rol] || rolColors.Auxiliar;
@@ -106,6 +109,21 @@ export default function Navbar() {
           style={{ height: 28, width: 'auto', filter: 'brightness(0) saturate(100%) invert(35%) sepia(40%) saturate(600%) hue-rotate(148deg) brightness(90%)', opacity: 0.8 }}
         />
 
+        {/* Change password */}
+        <button
+          onClick={() => setShowPwdModal(true)}
+          title="Cambiar contraseña"
+          style={{
+            background: 'none', border: '1px solid var(--color-border)',
+            borderRadius: '50%', width: 32, height: 32,
+            fontSize: '1rem', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--color-text-muted)', transition: 'var(--transition)',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-primary)'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = 'var(--color-primary)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--color-text-muted)'; e.currentTarget.style.borderColor = 'var(--color-border)'; }}
+        >🔑</button>
+
         {/* User pill */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span style={{ background: rc.bg, color: rc.color, padding: '2px 10px', borderRadius: 999, fontSize: '0.7rem', fontWeight: 600 }}>
@@ -119,6 +137,8 @@ export default function Navbar() {
           </div>
         </div>
       </div>
+
+      {showPwdModal && <ChangePasswordModal onClose={() => setShowPwdModal(false)} />}
     </header>
   );
 }

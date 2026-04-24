@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../utils/useAuth';
 
-export default function ChangePasswordModal() {
+export default function ChangePasswordModal({ onClose }) {
   const { session, changePassword } = useAuth();
 
   const [oldPwd,    setOldPwd]    = useState('');
@@ -23,6 +23,7 @@ export default function ChangePasswordModal() {
     setLoading(false);
 
     if (!result.success) return setError(result.error);
+    if (onClose) onClose();
   };
 
   const labelStyle = {
@@ -58,13 +59,26 @@ export default function ChangePasswordModal() {
           background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-dark))',
           padding: '1.5rem 2rem',
           textAlign: 'center',
+          position: 'relative',
         }}>
+          {onClose && (
+            <button onClick={onClose} style={{
+              position: 'absolute', top: '0.85rem', right: '1rem',
+              background: 'rgba(255,255,255,0.15)', border: 'none',
+              color: 'white', borderRadius: '50%', width: 30, height: 30,
+              fontSize: '1rem', cursor: 'pointer', lineHeight: 1,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>✕</button>
+          )}
           <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🔐</div>
           <h2 style={{ fontFamily: 'var(--font-title)', color: 'white', fontSize: '1.2rem', margin: '0 0 0.25rem' }}>
-            Cambio de contraseña requerido
+            {onClose ? 'Cambiar contraseña' : 'Cambio de contraseña requerido'}
           </h2>
           <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.8rem', margin: 0 }}>
-            Hola <strong>{session?.nombre}</strong>, debes cambiar tu contraseña temporal antes de continuar.
+            {onClose
+              ? <>Hola <strong>{session?.nombre}</strong>, ingresa tu contraseña actual y la nueva.</>
+              : <>Hola <strong>{session?.nombre}</strong>, debes cambiar tu contraseña temporal antes de continuar.</>
+            }
           </p>
         </div>
 
