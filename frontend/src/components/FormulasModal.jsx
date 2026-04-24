@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
+import { getTP } from '../utils/vetCards';
 
 const BRAND = {
   teal:    '#316d74',
@@ -29,6 +30,7 @@ function estadoBadge(estado) {
 // ── PDF generator ─────────────────────────────────────────────────────────────
 function buildPDFHtml(formula, pet, client) {
   const prods = Array.isArray(formula.productos) ? formula.productos : [];
+  const vetTP = formula.veterinario ? getTP(formula.veterinario) : null;
   const rows = prods.map((p, i) => `
     <tr style="background:${i%2===0?'#ffffff':'#f4f8f7'}">
       <td style="padding:7px 10px;text-align:center;font-weight:700;color:${BRAND.teal};border-bottom:1px solid #dde8e6">${i+1}</td>
@@ -105,6 +107,7 @@ function buildPDFHtml(formula, pet, client) {
     <div class="vet-sig">
       <div class="line"></div>
       <div class="label">${formula.veterinario || 'Médico Veterinario'}</div>
+      ${vetTP ? `<div style="font-size:9px;color:#1d6fa4;font-weight:700;margin-top:2px;letter-spacing:0.03em">${vetTP}</div>` : ''}
     </div>
 
     <div class="footer">
@@ -366,8 +369,10 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
                 {(f.veterinario || f.editado_por || f.observaciones) && (
                   <div style={{ padding:'0.5rem 1rem', background:BRAND.bgRow, borderBottom:`1px solid ${BRAND.tealLt}`, fontSize:'0.78rem', display:'flex', flexDirection:'column', gap:'0.25rem' }}>
                     {f.veterinario && (
-                      <div style={{ color:'var(--color-text-muted)' }}>
-                        👨‍⚕️ <strong style={{ color:'var(--color-text)' }}>{f.veterinario}</strong>{f.hora_creacion ? ` · ${f.hora_creacion}` : ''}
+                      <div style={{ color:'var(--color-text-muted)', display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap' }}>
+                        👨‍⚕️ <strong style={{ color:'var(--color-text)' }}>{f.veterinario}</strong>
+                        {getTP(f.veterinario) && <span style={{ fontSize:'0.65rem', fontWeight:700, color:'#1d6fa4', background:'#e8f4fd', borderRadius:4, padding:'0 5px', lineHeight:'1.5' }}>{getTP(f.veterinario)}</span>}
+                        {f.hora_creacion ? ` · ${f.hora_creacion}` : ''}
                       </div>
                     )}
                     {f.editado_por && f.editado_por !== f.veterinario && (
