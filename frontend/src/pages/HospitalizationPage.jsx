@@ -155,6 +155,11 @@ export default function HospitalizationPage() {
   const [editAppHostId,    setEditAppHostId]    = useState(null); // hosp id whose apps are in edit mode
   const [pendingDeleteApp, setPendingDeleteApp] = useState(null); // { hospId, appIdx }
 
+  // ── traslado modal (admin) ───────────────────────────────────────────────
+  const [trasladoModal,   setTrasladoModal]   = useState(false);
+  const [trasladoHospId,  setTrasladoHospId]  = useState(null);
+  const [trasladoSedeId,  setTrasladoSedeId]  = useState('');
+
   // ── abonos modal ────────────────────────────────────────────────────────
   const [abonoModal,  setAbonoModal]  = useState(false);
   const [abonoHospId, setAbonoHospId] = useState(null);
@@ -249,6 +254,7 @@ export default function HospitalizationPage() {
       aplicado_por: session?.nombre || 'Desconocido',
       fecha:        localDate(now),
       hora:         now.toTimeString().slice(0, 5),
+      sede_id:      applyHosp.sede_id,
     };
     editHosp(applyHospId, { aplicaciones: [...(applyHosp.aplicaciones || []), newApp] });
     setApplyModal(false);
@@ -272,6 +278,34 @@ export default function HospitalizationPage() {
       editHosp(hospId, { aplicaciones: apps });
     }
     setPendingDeleteApp(null);
+  };
+
+  // ── traslado ─────────────────────────────────────────────────────────────
+  const openTraslado = (h) => {
+    setTrasladoHospId(h.id);
+    setTrasladoSedeId('');
+    setTrasladoModal(true);
+  };
+
+  const handleTraslado = () => {
+    if (!trasladoSedeId || !trasladoHospId) return;
+    const hosp = hosps.find(h => h.id === trasladoHospId);
+    if (!hosp) return;
+    const now = new Date();
+    const entry = {
+      from_sede_id: hosp.sede_id,
+      to_sede_id:   parseInt(trasladoSedeId),
+      fecha:        localDate(now),
+      hora:         now.toTimeString().slice(0, 5),
+      realizado_por: session?.nombre || 'Administrador',
+    };
+    editHosp(trasladoHospId, {
+      sede_id:   parseInt(trasladoSedeId),
+      traslados: [...(hosp.traslados || []), entry],
+    });
+    setTrasladoModal(false);
+    setTrasladoHospId(null);
+    setTrasladoSedeId('');
   };
 
   // ── edit treatment ──────────────────────────────────────────────────────
@@ -476,7 +510,17 @@ export default function HospitalizationPage() {
 
               {/* Info general */}
               <div>
-                <div style={{ marginBottom: '0.6rem' }}>{sedeBadge(selected.sede_id)}</div>
+                <div style={{ marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  {sedeBadge(selected.sede_id)}
+                  {isAdmin && selected.status === 'activo' && (
+                    <button
+                      onClick={() => openTraslado(selected)}
+                      style={{ padding: '3px 12px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 600, background: 'transparent', border: '1px solid #b8860b', color: '#b8860b', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+                    >
+                      🔀 Trasladar sede
+                    </button>
+                  )}
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
                   <InfoChip label="Cliente"      value={selected.client_name} />
                   <InfoChip label="Ingreso"      value={`${selected.ingreso_date} ${selected.ingreso_time}`} />
@@ -556,7 +600,10 @@ export default function HospitalizationPage() {
                       return (
                         <div key={i} style={{ border: `1px solid ${inEditMode ? '#fca5a5' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.85rem', fontSize: '0.8rem', background: inEditMode ? '#fff8f8' : 'var(--color-white)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem' }}>
-                            <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>💊 Aplicación</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>💊 Aplicación</span>
+                              {a.sede_id && a.sede_id !== selected.sede_id && sedeBadge(a.sede_id)}
+                            </div>
                             <span style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{a.fecha} {a.hora} · Por: <strong><VetName name={a.aplicado_por} /></strong></span>
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
@@ -580,6 +627,26 @@ export default function HospitalizationPage() {
                   </div>
                 )}
               </div>
+
+              {/* Historial de traslados */}
+              {selected.traslados?.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
+                    🔀 Traslados de sede
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    {selected.traslados.map((t, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.5rem 0.75rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', flexWrap: 'wrap' }}>
+                        <span style={{ color: 'var(--color-text-muted)' }}>{t.fecha} {t.hora}</span>
+                        <span>{sedeBadge(t.from_sede_id)}</span>
+                        <span style={{ color: 'var(--color-text-muted)' }}>→</span>
+                        <span>{sedeBadge(t.to_sede_id)}</span>
+                        <span style={{ color: 'var(--color-text-muted)', marginLeft: 'auto' }}>por {t.realizado_por}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Hoja de consumo */}
               <div>
@@ -1384,6 +1451,62 @@ export default function HospitalizationPage() {
           </div>
         </div>
       )}
+
+      {/* ── Modal traslado de sede (admin) ── */}
+      {trasladoModal && (() => {
+        const hosp = hosps.find(h => h.id === trasladoHospId);
+        return (
+          <div
+            onClick={() => setTrasladoModal(false)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(2px)' }}
+          >
+            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', padding: '2rem', width: '100%', maxWidth: 420 }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem', textAlign: 'center' }}>🔀</div>
+              <h3 style={{ fontFamily: 'var(--font-title)', fontSize: '1.1rem', color: 'var(--color-primary)', textAlign: 'center', marginBottom: '0.25rem' }}>
+                Trasladar paciente
+              </h3>
+              <p style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.82rem', marginBottom: '1.5rem' }}>
+                {hosp?.patient_name} — Sede actual: <strong>{SEDES.find(s => s.id === hosp?.sede_id)?.nombre || '—'}</strong>
+              </p>
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text)', marginBottom: '0.4rem' }}>
+                  Nueva sede destino
+                </label>
+                <select
+                  value={trasladoSedeId}
+                  onChange={e => setTrasladoSedeId(e.target.value)}
+                  style={{ width: '100%', padding: '0.65rem 0.9rem', fontSize: '0.9rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-body)', background: 'var(--color-white)' }}
+                >
+                  <option value="">— Selecciona sede destino —</option>
+                  {SEDES.filter(s => s.id !== hosp?.sede_id).map(s => (
+                    <option key={s.id} value={s.id}>{s.nombre}</option>
+                  ))}
+                </select>
+              </div>
+              {trasladoSedeId && (
+                <div style={{ background: '#fff8e1', border: '1px solid #ffd54f', borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.9rem', marginBottom: '1.25rem', fontSize: '0.8rem', color: '#7a5f00' }}>
+                  ⚠️ El traslado quedará registrado en el historial. Todas las aplicaciones futuras se registrarán en <strong>{SEDES.find(s => s.id === parseInt(trasladoSedeId))?.nombre}</strong>.
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button
+                  onClick={() => setTrasladoModal(false)}
+                  style={{ flex: 1, padding: '0.65rem', background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-text-muted)', fontWeight: 500 }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleTraslado}
+                  disabled={!trasladoSedeId}
+                  style={{ flex: 1, padding: '0.65rem', background: trasladoSedeId ? '#b8860b' : 'var(--color-border)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: trasladoSedeId ? 'pointer' : 'default', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 700 }}
+                >
+                  🔀 Confirmar traslado
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Confirmación eliminar aplicación (admin) ── */}
       {pendingDeleteApp && (
