@@ -5,6 +5,7 @@ import { useAuth } from '../utils/useAuth';
 import { useSede, sedeBadge, SEDES } from '../utils/useSede';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import VetName from '../components/VetName';
 
 const localDate = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -418,7 +419,7 @@ export default function HospitalizationPage() {
                         <div>{h.ingreso_date}</div>
                         <div style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{h.ingreso_time}</div>
                       </td>
-                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem' }}>{h.responsible_vet}</td>
+                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem' }}><VetName name={h.responsible_vet} /></td>
                       <td style={{ padding: '0.85rem 1rem' }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                           <button onClick={() => setSelectedId(selectedId === h.id ? null : h.id)} style={btnStyle('var(--color-primary)')}>
@@ -479,7 +480,7 @@ export default function HospitalizationPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
                   <InfoChip label="Cliente"      value={selected.client_name} />
                   <InfoChip label="Ingreso"      value={`${selected.ingreso_date} ${selected.ingreso_time}`} />
-                  <InfoChip label="Veterinario"  value={selected.responsible_vet} />
+                  <InfoChip label="Veterinario"  value={<VetName name={selected.responsible_vet} />} />
                   <InfoChip label="Aplicaciones" value={`${selected.aplicaciones?.length || 0} registradas`} />
                 </div>
                 <InfoBlock label="Motivo"      value={selected.motivo} />
@@ -556,7 +557,7 @@ export default function HospitalizationPage() {
                         <div key={i} style={{ border: `1px solid ${inEditMode ? '#fca5a5' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.85rem', fontSize: '0.8rem', background: inEditMode ? '#fff8f8' : 'var(--color-white)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem' }}>
                             <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>💊 Aplicación</span>
-                            <span style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{a.fecha} {a.hora} · Por: <strong>{a.aplicado_por}</strong></span>
+                            <span style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{a.fecha} {a.hora} · Por: <strong><VetName name={a.aplicado_por} /></strong></span>
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                             {a.medicamentos?.map((m, mi) => (

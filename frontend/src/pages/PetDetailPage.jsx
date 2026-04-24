@@ -7,6 +7,7 @@ import { useAuth } from '../utils/useAuth';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import ConsultationModal from '../components/ConsultationModal';
+import VetName from '../components/VetName';
 import ControlModal from '../components/ControlModal';
 import DocumentModal from '../components/DocumentModal';
 import HospitalizationModal from '../components/HospitalizationModal';
@@ -785,7 +786,7 @@ export default function PetDetailPage() {
                         }
                       </td>
                       <td style={{ padding:'0.85rem 1rem', maxWidth:160 }}>
-                        <div style={{ fontSize:'0.75rem', color:'var(--color-text)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.veterinario || '—'}</div>
+                        <div style={{ fontSize:'0.75rem', color:'var(--color-text)', overflow:'hidden' }}><VetName name={c.veterinario} /></div>
                         {c.editado_por && (
                           <div style={{ fontSize:'0.68rem', color:'#b45309', marginTop:'0.1rem', whiteSpace:'nowrap' }}>✏️ {c.editado_por}{c.hora_edicion ? ` ${c.hora_edicion}` : ''}</div>
                         )}
@@ -925,7 +926,8 @@ export default function PetDetailPage() {
                       </div>
                       <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
                         <span style={{ fontSize:'0.72rem', color:'var(--color-text-muted)' }}>
-                          {p.fecha}{p.hora_creacion ? ` ${p.hora_creacion}` : ''}{p.veterinario || p.created_by ? ` · ${p.veterinario || p.created_by}` : ''}
+                          {p.fecha}{p.hora_creacion ? ` ${p.hora_creacion}` : ''}
+                          {(p.veterinario || p.created_by) && <span> · <VetName name={p.veterinario || p.created_by} muted /></span>}
                           {p.editado_por && <span style={{ color:'#b45309' }}> · ✏️ {p.editado_por}{p.hora_edicion ? ` ${p.hora_edicion}` : ''}</span>}
                         </span>
                         <button
@@ -1030,7 +1032,8 @@ export default function PetDetailPage() {
                     </div>
                     <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
                       <span style={{ fontSize:'0.72rem', color:'var(--color-text-muted)' }}>
-                        {r.date}{r.hora_creacion ? ` ${r.hora_creacion}` : ''}{r.created_by ? ` · ${r.created_by}` : ''}
+                        {r.date}{r.hora_creacion ? ` ${r.hora_creacion}` : ''}
+                        {r.created_by && <span> · <VetName name={r.created_by} muted /></span>}
                         {r.editado_por && <span style={{ color:'#b45309' }}> · ✏️ {r.editado_por}{r.hora_edicion ? ` ${r.hora_edicion}` : ''}</span>}
                       </span>
                       <button
@@ -1142,7 +1145,7 @@ export default function PetDetailPage() {
                       {h.motivo}
                     </p>
                     {h.diagnostico && <p style={{ fontSize:'0.78rem', color:'var(--color-text-muted)', margin:0 }}>Dx: {h.diagnostico}</p>}
-                    {h.responsible_vet && <p style={{ fontSize:'0.72rem', color:'var(--color-text-muted)', margin:'0.2rem 0 0' }}>👨‍⚕️ {h.responsible_vet}</p>}
+                    {h.responsible_vet && <p style={{ fontSize:'0.72rem', color:'var(--color-text-muted)', margin:'0.2rem 0 0' }}>👨‍⚕️ <VetName name={h.responsible_vet} muted /></p>}
                     {h.editado_por && <p style={{ fontSize:'0.7rem', color:'#b45309', margin:'0.1rem 0 0' }}>✏️ Editado por {h.editado_por}{h.hora_edicion ? ` a las ${h.hora_edicion}` : ''}</p>}
 
                     {/* Reportes de esta hospitalización */}
@@ -1160,7 +1163,7 @@ export default function PetDetailPage() {
                             <div key={r.id} style={{ background: isActive ? 'white' : 'var(--color-bg)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', padding:'0.6rem 0.75rem', position:'relative' }}>
                               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'0.5rem', marginBottom:'0.3rem' }}>
                                 <div style={{ fontSize:'0.68rem', color:'var(--color-text-muted)', fontWeight:600, display:'flex', flexDirection:'column', gap:'0.1rem' }}>
-                                  <span>📅 {r.fecha}{r.hora ? ` a las ${r.hora}` : ''}{r.veterinario ? ` · 👨‍⚕️ ${r.veterinario}` : ''}</span>
+                                  <span>📅 {r.fecha}{r.hora ? ` a las ${r.hora}` : ''}{r.veterinario && <span> · 👨‍⚕️ <VetName name={r.veterinario} muted /></span>}</span>
                                   {r.editado_por && (
                                     <span style={{ fontWeight:500, color:'#b45309' }}>
                                       ✏️ Editado por {r.editado_por}{r.fecha_edicion ? ` · ${r.fecha_edicion}` : ''}{r.hora_edicion ? ` a las ${r.hora_edicion}` : ''}
