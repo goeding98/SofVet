@@ -18,6 +18,7 @@ import LaboratoriosModal from '../components/LaboratoriosModal';
 import SolicitarLabModal from '../components/SolicitarLabModal';
 import LaboratoriosSinReportarModal from '../components/LaboratoriosSinReportarModal';
 import HospitalizationReportModal from '../components/HospitalizationReportModal';
+import HospReviewModal from '../components/HospReviewModal';
 import FormulasModal from '../components/FormulasModal';
 import VacunaModal from '../components/VacunaModal';
 import DesparasitarModal from '../components/DesparasitarModal';
@@ -66,6 +67,7 @@ export default function PetDetailPage() {
   const [labSRModal,     setLabSRModal]     = useState(false);
   const [hospRepModal,   setHospRepModal]   = useState(false);
   const [editingReport,  setEditingReport]  = useState(null);
+  const [reviewHosp,     setReviewHosp]     = useState(null);
   const [formulasModal,  setFormulasModal]  = useState(false);
   const [editHCConfirm,  setEditHCConfirm]  = useState(false);
   const [vacunaModal,      setVacunaModal]      = useState(false);
@@ -1138,10 +1140,16 @@ export default function PetDetailPage() {
                           {h.alta_date && ` · Alta: ${h.alta_date}`}
                         </span>
                       </div>
-                      <button
-                        onClick={() => { setEditingHosp(h); setHospModal(true); }}
-                        style={{ padding:'2px 8px', background:'white', border:'1px solid var(--color-danger)', color:'var(--color-danger)', borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)', flexShrink:0 }}
-                      >✏️ Editar</button>
+                      <div style={{ display:'flex', gap:'0.35rem' }}>
+                        <button
+                          onClick={() => setReviewHosp(h)}
+                          style={{ padding:'2px 8px', background:'white', border:'1px solid #e67e22', color:'#e67e22', borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)', flexShrink:0 }}
+                        >📊 Revisar</button>
+                        <button
+                          onClick={() => { setEditingHosp(h); setHospModal(true); }}
+                          style={{ padding:'2px 8px', background:'white', border:'1px solid var(--color-danger)', color:'var(--color-danger)', borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)', flexShrink:0 }}
+                        >✏️ Editar</button>
+                      </div>
                     </div>
                     <p style={{ fontSize:'0.82rem', color:'var(--color-text)', margin:'0.4rem 0 0.15rem', fontWeight:600 }}>
                       {h.motivo}
@@ -1472,6 +1480,8 @@ export default function PetDetailPage() {
       />
 
       <HospitalizationReportModal isOpen={hospRepModal} onClose={() => { setHospRepModal(false); setEditingReport(null); }} onSave={handleSaveHospReport} onDelete={(id) => { removeHospReport(id); setHospRepModal(false); setEditingReport(null); }} pet={pet} hospitalizationId={editingReport?.hospitalization_id || activeHosp?.id} initialData={editingReport} />
+
+      <HospReviewModal hosp={reviewHosp} onClose={() => setReviewHosp(null)} />
 
       <FormulasModal isOpen={formulasModal} onClose={() => setFormulasModal(false)} pet={pet} client={client} formulas={formulas} />
 
