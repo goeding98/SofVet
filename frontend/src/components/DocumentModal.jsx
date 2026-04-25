@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../utils/useStore';
 import Button from './Button';
+import { ageLabel } from '../utils/ageLabel';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -86,7 +87,7 @@ export default function DocumentModal({
     especie:           patient?.species     || '___________',
     raza:              patient?.breed       || '___________',
     sexo:              patient?.sex         || '___________',
-    edad:              patient ? `${patient.age} años` : '___________',
+    edad:              patient ? ageLabel(patient.birth_date || patient.fecha_nacimiento, patient.age) : '___________',
     peso:              patient?.weight      || '___________',
     esterilizado:      patient?.esterilizado || '___________',
     caracter:          patient?.caracter    || '___________',

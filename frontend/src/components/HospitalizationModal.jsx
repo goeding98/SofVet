@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
 import { useSede, SEDES } from '../utils/useSede';
+import { ageLabel } from '../utils/ageLabel';
 
 const EMPTY_MED   = { medicamento: '', dosis: '', unidad: 'ml', via: 'IV', frecuencia: 'Cada 8 horas', observaciones: '' };
 const UNIDADES    = ['ml', 'tabletas', 'paquetes', 'mg', 'comprimidos', 'gotas', 'otro'];
@@ -112,7 +113,7 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
           <div>
             <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-danger)', fontSize: '1.1rem', margin: 0 }}>{isEditing ? '✏️ Editar Hospitalización' : '🏥 Nueva Hospitalización'}</h3>
             <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-              {pet.name} · {pet.species} {pet.breed ? `(${pet.breed})` : ''} · {pet.weight} kg · {pet.age} años
+              {pet.name} · {pet.species} {pet.breed ? `(${pet.breed})` : ''} · {pet.weight} kg · {ageLabel(pet.birth_date || pet.fecha_nacimiento, pet.age)}
             </p>
             <div style={{ marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>📍 Sede:</span>

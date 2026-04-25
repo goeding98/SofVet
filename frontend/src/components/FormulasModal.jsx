@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
+import { ageLabel } from '../utils/ageLabel';
 import { getTP } from '../utils/vetCards';
 
 const BRAND = {
@@ -89,7 +90,7 @@ function buildPDFHtml(formula, pet, client) {
         <div><div class="field-label">Nombre</div><div class="field-value">${pet?.name || '—'}</div></div>
         <div><div class="field-label">Especie</div><div class="field-value">${pet?.species || '—'}</div></div>
         <div><div class="field-label">Raza</div><div class="field-value">${pet?.breed || '—'}</div></div>
-        <div><div class="field-label">Edad</div><div class="field-value">${pet?.age ? pet.age + ' años' : '—'}</div></div>
+        <div><div class="field-label">Edad</div><div class="field-value">${pet ? ageLabel(pet.birth_date || pet.fecha_nacimiento, pet.age) : '—'}</div></div>
         <div><div class="field-label">Peso</div><div class="field-value">${pet?.weight ? pet.weight + ' kg' : '—'}</div></div>
         <div><div class="field-label">Sexo</div><div class="field-value">${pet?.sex || '—'}</div></div>
       </div>
@@ -361,7 +362,7 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
                   <div style={{ padding:'0.7rem 1rem' }}>
                     <div style={{ fontSize:'0.65rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:BRAND.teal, marginBottom:'0.3rem' }}>Paciente</div>
                     <div style={{ fontSize:'0.82rem', fontWeight:600 }}>{pet.name} &nbsp;<span style={{ color:'var(--color-text-muted)', fontWeight:400 }}>{pet.species}{pet.breed ? ` · ${pet.breed}` : ''}</span></div>
-                    <div style={{ fontSize:'0.75rem', color:'var(--color-text-muted)' }}>{pet.age ? `${pet.age} años` : ''}{pet.weight ? ` · ${pet.weight} kg` : ''}{pet.sex ? ` · ${pet.sex}` : ''}</div>
+                    <div style={{ fontSize:'0.75rem', color:'var(--color-text-muted)' }}>{(pet.birth_date || pet.fecha_nacimiento || pet.age) ? ageLabel(pet.birth_date || pet.fecha_nacimiento, pet.age) : ''}{pet.weight ? ` · ${pet.weight} kg` : ''}{pet.sex ? ` · ${pet.sex}` : ''}</div>
                   </div>
                 </div>
 

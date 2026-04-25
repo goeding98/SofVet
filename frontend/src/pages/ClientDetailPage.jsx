@@ -7,6 +7,8 @@ import Modal from '../components/Modal';
 
 const EMPTY_PET = { name: '', species: 'Perro', breed: '', birth_date: '', weight: '', sex: 'Macho', esterilizado: 'No', caracter: 'Dócil', status: 'activo' };
 
+import { ageLabel } from '../utils/ageLabel';
+
 const calcAge = (birthDate) => {
   if (!birthDate) return 0;
   const birth = new Date(birthDate + 'T12:00');
@@ -181,7 +183,7 @@ export default function ClientDetailPage() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--color-text)' }}>{pet.name}</div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>
-                  {pet.species} {pet.breed ? `· ${pet.breed}` : ''} · {pet.age} años · {pet.weight} kg
+                  {pet.species} {pet.breed ? `· ${pet.breed}` : ''} · {ageLabel(pet.birth_date || pet.fecha_nacimiento, pet.age)} · {pet.weight} kg
                 </div>
                 {pet.sex && (
                   <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: '0.1rem' }}>{pet.sex}</div>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
+import { ageLabel } from '../utils/ageLabel';
 
 const C = {
   bg:'#FFF9F4', teal:'#316d74', tealDark:'#1e4e54', tealLight:'#e8f5f6',
@@ -887,7 +888,7 @@ export default function PortalPage() {
                     <div>
                       <div style={{ fontWeight:800, fontSize:'1.05rem', color:C.tealDark }}>{pet.name}</div>
                       <div style={{ fontSize:'0.75rem', color:C.muted }}>
-                        {[pet.species, pet.breed, pet.age&&`${pet.age} años`, pet.weight&&`${pet.weight} kg`].filter(Boolean).join(' · ')}
+                        {[pet.species, pet.breed, (pet.birth_date || pet.fecha_nacimiento || pet.age) && ageLabel(pet.birth_date || pet.fecha_nacimiento, pet.age), pet.weight&&`${pet.weight} kg`].filter(Boolean).join(' · ')}
                       </div>
                     </div>
                   </div>
