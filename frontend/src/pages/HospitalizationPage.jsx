@@ -159,6 +159,7 @@ export default function HospitalizationPage() {
   const [trasladoModal,   setTrasladoModal]   = useState(false);
   const [trasladoHospId,  setTrasladoHospId]  = useState(null);
   const [trasladoSedeId,  setTrasladoSedeId]  = useState('');
+  const [editTrasladoId,  setEditTrasladoId]  = useState(null); // hospId cuyo historial está en edición
 
   // ── abonos modal ────────────────────────────────────────────────────────
   const [abonoModal,  setAbonoModal]  = useState(false);
@@ -306,6 +307,30 @@ export default function HospitalizationPage() {
     setTrasladoModal(false);
     setTrasladoHospId(null);
     setTrasladoSedeId('');
+  };
+
+  const handleDeleteTraslado = (hospId, idx) => {
+    const hosp = hosps.find(h => h.id === hospId);
+    if (!hosp) return;
+    const newTraslados = (hosp.traslados || []).filter((_, i) => i !== idx);
+    // Recalculate current sede_id: last traslado's to_sede_id, or original ingreso sede
+    const newSedeId = newTraslados.length > 0
+      ? newTraslados[newTraslados.length - 1].to_sede_id
+      : newTraslados.length === 0 && hosp.traslados?.length > 0
+        ? hosp.traslados[0].from_sede_id
+        : hosp.sede_id;
+    editHosp(hospId, { traslados: newTraslados, sede_id: newSedeId });
+  };
+
+  const handleEditTrasladoSede = (hospId, idx, newSedeId) => {
+    const hosp = hosps.find(h => h.id === hospId);
+    if (!hosp) return;
+    const newTraslados = (hosp.traslados || []).map((t, i) =>
+      i === idx ? { ...t, to_sede_id: parseInt(newSedeId) } : t
+    );
+    // sede_id del registro = destino del último traslado
+    const lastSedeId = newTraslados[newTraslados.length - 1].to_sede_id;
+    editHosp(hospId, { traslados: newTraslados, sede_id: lastSedeId });
   };
 
   // ── edit treatment ──────────────────────────────────────────────────────
@@ -631,19 +656,49 @@ export default function HospitalizationPage() {
               {/* Historial de traslados */}
               {selected.traslados?.length > 0 && (
                 <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
-                    🔀 Traslados de sede
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
+                      🔀 Traslados de sede
+                    </div>
+                    {isAdmin && (
+                      <button
+                        onClick={() => setEditTrasladoId(editTrasladoId === selected.id ? null : selected.id)}
+                        style={{ padding: '0.25rem 0.65rem', background: editTrasladoId === selected.id ? '#fdecea' : 'var(--color-white)', border: `1px solid ${editTrasladoId === selected.id ? 'var(--color-danger)' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', color: editTrasladoId === selected.id ? 'var(--color-danger)' : 'var(--color-text-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.72rem', fontWeight: 600 }}
+                      >
+                        {editTrasladoId === selected.id ? '✕ Salir de edición' : '✏️ Editar'}
+                      </button>
+                    )}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    {selected.traslados.map((t, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.5rem 0.75rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', flexWrap: 'wrap' }}>
-                        <span style={{ color: 'var(--color-text-muted)' }}>{t.fecha} {t.hora}</span>
-                        <span>{sedeBadge(t.from_sede_id)}</span>
-                        <span style={{ color: 'var(--color-text-muted)' }}>→</span>
-                        <span>{sedeBadge(t.to_sede_id)}</span>
-                        <span style={{ color: 'var(--color-text-muted)', marginLeft: 'auto' }}>por {t.realizado_por}</span>
-                      </div>
-                    ))}
+                    {selected.traslados.map((t, i) => {
+                      const inEdit = editTrasladoId === selected.id;
+                      return (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.5rem 0.75rem', border: `1px solid ${inEdit ? '#fca5a5' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', flexWrap: 'wrap', background: inEdit ? '#fff8f8' : 'var(--color-white)' }}>
+                          <span style={{ color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{t.fecha} {t.hora}</span>
+                          <span>{sedeBadge(t.from_sede_id)}</span>
+                          <span style={{ color: 'var(--color-text-muted)' }}>→</span>
+                          {inEdit ? (
+                            <select
+                              value={t.to_sede_id}
+                              onChange={e => handleEditTrasladoSede(selected.id, i, e.target.value)}
+                              style={{ padding: '0.2rem 0.5rem', fontSize: '0.78rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', background: 'var(--color-white)' }}
+                            >
+                              {SEDES.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                            </select>
+                          ) : (
+                            <span>{sedeBadge(t.to_sede_id)}</span>
+                          )}
+                          <span style={{ color: 'var(--color-text-muted)', marginLeft: 'auto', whiteSpace: 'nowrap' }}>por {t.realizado_por}</span>
+                          {inEdit && (
+                            <button
+                              onClick={() => handleDeleteTraslado(selected.id, i)}
+                              style={{ padding: '0.1rem 0.45rem', background: 'var(--color-danger)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.3, flexShrink: 0 }}
+                              title="Eliminar este traslado"
+                            >✕</button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
