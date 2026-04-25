@@ -514,7 +514,7 @@ export default function PetDetailPage() {
       }
       if (ev.type === 'proced') {
         const { p } = ev;
-        return `<div style="margin-bottom:20px;border-left:4px solid #b91c1c"><div style="background:#fee2e2;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#b91c1c;font-size:12px">⚕️ PROCEDIMIENTO — ${p.fecha || '—'}</div><div style="font-size:10px;color:#555">${sn(p.sede_id)}${p.veterinario ? ' · Vet: ' + p.veterinario : ''}</div></div><div style="padding:10px 14px">${fld('Tipo', p.tipo)}${fld('Descripción', p.descripcion)}${fld('Anestesia', p.anestesia)}${fld('Observaciones', p.observaciones)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+        return `<div style="margin-bottom:20px;border-left:4px solid #b91c1c"><div style="background:#fee2e2;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#b91c1c;font-size:12px">⚕️ PROCEDIMIENTO — ${p.fecha || '—'}${p.hora_creacion ? ' ' + p.hora_creacion : ''}</div><div style="font-size:10px;color:#555">${sn(p.sede_id)}${p.veterinario ? ' · Vet: ' + p.veterinario : ''}</div></div><div style="padding:10px 14px">${p.motivo ? `<div style="font-size:13px;font-weight:700;color:#b91c1c;margin-bottom:6px">${p.motivo}</div>` : ''}${fld('Tipo', p.tipo)}${fld('Descripción', p.descripcion)}${fld('Anestesia', p.anestesia)}${fld('Observaciones', p.observaciones)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
       }
       if (ev.type === 'lab') {
         const { l } = ev;
@@ -595,7 +595,7 @@ export default function PetDetailPage() {
       }
       if (ev.type === 'proced') {
         const { p } = ev;
-        return `<div style="margin-bottom:20px;border-left:4px solid #b91c1c"><div contenteditable="true" style="background:#fee2e2;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#b91c1c;font-size:12px">⚕️ PROCEDIMIENTO — ${p.fecha || '—'}</div><div style="font-size:10px;color:#555">${sn(p.sede_id)}${p.veterinario ? ' · Vet: ' + p.veterinario : ''}</div></div><div style="padding:10px 14px">${fld('Tipo', p.tipo)}${fld('Descripción', p.descripcion)}${fld('Anestesia', p.anestesia)}${fld('Observaciones', p.observaciones)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+        return `<div style="margin-bottom:20px;border-left:4px solid #b91c1c"><div contenteditable="true" style="background:#fee2e2;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#b91c1c;font-size:12px">⚕️ PROCEDIMIENTO — ${p.fecha || '—'}${p.hora_creacion ? ' ' + p.hora_creacion : ''}</div><div style="font-size:10px;color:#555">${sn(p.sede_id)}${p.veterinario ? ' · Vet: ' + p.veterinario : ''}</div></div><div style="padding:10px 14px">${p.motivo ? `<div contenteditable="true" style="font-size:13px;font-weight:700;color:#b91c1c;margin-bottom:6px">${p.motivo}</div>` : ''}${fld('Tipo', p.tipo)}${fld('Descripción', p.descripcion)}${fld('Anestesia', p.anestesia)}${fld('Observaciones', p.observaciones)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
       }
       if (ev.type === 'lab') {
         const { l } = ev;
@@ -937,7 +937,8 @@ export default function PetDetailPage() {
                         >✏️ Editar</button>
                       </div>
                     </div>
-                    <p style={{ fontSize:'0.82rem', color:'var(--color-text)', margin:'0 0 0.2rem', fontWeight:600, whiteSpace:'pre-wrap' }}>{p.descripcion}</p>
+                    {p.motivo && <p style={{ fontSize:'0.9rem', color:'var(--color-text)', margin:'0 0 0.35rem', fontWeight:700 }}>{p.motivo}</p>}
+                    <p style={{ fontSize:'0.82rem', color:'var(--color-text)', margin:'0 0 0.2rem', fontWeight:400, whiteSpace:'pre-wrap' }}>{p.descripcion}</p>
                     {p.anestesia && <p style={{ fontSize:'0.78rem', color:'var(--color-text-muted)', margin:0 }}>💉 Anestesia: {p.anestesia}</p>}
                     {p.observaciones && <p style={{ fontSize:'0.78rem', color:'var(--color-text-muted)', margin:'0.2rem 0 0', whiteSpace:'pre-wrap' }}>{p.observaciones}</p>}
                   </div>

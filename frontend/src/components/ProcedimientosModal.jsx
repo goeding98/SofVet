@@ -8,30 +8,41 @@ const lSt = { display:'block', fontSize:'0.72rem', fontWeight:700, marginBottom:
 const iSt = { width:'100%', padding:'0.55rem 0.75rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.875rem' };
 const taSt = { ...iSt, resize:'vertical' };
 
-const TIPO_ICON = { 'Cirugía':'🔪', 'Profilaxis':'🛡️', 'Procedimiento General':'⚕️' };
+const TIPO_ICON  = { 'Cirugía':'🔪', 'Profilaxis':'🛡️', 'Procedimiento General':'⚕️' };
 const TIPO_COLOR = { 'Cirugía':'#c0392b', 'Profilaxis':'#2e7d50', 'Procedimiento General':'#2e5cbf' };
 
 export default function ProcedimientosModal({ isOpen, onClose, onSave, pet, initialData }) {
   const { session } = useAuth();
   const { sedeActual, isAdmin } = useSede();
   const isEditing = !!initialData?.id;
-  const [tipo, setTipo]         = useState('Cirugía');
-  const [descripcion, setDesc]  = useState('');
-  const [anestesia, setAnest]   = useState('');
-  const [observaciones, setObs] = useState('');
-  const [sedeId, setSedeId]     = useState(sedeActual || 1);
-  const [error, setError]       = useState('');
+
+  const [tipo,        setTipo]   = useState('Cirugía');
+  const [motivo,      setMotivo] = useState('');
+  const [descripcion, setDesc]   = useState('');
+  const [anestesia,   setAnest]  = useState('');
+  const [observaciones, setObs]  = useState('');
+  const [sedeId,      setSedeId] = useState(sedeActual || 1);
+  const [editFecha,   setEditFecha] = useState('');
+  const [editHora,    setEditHora]  = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (isOpen) {
+      const now = new Date();
       if (initialData) {
         setTipo(initialData.tipo || 'Cirugía');
+        setMotivo(initialData.motivo || '');
         setDesc(initialData.descripcion || '');
         setAnest(initialData.anestesia || '');
         setObs(initialData.observaciones || '');
         setSedeId(initialData.sede_id || sedeActual || 1);
+        setEditFecha(initialData.fecha || now.toISOString().split('T')[0]);
+        setEditHora(initialData.hora_creacion || now.toTimeString().slice(0, 5));
       } else {
-        setTipo('Cirugía'); setDesc(''); setAnest(''); setObs(''); setSedeId(sedeActual || 1);
+        setTipo('Cirugía'); setMotivo(''); setDesc(''); setAnest(''); setObs('');
+        setSedeId(sedeActual || 1);
+        setEditFecha(now.toISOString().split('T')[0]);
+        setEditHora(now.toTimeString().slice(0, 5));
       }
       setError('');
     }
@@ -39,22 +50,25 @@ export default function ProcedimientosModal({ isOpen, onClose, onSave, pet, init
 
   if (!isOpen || !pet) return null;
 
-  const reset = () => { setTipo('Cirugía'); setDesc(''); setAnest(''); setObs(''); setError(''); };
+  const reset = () => { setTipo('Cirugía'); setMotivo(''); setDesc(''); setAnest(''); setObs(''); setError(''); };
   const handleClose = () => { reset(); onClose(); };
 
   const handleSave = () => {
+    if (!motivo.trim())      { setError('El motivo del procedimiento es requerido.'); return; }
     if (!descripcion.trim()) { setError('La descripción es requerida.'); return; }
     const now = new Date();
     const horaAhora = now.toTimeString().slice(0, 5);
     const hoy = now.toISOString().split('T')[0];
     onSave({
       ...(isEditing ? { id: initialData.id } : {}),
-      tipo, descripcion, anestesia, observaciones,
+      tipo, motivo, descripcion, anestesia, observaciones,
       sede_id: sedeId,
       ...(isEditing ? {
         editado_por:   session?.nombre || null,
         hora_edicion:  horaAhora,
         fecha_edicion: hoy,
+        // Admin puede cambiar fecha y hora
+        ...(isAdmin ? { fecha: editFecha, hora_creacion: editHora } : {}),
       } : {
         veterinario:   session?.nombre || 'Desconocido',
         fecha:         hoy,
@@ -80,6 +94,18 @@ export default function ProcedimientosModal({ isOpen, onClose, onSave, pet, init
         </div>
 
         <div style={{ padding:'1.5rem' }}>
+
+          {/* Motivo — campo principal, aparece primero */}
+          <div style={{ marginBottom:'1.25rem' }}>
+            <label style={lSt}>Motivo / Título del procedimiento *</label>
+            <input
+              value={motivo}
+              onChange={e => setMotivo(e.target.value)}
+              style={{ ...iSt, border:`2px solid ${color}`, fontWeight:600, fontSize:'0.9rem' }}
+              placeholder="Ej: Ovariohisterectomía, Limpieza dental, Sutura herida..."
+            />
+          </div>
+
           {/* Tipo */}
           <div style={{ marginBottom:'1.25rem' }}>
             <label style={lSt}>Tipo de procedimiento *</label>
@@ -93,11 +119,23 @@ export default function ProcedimientosModal({ isOpen, onClose, onSave, pet, init
             </div>
           </div>
 
-          {/* Fecha + Sede */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem', marginBottom:'1rem' }}>
+          {/* Fecha + Hora + Sede */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'0.75rem', marginBottom:'1rem' }}>
             <div>
               <label style={lSt}>Fecha</label>
-              <input readOnly value={new Date().toISOString().split('T')[0]} style={{ ...iSt, background:'var(--color-bg)', color:'var(--color-text-muted)' }} />
+              {(isAdmin && isEditing) ? (
+                <input type="date" value={editFecha} onChange={e => setEditFecha(e.target.value)} style={iSt} />
+              ) : (
+                <input readOnly value={editFecha} style={{ ...iSt, background:'var(--color-bg)', color:'var(--color-text-muted)' }} />
+              )}
+            </div>
+            <div>
+              <label style={lSt}>Hora</label>
+              {(isAdmin && isEditing) ? (
+                <input type="time" value={editHora} onChange={e => setEditHora(e.target.value)} style={iSt} />
+              ) : (
+                <input readOnly value={editHora} style={{ ...iSt, background:'var(--color-bg)', color:'var(--color-text-muted)' }} />
+              )}
             </div>
             <div>
               <label style={lSt}>Sede</label>
