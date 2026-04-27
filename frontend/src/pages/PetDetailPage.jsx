@@ -185,7 +185,8 @@ export default function PetDetailPage() {
     );
   }
 
-  const sc = statusColors[pet.status] || statusColors.inactivo;
+  const effectiveStatus = (pet.status === 'activo' && activeHosp) ? 'hospitalizado' : pet.status;
+  const sc = statusColors[effectiveStatus] || statusColors.inactivo;
 
   const prepagadaEntry = prepagada.find(i => i.patient_id === pet.id && i.status !== 'baja');
   const prepagadaStatus = prepagadaEntry
@@ -689,7 +690,7 @@ export default function PetDetailPage() {
             <div style={{ flex:1 }}>
               <div style={{ display:'flex', alignItems:'center', gap:'0.6rem', marginBottom:'0.35rem', flexWrap:'wrap' }}>
                 <h2 style={{ fontFamily:'var(--font-title)', color:'var(--color-primary)', fontSize:'1.5rem', lineHeight:1 }}>{pet.name}</h2>
-                <span style={{ background:sc.bg, color:sc.color, padding:'3px 10px', borderRadius:999, fontSize:'0.7rem', fontWeight:500 }}>{pet.status}</span>
+                <span style={{ background:sc.bg, color:sc.color, padding:'3px 10px', borderRadius:999, fontSize:'0.7rem', fontWeight:500 }}>{effectiveStatus}</span>
                 {prepagadaStatus === 'activo' && <span style={{ background:'#e8f0ff', color:'#2e5cbf', padding:'3px 10px', borderRadius:999, fontSize:'0.7rem', fontWeight:600 }}>💳 Afiliado</span>}
                 {prepagadaStatus === 'mora'   && <span style={{ background:'#fff8e1', color:'#b8860b', padding:'3px 10px', borderRadius:999, fontSize:'0.7rem', fontWeight:600 }}>⚠️ En Mora</span>}
               </div>
