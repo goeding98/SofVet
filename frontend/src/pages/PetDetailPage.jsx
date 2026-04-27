@@ -453,15 +453,6 @@ export default function PetDetailPage() {
   };
 
   const handleDownloadPDF = async () => {
-    // Use saved override if exists
-    const { data: ov } = await supabase.from('hc_overrides').select('html_content').eq('patient_id', petId).single();
-    if (ov?.html_content) {
-      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Historia Clínica — ${pet.name}</title><style>*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#333;margin:0;padding:24px 28px}@media print{body{padding:10px 14px}}</style></head><body>${ov.html_content}<script>window.onload=()=>{window.print()}<\/script></body></html>`;
-      const w = window.open('', '_blank');
-      w.document.write(html);
-      w.document.close();
-      return;
-    }
     const sn = (sid) => SEDES.find(s => s.id === sid)?.nombre || '—';
 
     const allEvents = [];
@@ -489,6 +480,14 @@ export default function PetDetailPage() {
       const reps = hospReports.filter(r => r.hospitalization_id === h.id).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
       const sortKey = h.alta_date ? `${h.alta_date}T${h.alta_time || '00:00'}` : `${h.ingreso_date || '0000'}T${h.ingreso_time || '00:00'}`;
       allEvents.push({ sortKey, type: 'hosp', h, meds, reps });
+    });
+    petControles.forEach(c => {
+      allEvents.push({ sortKey: `${c.date || '0000'}T${c.time || '00:00'}`, type: 'control', c });
+    });
+    petNotas.forEach(n => {
+      const d = n.created_at ? n.created_at.split('T')[0] : '0000';
+      const t = n.created_at ? n.created_at.split('T')[1]?.slice(0, 5) : '00:00';
+      allEvents.push({ sortKey: `${d}T${t || '00:00'}`, type: 'nota', n });
     });
     allEvents.sort((a, b) => b.sortKey.localeCompare(a.sortKey));
 
@@ -533,6 +532,16 @@ export default function PetDetailPage() {
         const dias = h.duration_days || (h.ingreso_date && h.alta_date ? Math.round((new Date(h.alta_date) - new Date(h.ingreso_date)) / 86400000) : '—');
         return `<div style="margin-bottom:20px;border-left:4px solid #991b1b"><div style="background:#fee2e2;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#991b1b;font-size:12px">${h.status === 'deslinde' ? '🏥 HOSPITALIZACIÓN — Deslinde informado: ' + h.alta_date : h.status === 'fallecido' ? '🏥 HOSPITALIZACIÓN — Fallecido: ' + h.alta_date : h.alta_date ? '🏥 HOSPITALIZACIÓN — Alta: ' + h.alta_date : '🏥 HOSPITALIZACIÓN — En curso'}</div><div style="font-size:10px;color:#555">${sn(h.sede_id)}${h.responsible_vet ? ' · Vet: ' + h.responsible_vet : ''}</div></div><div style="padding:10px 14px">${fld('Motivo de hospitalización', h.motivo)}${fld('Diagnóstico', h.diagnostico)}${fld('Ingreso', `${h.ingreso_date || '—'}${h.ingreso_time ? ' a las ' + h.ingreso_time : ''}`)}${h.alta_date ? fld(h.status === 'deslinde' ? 'Deslinde informado' : h.status === 'fallecido' ? 'Fallecimiento' : 'Alta', `${h.alta_date}${h.alta_time ? ' a las ' + h.alta_time : ''} · ${dias} día(s) hospitalizado`) : ''}${meds.length > 0 ? `<div style="margin:8px 0"><div style="font-size:9px;font-weight:700;color:#991b1b;text-transform:uppercase;margin-bottom:4px">Plan de tratamiento</div><table style="width:100%;border-collapse:collapse;font-size:10px;border:1px solid #fca5a5"><thead><tr style="background:#fee2e2"><th style="padding:3px 6px;text-align:left">Medicamento</th><th style="padding:3px 6px;text-align:left;width:80px">Dosis</th><th style="padding:3px 6px;text-align:left;width:70px">Unidad</th><th style="padding:3px 6px;text-align:left">Frecuencia</th></tr></thead><tbody>${meds.map(m => `<tr style="border-top:1px solid #fecaca"><td style="padding:2px 6px">${m.medicamento}</td><td style="padding:2px 6px">${m.dosis || '—'}</td><td style="padding:2px 6px">${m.unidad || '—'}</td><td style="padding:2px 6px">${m.frecuencia || '—'}</td></tr>`).join('')}</tbody></table></div>` : ''}${reps?.length > 0 ? `<div style="margin:10px 0 0;border-top:1px dashed #fca5a5;padding-top:8px"><div style="font-size:9px;font-weight:700;color:#991b1b;text-transform:uppercase;margin-bottom:6px">Reportes de evolución (${reps.length})</div>${reps.map(r => `<div style="border:1px solid #fca5a5;border-radius:4px;padding:6px 10px;margin-bottom:6px;background:white"><div style="font-size:9px;color:#991b1b;font-weight:700;margin-bottom:3px">📅 ${r.fecha}${r.hora ? ' a las ' + r.hora : ''}${r.veterinario ? ' · ' + r.veterinario : ''}${r.editado_por ? ' · ✏️ ' + r.editado_por : ''}</div><div style="font-size:11px;color:#333;white-space:pre-wrap;line-height:1.5">${r.contenido}</div>${r.fotos?.filter(f=>f.url).length > 0 ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${r.fotos.filter(f=>f.url).map(f=>`<img src="${f.url}" style="width:130px;height:130px;object-fit:cover;border-radius:4px;border:1px solid #fca5a5;" />`).join('')}</div>` : ''}</div>`).join('')}</div>` : ''}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
       }
+      if (ev.type === 'control') {
+        const { c } = ev;
+        const meds = Array.isArray(c.medicamentos_aplicados) ? c.medicamentos_aplicados.filter(m => m.medicamento) : [];
+        return `<div style="margin-bottom:20px;border-left:4px solid #316d74"><div style="background:#e0f5f5;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#316d74;font-size:12px">📋 CONTROL — ${c.date || '—'}${c.time ? ' · ' + c.time : ''}</div><div style="font-size:10px;color:#555">${sn(c.sede_id)}${c.veterinario ? ' · Vet: ' + c.veterinario : ''}</div></div><div style="padding:10px 14px">${fld('Motivo de control', c.motivo_control)}${fld('Hallazgos', c.hallazgos)}${meds.length > 0 ? `<div style="margin:8px 0"><div style="font-size:9px;font-weight:700;color:#316d74;text-transform:uppercase;margin-bottom:4px">Medicamentos aplicados</div><table style="width:100%;border-collapse:collapse;font-size:10px;border:1px solid #99d6d6"><thead><tr style="background:#e0f5f5"><th style="padding:3px 6px;text-align:left">Producto</th><th style="padding:3px 6px;text-align:left;width:100px">Dosis</th><th style="padding:3px 6px;text-align:left;width:70px">Vía</th></tr></thead><tbody>${meds.map(m => `<tr style="border-top:1px solid #c8ecec"><td style="padding:2px 6px">${m.medicamento}</td><td style="padding:2px 6px">${m.dosis || '—'}</td><td style="padding:2px 6px">${m.via || '—'}</td></tr>`).join('')}</tbody></table></div>` : ''}${fld('Observaciones', c.observaciones)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+      }
+      if (ev.type === 'nota') {
+        const { n } = ev;
+        const d = n.created_at ? n.created_at.split('T')[0] : '—';
+        return `<div style="margin-bottom:20px;border-left:4px solid #b8860b"><div style="background:#fff8e1;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#b8860b;font-size:12px">📝 NOTA CLÍNICA — ${d}</div><div style="font-size:10px;color:#555">${n.created_by || ''}</div></div><div style="padding:10px 14px">${n.titulo ? `<div style="font-size:12px;font-weight:700;color:#b8860b;margin-bottom:6px">${n.titulo}</div>` : ''}${fld('Observaciones', n.observaciones)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+      }
       return '';
     };
 
@@ -576,6 +585,14 @@ export default function PetDetailPage() {
       const sortKey = h.alta_date ? `${h.alta_date}T${h.alta_time || '00:00'}` : `${h.ingreso_date || '0000'}T${h.ingreso_time || '00:00'}`;
       allEvents.push({ sortKey, type: 'hosp', h, meds, reps });
     });
+    petControles.forEach(c => {
+      allEvents.push({ sortKey: `${c.date || '0000'}T${c.time || '00:00'}`, type: 'control', c });
+    });
+    petNotas.forEach(n => {
+      const d = n.created_at ? n.created_at.split('T')[0] : '0000';
+      const t = n.created_at ? n.created_at.split('T')[1]?.slice(0, 5) : '00:00';
+      allEvents.push({ sortKey: `${d}T${t || '00:00'}`, type: 'nota', n });
+    });
     allEvents.sort((a, b) => b.sortKey.localeCompare(a.sortKey));
 
     const fld = (label, value) => {
@@ -613,6 +630,16 @@ export default function PetDetailPage() {
         const { h, meds, reps } = ev;
         const dias = h.duration_days || (h.ingreso_date && h.alta_date ? Math.round((new Date(h.alta_date) - new Date(h.ingreso_date)) / 86400000) : '—');
         return `<div style="margin-bottom:20px;border-left:4px solid #991b1b"><div contenteditable="true" style="background:#fee2e2;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#991b1b;font-size:12px">${h.status === 'deslinde' ? '🏥 HOSPITALIZACIÓN — Deslinde informado: ' + h.alta_date : h.status === 'fallecido' ? '🏥 HOSPITALIZACIÓN — Fallecido: ' + h.alta_date : h.alta_date ? '🏥 HOSPITALIZACIÓN — Alta: ' + h.alta_date : '🏥 HOSPITALIZACIÓN — En curso'}</div><div style="font-size:10px;color:#555">${sn(h.sede_id)}${h.responsible_vet ? ' · Vet: ' + h.responsible_vet : ''}</div></div><div style="padding:10px 14px">${fld('Motivo de hospitalización', h.motivo)}${fld('Diagnóstico', h.diagnostico)}${fld('Ingreso', `${h.ingreso_date || '—'}${h.ingreso_time ? ' a las ' + h.ingreso_time : ''}`)}${h.alta_date ? fld(h.status === 'deslinde' ? 'Deslinde informado' : h.status === 'fallecido' ? 'Fallecimiento' : 'Alta', `${h.alta_date}${h.alta_time ? ' a las ' + h.alta_time : ''} · ${dias} día(s) hospitalizado`) : ''}${meds.length > 0 ? `<div style="margin:8px 0"><div style="font-size:9px;font-weight:700;color:#991b1b;text-transform:uppercase;margin-bottom:4px">Plan de tratamiento</div><table contenteditable="true" style="width:100%;border-collapse:collapse;font-size:10px;border:1px solid #fca5a5"><thead><tr style="background:#fee2e2"><th style="padding:3px 6px;text-align:left">Medicamento</th><th style="padding:3px 6px;text-align:left;width:80px">Dosis</th><th style="padding:3px 6px;text-align:left;width:70px">Unidad</th><th style="padding:3px 6px;text-align:left">Frecuencia</th></tr></thead><tbody>${meds.map(m => `<tr style="border-top:1px solid #fecaca"><td style="padding:2px 6px">${m.medicamento}</td><td style="padding:2px 6px">${m.dosis || '—'}</td><td style="padding:2px 6px">${m.unidad || '—'}</td><td style="padding:2px 6px">${m.frecuencia || '—'}</td></tr>`).join('')}</tbody></table></div>` : ''}${reps?.length > 0 ? `<div style="margin:10px 0 0;border-top:1px dashed #fca5a5;padding-top:8px"><div style="font-size:9px;font-weight:700;color:#991b1b;text-transform:uppercase;margin-bottom:6px">Reportes de evolución (${reps.length})</div>${reps.map(r => `<div style="border:1px solid #fca5a5;border-radius:4px;padding:6px 10px;margin-bottom:6px;background:white"><div style="font-size:9px;color:#991b1b;font-weight:700;margin-bottom:3px">📅 ${r.fecha}${r.hora ? ' a las ' + r.hora : ''}${r.veterinario ? ' · ' + r.veterinario : ''}${r.editado_por ? ' · ✏️ ' + r.editado_por : ''}</div><div style="font-size:11px;color:#333;white-space:pre-wrap;line-height:1.5">${r.contenido}</div>${r.fotos?.filter(f=>f.url).length > 0 ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${r.fotos.filter(f=>f.url).map(f=>`<img src="${f.url}" style="width:130px;height:130px;object-fit:cover;border-radius:4px;border:1px solid #fca5a5;" />`).join('')}</div>` : ''}</div>`).join('')}</div>` : ''}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+      }
+      if (ev.type === 'control') {
+        const { c } = ev;
+        const meds = Array.isArray(c.medicamentos_aplicados) ? c.medicamentos_aplicados.filter(m => m.medicamento) : [];
+        return `<div style="margin-bottom:20px;border-left:4px solid #316d74"><div contenteditable="true" style="background:#e0f5f5;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#316d74;font-size:12px">📋 CONTROL — ${c.date || '—'}${c.time ? ' · ' + c.time : ''}</div><div style="font-size:10px;color:#555">${sn(c.sede_id)}${c.veterinario ? ' · Vet: ' + c.veterinario : ''}</div></div><div style="padding:10px 14px">${fld('Motivo de control', c.motivo_control)}${fld('Hallazgos', c.hallazgos)}${meds.length > 0 ? `<div style="margin:8px 0"><div style="font-size:9px;font-weight:700;color:#316d74;text-transform:uppercase;margin-bottom:4px">Medicamentos aplicados</div><table contenteditable="true" style="width:100%;border-collapse:collapse;font-size:10px;border:1px solid #99d6d6"><thead><tr style="background:#e0f5f5"><th style="padding:3px 6px;text-align:left">Producto</th><th style="padding:3px 6px;text-align:left;width:100px">Dosis</th><th style="padding:3px 6px;text-align:left;width:70px">Vía</th></tr></thead><tbody>${meds.map(m => `<tr style="border-top:1px solid #c8ecec"><td style="padding:2px 6px">${m.medicamento}</td><td style="padding:2px 6px">${m.dosis || '—'}</td><td style="padding:2px 6px">${m.via || '—'}</td></tr>`).join('')}</tbody></table></div>` : ''}${fld('Observaciones', c.observaciones)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+      }
+      if (ev.type === 'nota') {
+        const { n } = ev;
+        const d = n.created_at ? n.created_at.split('T')[0] : '—';
+        return `<div style="margin-bottom:20px;border-left:4px solid #b8860b"><div contenteditable="true" style="background:#fff8e1;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#b8860b;font-size:12px">📝 NOTA CLÍNICA — ${d}</div><div style="font-size:10px;color:#555">${n.created_by || ''}</div></div><div style="padding:10px 14px">${n.titulo ? `<div contenteditable="true" style="font-size:12px;font-weight:700;color:#b8860b;margin-bottom:6px">${n.titulo}</div>` : ''}${fld('Observaciones', n.observaciones)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
       }
       return '';
     };
