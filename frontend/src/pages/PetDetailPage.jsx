@@ -206,7 +206,6 @@ export default function PetDetailPage() {
     { label: 'Fórmula Médica',   icon: '💊', action: () => setFormulasModal(true),   color: '#a6785b'  },
     { label: 'Citas',            icon: '📅', action: () => navigate('/appointments', { state: { patient_name: pet.name, owner: client?.name || '' } }), color: '#316d74' },
     { label: 'Peluquería',       icon: '✂️', action: () => navigate('/grooming'),    color: '#7c5cbf'  },
-    ...(isHospitalized ? [{ label: 'Reporte Hosp.', icon: '🏥', action: () => setHospRepModal(true), color: '#c0392b' }] : []),
   ];
 
   const handleSaveVacuna = async (data) => {
