@@ -26,6 +26,7 @@ import PrepagadaPage from './pages/PrepagadaPage';
 import HCRequestsPage from './pages/HCRequestsPage';
 import CertificadosViajePage from './pages/CertificadosViajePage';
 import PortalPage from './pages/PortalPage';
+import RemisionesPage from './pages/RemisionesPage';
 
 function ProtectedLayout({ children }) {
   const { session } = useAuth();
@@ -81,6 +82,7 @@ function AppRoutes() {
       <Route path="/eps"               element={<ProtectedLayout><EPSPage /></ProtectedLayout>} />
       <Route path="/documents"          element={<ProtectedLayout><DocumentsPage /></ProtectedLayout>} />
       <Route path="/prepagada"          element={<ProtectedLayout><PrepagadaPage /></ProtectedLayout>} />
+      <Route path="/remisiones"         element={<ProtectedLayout><RemisionesPage /></ProtectedLayout>} />
 
       {/* Admin-only */}
       {isAdmin && (

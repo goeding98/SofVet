@@ -19,6 +19,7 @@ import SolicitarLabModal from '../components/SolicitarLabModal';
 import LaboratoriosSinReportarModal from '../components/LaboratoriosSinReportarModal';
 import HospitalizationReportModal from '../components/HospitalizationReportModal';
 import HospReviewModal from '../components/HospReviewModal';
+import RemitirModal from '../components/RemitirModal';
 import FormulasModal from '../components/FormulasModal';
 import VacunaModal from '../components/VacunaModal';
 import DesparasitarModal from '../components/DesparasitarModal';
@@ -50,6 +51,8 @@ export default function PetDetailPage() {
   const { items: labPedidos, edit: editLabPedido, add: addLabPedido } = useStore('laboratorios_pedidos');
   const { items: notasClincias, add: addNota, edit: editNota } = useStore('notas_clinicas');
   const { items: controles, add: addControl, edit: editControl, remove: removeControl } = useStore('controles');
+  const { items: aliados }                  = useStore('aliados');
+  const { items: remisionesVis, add: addRemision } = useStore('remisionesVis');
 
   const { sedeActual, isAdmin: isAdminUser } = useSede();
   const { session } = useAuth();
@@ -87,6 +90,9 @@ export default function PetDetailPage() {
   const [editingNota,    setEditingNota]    = useState(null);
   const [controlModal,   setControlModal]   = useState(false);
   const [editingControl, setEditingControl] = useState(null);
+  const [remitirModal,   setRemitirModal]   = useState(null); // { recordType, recordId, servicio }
+
+  const canRemit = isAdminUser || session?.sede_id === 4;
 
   const petId  = parseInt(id);
   const pet    = patients.find(p => p.id === petId);
@@ -795,7 +801,17 @@ export default function PetDetailPage() {
                         )}
                       </td>
                       <td style={{ padding:'0.85rem 1rem' }}>
-                        <span style={{ fontSize:'0.72rem', color:'var(--color-primary)', fontWeight:600 }}>✏️ Editar</span>
+                        <div style={{ display:'flex', gap:'0.35rem', alignItems:'center', flexWrap:'wrap' }}>
+                          <span style={{ fontSize:'0.72rem', color:'var(--color-primary)', fontWeight:600 }}>✏️ Editar</span>
+                          {canRemit && (
+                            remisionesVis.some(r => r.record_type === 'consulta' && r.record_id === c.id)
+                              ? <span style={{ fontSize:'0.68rem', background:'#e8f0fd', color:'#2e5cbf', borderRadius:999, padding:'1px 6px', fontWeight:700 }}>🔗</span>
+                              : <button onClick={e => { e.stopPropagation(); setRemitirModal({ recordType:'consulta', recordId:c.id, servicio: c.motivo_consulta || 'Consulta' }); }}
+                                  style={{ padding:'1px 6px', background:'white', border:'1px solid #2e5cbf', color:'#2e5cbf', borderRadius:999, cursor:'pointer', fontSize:'0.68rem', fontWeight:700, fontFamily:'var(--font-body)' }}>
+                                  🔗
+                                </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -937,6 +953,14 @@ export default function PetDetailPage() {
                           onClick={() => { setEditingProced(p); setProcedModal(true); }}
                           style={{ padding:'2px 8px', background:'white', border:`1px solid ${tipoCl}`, color:tipoCl, borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)' }}
                         >✏️ Editar</button>
+                        {canRemit && (
+                          remisionesVis.some(r => r.record_type === 'procedimiento' && r.record_id === p.id)
+                            ? <span style={{ padding:'2px 8px', background:'#e8f0fd', color:'#2e5cbf', borderRadius:6, fontSize:'0.7rem', fontWeight:700 }}>🔗 Remitido</span>
+                            : <button onClick={() => setRemitirModal({ recordType:'procedimiento', recordId:p.id, servicio: p.motivo || p.tipo || 'Procedimiento' })}
+                                style={{ padding:'2px 8px', background:'white', border:'1px solid #2e5cbf', color:'#2e5cbf', borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)' }}>
+                                🔗 Remitir
+                              </button>
+                        )}
                       </div>
                     </div>
                     {p.motivo && <p style={{ fontSize:'0.9rem', color:'var(--color-text)', margin:'0 0 0.35rem', fontWeight:700 }}>{p.motivo}</p>}
@@ -1140,7 +1164,15 @@ export default function PetDetailPage() {
                           {h.alta_date && ` · Alta: ${h.alta_date}`}
                         </span>
                       </div>
-                      <div style={{ display:'flex', gap:'0.35rem' }}>
+                      <div style={{ display:'flex', gap:'0.35rem', flexWrap:'wrap' }}>
+                        {canRemit && (
+                          remisionesVis.some(r => r.record_type === 'hospitalizacion' && r.record_id === h.id)
+                            ? <span style={{ padding:'2px 8px', background:'#e8f0fd', color:'#2e5cbf', borderRadius:6, fontSize:'0.7rem', fontWeight:700, flexShrink:0 }}>🔗 Remitido</span>
+                            : <button onClick={() => setRemitirModal({ recordType:'hospitalizacion', recordId:h.id, servicio: h.motivo || 'Hospitalización' })}
+                                style={{ padding:'2px 8px', background:'white', border:'1px solid #2e5cbf', color:'#2e5cbf', borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)', flexShrink:0 }}>
+                                🔗 Remitir
+                              </button>
+                        )}
                         <button
                           onClick={() => setReviewHosp(h)}
                           style={{ padding:'2px 8px', background:'white', border:'1px solid #e67e22', color:'#e67e22', borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)', flexShrink:0 }}
@@ -1482,6 +1514,19 @@ export default function PetDetailPage() {
       <HospitalizationReportModal isOpen={hospRepModal} onClose={() => { setHospRepModal(false); setEditingReport(null); }} onSave={handleSaveHospReport} onDelete={(id) => { removeHospReport(id); setHospRepModal(false); setEditingReport(null); }} pet={pet} hospitalizationId={editingReport?.hospitalization_id || activeHosp?.id} initialData={editingReport} />
 
       <HospReviewModal hosp={reviewHosp} onClose={() => setReviewHosp(null)} />
+
+      {remitirModal && (
+        <RemitirModal
+          aliados={aliados}
+          pet={pet}
+          servicio={remitirModal.servicio}
+          recordType={remitirModal.recordType}
+          recordId={remitirModal.recordId}
+          onClose={() => setRemitirModal(null)}
+          onSave={async (data) => { await addRemision(data); setRemitirModal(null); }}
+          session={session}
+        />
+      )}
 
       <FormulasModal isOpen={formulasModal} onClose={() => setFormulasModal(false)} pet={pet} client={client} formulas={formulas} />
 

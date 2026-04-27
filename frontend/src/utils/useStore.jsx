@@ -24,6 +24,8 @@ const TABLE_MAP = {
   prepagada:               'prepagada',
   notas_clinicas:          'notas_clinicas',
   controles:               'controles',
+  aliados:                 'aliados',
+  remisionesVis:           'remisiones',
 };
 
 // ── Module-level cache (survives navigation, shared across all components) ──

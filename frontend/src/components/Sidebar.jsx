@@ -89,6 +89,13 @@ export default function Sidebar() {
           <SectionLabel>Otros</SectionLabel>
           {otrosItems.map(item => <MenuItem key={item.path} item={item} />)}
 
+          {(session?.rol === 'Administrador' || session?.sede_id === 4) && (
+            <>
+              <SectionLabel>Visitadora Médica</SectionLabel>
+              <MenuItem item={{ path: '/remisiones', label: 'Remisiones', icon: '🔗' }} />
+            </>
+          )}
+
           {session?.rol === 'Administrador' && (
             <>
               <SectionLabel>Administración</SectionLabel>
