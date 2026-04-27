@@ -192,7 +192,7 @@ export default function PetDetailPage() {
     ? (new Date(prepagadaEntry.paid_until + 'T23:59:59') >= new Date() ? 'activo' : 'mora')
     : null;
 
-  const isHospitalized = pet.status === 'hospitalizado';
+  const isHospitalized = pet.status === 'hospitalizado' || !!activeHosp;
 
   const quickActions = [
     { label: 'Nueva Consulta',   icon: '🩺', action: () => { setEditingConsult(null); setConsultModal(true); },                                                 color: 'var(--color-primary)', primary: true  },
