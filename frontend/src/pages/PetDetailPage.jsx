@@ -39,7 +39,8 @@ export default function PetDetailPage() {
   const { items: patients, loading: loadingPatients } = useStore('patients');
   const { items: clients }     = useStore('clients');
   const { items: prepagada }   = useStore('prepagada');
-  const { items: consultations, add: addConsultation, edit: editConsultation, remove: removeConsultation } = useStore('consultations');
+  const { add: addConsultation, edit: editConsultation, remove: removeConsultation } = useStore('consultations');
+  const [patientConsults, setPatientConsults] = useState([]);
   const { items: vaccines, add: addVaccine, edit: editVaccine, remove: removeVaccine } = useStore('vaccines');
   const { items: imagingRecords, add: addImaging, edit: editImaging } = useStore('imaging');
   const { items: formulas, add: addFormula, edit: editFormula } = useStore('formulas_medicas');
@@ -109,10 +110,20 @@ export default function PetDetailPage() {
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
   }, [petId]);
+
+  // Fast targeted fetch — only this patient's consultations, no need to wait for global store
+  useEffect(() => {
+    supabase
+      .from('consultations')
+      .select('*')
+      .eq('patient_id', petId)
+      .order('date', { ascending: false })
+      .then(({ data }) => { if (data) setPatientConsults(data); });
+  }, [petId]);
+
   const client = pet ? clients.find(c => c.id === pet.client_id) : null;
 
-  const petConsults = consultations
-    .filter(c => c.patient_id === petId)
+  const petConsults = patientConsults
     .filter(c => sedeFilter === null || c.sede_id === sedeFilter)
     .sort((a, b) => `${b.date}${b.time || ''}`.localeCompare(`${a.date}${a.time || ''}`));
 
@@ -260,8 +271,9 @@ export default function PetDetailPage() {
 
     if (editingConsult) {
       // Editing existing consultation
-      editConsultation(editingConsult.id, { ...cleaned, estado: 'completada' });
-      // editado_por/hora_edicion/fecha_edicion already included in cleaned from ConsultationModal
+      const changes = { ...cleaned, estado: 'completada' };
+      editConsultation(editingConsult.id, changes);
+      setPatientConsults(prev => prev.map(c => c.id === editingConsult.id ? { ...c, ...changes } : c));
       // Always handle formula when editing: create if new, update if already exists
       const hasFormulaData = formula_productos.length > 0 || data.observaciones?.trim();
       if (hasFormulaData) {
@@ -284,6 +296,7 @@ export default function PetDetailPage() {
         { onError: (msg) => { saveError = msg; } }
       );
       if (!result) { alert('❌ Error al guardar consulta:\n\n' + saveError); return; }
+      setPatientConsults(prev => [result, ...prev]);
       await _createFormulaAndLabs({ ...data, formula_productos, labs_pedidos }, petId, pet);
     }
     closeConsultModal();
@@ -293,7 +306,9 @@ export default function PetDetailPage() {
     const { formula_productos: _fx, labs_pedidos: _lb, ...consultData } = data;
     const cleaned = Object.fromEntries(Object.entries(consultData).map(([k, v]) => [k, v === '' ? null : v]));
     if (editingConsult) {
-      editConsultation(editingConsult.id, { ...cleaned, estado: 'incompleta' });
+      const changes = { ...cleaned, estado: 'incompleta' };
+      editConsultation(editingConsult.id, changes);
+      setPatientConsults(prev => prev.map(c => c.id === editingConsult.id ? { ...c, ...changes } : c));
     } else {
       let saveError = null;
       const result = await addConsultation(
@@ -301,6 +316,7 @@ export default function PetDetailPage() {
         { onError: (msg) => { saveError = msg; } }
       );
       if (!result) { alert('❌ Error al guardar borrador:\n\n' + saveError); return; }
+      setPatientConsults(prev => [result, ...prev]);
     }
     closeConsultModal();
   };
@@ -456,7 +472,7 @@ export default function PetDetailPage() {
     const sn = (sid) => SEDES.find(s => s.id === sid)?.nombre || '—';
 
     const allEvents = [];
-    consultations.filter(c => c.patient_id === petId).forEach(c => {
+    patientConsults.forEach(c => {
       const meds = Array.isArray(c.medicamentos_aplicados) ? c.medicamentos_aplicados.filter(m => m.medicamento) : [];
       const formula = formulas.find(fx => fx.patient_id === petId && fx.fecha === c.date);
       const fxProds = formula && Array.isArray(formula.productos) ? formula.productos.filter(p => p.producto) : [];
@@ -560,7 +576,7 @@ export default function PetDetailPage() {
     const sn = (sid) => SEDES.find(s => s.id === sid)?.nombre || '—';
 
     const allEvents = [];
-    consultations.filter(c => c.patient_id === petId).forEach(c => {
+    patientConsults.forEach(c => {
       const meds = Array.isArray(c.medicamentos_aplicados) ? c.medicamentos_aplicados.filter(m => m.medicamento) : [];
       const formula = formulas.find(fx => fx.patient_id === petId && fx.fecha === c.date);
       const fxProds = formula && Array.isArray(formula.productos) ? formula.productos.filter(p => p.producto) : [];
@@ -746,8 +762,7 @@ export default function PetDetailPage() {
       >
         {/* Sede filter pills */}
         {(() => {
-          const allConsults = consultations.filter(c => c.patient_id === petId);
-          const sedesUsadas = [...new Set(allConsults.map(c => c.sede_id).filter(Boolean))];
+          const sedesUsadas = [...new Set(patientConsults.map(c => c.sede_id).filter(Boolean))];
           if (sedesUsadas.length > 1) return (
             <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap', marginBottom:'1rem' }}>
               <button
@@ -1461,7 +1476,7 @@ export default function PetDetailPage() {
         onClose={closeConsultModal}
         onSave={handleSaveConsultation}
         onSaveDraft={handleSaveDraft}
-        onDelete={(id) => { removeConsultation(id); setConsultModal(false); setEditingConsult(null); }}
+        onDelete={(id) => { removeConsultation(id); setPatientConsults(prev => prev.filter(c => c.id !== id)); setConsultModal(false); setEditingConsult(null); }}
         pet={pet}
         initialData={editingConsult ? {
           ...editingConsult,
