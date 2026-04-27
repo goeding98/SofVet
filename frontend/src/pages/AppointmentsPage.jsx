@@ -66,7 +66,7 @@ const inputSt = { width:'100%', padding:'0.55rem 0.75rem', fontFamily:'var(--fon
 // ── Appointment block (positioned in grid) ───────────────────────────────────
 const SOURCE_LABEL = { portal: '🌐 Portal', app: '📱 App' };
 
-function AptBlock({ apt, isAdmin, onEdit, onDelete }) {
+function AptBlock({ apt, isAdmin, onEdit, onDelete, onView }) {
   const startMins = timeToMins(apt.time);
   if (startMins === null || startMins < START_HOUR*60 || startMins >= END_HOUR*60) return null;
   const endMins = apt.time_end ? timeToMins(apt.time_end) : startMins + defaultDuration(apt.service);
@@ -81,9 +81,9 @@ function AptBlock({ apt, isAdmin, onEdit, onDelete }) {
   const height = (duration / 60) * ROW_H - 2;
   return (
     <div
-      onClick={e => { e.stopPropagation(); isAdmin && onEdit(apt); }}
+      onClick={e => { e.stopPropagation(); isAdmin ? onEdit(apt) : onView?.(apt); }}
       title={`${apt.time}${apt.time_end ? '–'+apt.time_end : ''} · ${apt.patient_name} · ${apt.service}${apt.consultorio ? ' · '+apt.consultorio : ''}${isExternal ? ' · '+SOURCE_LABEL[apt.source] : ''}`}
-      style={{ position:'absolute', top:top+1, left:2, right:2, height, background:bg, borderLeft:`3px solid ${color}`, borderRadius:4, padding:'3px 5px 3px 6px', overflow:'hidden', cursor:isAdmin?'pointer':'default', zIndex:2, boxShadow:'0 1px 3px rgba(0,0,0,0.1)' }}
+      style={{ position:'absolute', top:top+1, left:2, right:2, height, background:bg, borderLeft:`3px solid ${color}`, borderRadius:4, padding:'3px 5px 3px 6px', overflow:'hidden', cursor:'pointer', zIndex:2, boxShadow:'0 1px 3px rgba(0,0,0,0.1)' }}
     >
       <div style={{ fontSize:'0.68rem', fontWeight:700, color, lineHeight:1.3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
         {apt.time}{apt.time_end ? `–${apt.time_end}` : ''} {apt.patient_name}
@@ -100,7 +100,7 @@ function AptBlock({ apt, isAdmin, onEdit, onDelete }) {
 }
 
 // ── Time grid (week & day) ───────────────────────────────────────────────────
-function TimeGrid({ days, aptsByDate, todayStr, isAdmin, onCellClick, onEdit, onDelete }) {
+function TimeGrid({ days, aptsByDate, todayStr, isAdmin, onCellClick, onEdit, onDelete, onView }) {
   const scrollRef = useRef(null);
   const now = new Date();
   const nowMins = now.getHours()*60 + now.getMinutes();
@@ -180,7 +180,7 @@ function TimeGrid({ days, aptsByDate, todayStr, isAdmin, onCellClick, onEdit, on
 
                 {/* Appointment blocks */}
                 {dayItems.map(apt => (
-                  <AptBlock key={apt.id} apt={apt} isAdmin={isAdmin} onEdit={onEdit} onDelete={onDelete} />
+                  <AptBlock key={apt.id} apt={apt} isAdmin={isAdmin} onEdit={onEdit} onDelete={onDelete} onView={onView} />
                 ))}
 
                 {/* Current time red line */}
@@ -220,9 +220,10 @@ export default function AppointmentsPage() {
   const [selectedDay,setSelectedDay]= useState(todayStr);
   const [sedeFilter, setSedeFilter] = useState(isAdminUser ? null : (session?.sede_id || null));
 
-  const [modal,  setModal]  = useState(false);
-  const [form,   setForm]   = useState({});
-  const [editId, setEditId] = useState(null);
+  const [modal,   setModal]   = useState(false);
+  const [form,    setForm]    = useState({});
+  const [editId,  setEditId]  = useState(null);
+  const [viewApt, setViewApt] = useState(null);
 
   // ── Cedula lookup for new appointment ────────────────────────────────────
   const [cedula,      setCedula]      = useState('');
@@ -412,7 +413,7 @@ export default function AppointmentsPage() {
               const stBg    = STATUS_BG[apt.status]||'#eee';
               const {color,bg}=sc(apt.sede_id);
               return (
-                <div key={apt.id} style={{border:'1px solid var(--color-border)',borderLeft:`3px solid ${color}`,borderRadius:'var(--radius-md)',padding:'0.65rem',background:'var(--color-white)',marginBottom:'0.5rem'}}>
+                <div key={apt.id} onClick={() => canManageApts ? openEdit(apt) : setViewApt(apt)} style={{border:'1px solid var(--color-border)',borderLeft:`3px solid ${color}`,borderRadius:'var(--radius-md)',padding:'0.65rem',background:'var(--color-white)',marginBottom:'0.5rem',cursor:'pointer'}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'0.25rem'}}>
                     <span style={{fontFamily:'var(--font-title)',fontSize:'0.82rem',fontWeight:700,color:'var(--color-primary)'}}>{apt.time||'—'}</span>
                     <span style={{background:stBg,color:stColor,padding:'1px 7px',borderRadius:999,fontSize:'0.62rem',fontWeight:600}}>{apt.status}</span>
@@ -420,10 +421,10 @@ export default function AppointmentsPage() {
                   <div style={{fontWeight:700,fontSize:'0.82rem',marginBottom:'0.1rem'}}>{apt.patient_name}</div>
                   {apt.owner&&<div style={{fontSize:'0.7rem',color:'var(--color-text-muted)'}}>👤 {apt.owner}</div>}
                   <div style={{fontSize:'0.67rem',color:'var(--color-text-muted)',marginTop:'0.15rem'}}>🩺 {apt.service}{apt.consultorio?` · ${apt.consultorio}`:''}</div>
-                  {isAdminUser&&(
+                  {canManageApts&&(
                     <div style={{display:'flex',gap:'0.35rem',marginTop:'0.4rem',justifyContent:'flex-end'}}>
-                      <button onClick={()=>openEdit(apt)} style={{padding:'0.2rem 0.55rem',border:'1px solid var(--color-border)',borderRadius:'var(--radius-sm)',background:'var(--color-white)',cursor:'pointer',fontFamily:'var(--font-body)',fontSize:'0.67rem',color:'var(--color-text)'}}>✏️</button>
-                      <button onClick={()=>handleDelete(apt)} style={{padding:'0.2rem 0.55rem',border:'1px solid var(--color-danger)',borderRadius:'var(--radius-sm)',background:'var(--color-white)',cursor:'pointer',fontFamily:'var(--font-body)',fontSize:'0.67rem',color:'var(--color-danger)'}}>🗑</button>
+                      <button onClick={e=>{e.stopPropagation();openEdit(apt);}} style={{padding:'0.2rem 0.55rem',border:'1px solid var(--color-border)',borderRadius:'var(--radius-sm)',background:'var(--color-white)',cursor:'pointer',fontFamily:'var(--font-body)',fontSize:'0.67rem',color:'var(--color-text)'}}>✏️</button>
+                      <button onClick={e=>{e.stopPropagation();handleDelete(apt);}} style={{padding:'0.2rem 0.55rem',border:'1px solid var(--color-danger)',borderRadius:'var(--radius-sm)',background:'var(--color-white)',cursor:'pointer',fontFamily:'var(--font-body)',fontSize:'0.67rem',color:'var(--color-danger)'}}>🗑</button>
                     </div>
                   )}
                 </div>
@@ -493,6 +494,7 @@ export default function AppointmentsPage() {
           onCellClick={openAdd}
           onEdit={openEdit}
           onDelete={handleDelete}
+          onView={setViewApt}
         />
       )}
       {viewMode==='day' && (
@@ -504,11 +506,67 @@ export default function AppointmentsPage() {
           onCellClick={openAdd}
           onEdit={openEdit}
           onDelete={handleDelete}
+          onView={setViewApt}
         />
       )}
       {viewMode==='month' && <MonthView />}
 
       {/* Modal */}
+      {/* ── Vista de solo lectura (médicos / auxiliares) ── */}
+      {viewApt && (
+        <div onClick={()=>setViewApt(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:'1.5rem',backdropFilter:'blur(3px)'}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:'var(--color-white)',borderRadius:'var(--radius-xl)',boxShadow:'var(--shadow-lg)',width:'100%',maxWidth:480,overflow:'hidden'}}>
+            {/* Header */}
+            <div style={{padding:'1rem 1.25rem',background:sc(viewApt.sede_id).bg,borderBottom:`2px solid ${sc(viewApt.sede_id).color}`,display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+              <div>
+                <div style={{display:'flex',gap:'0.5rem',alignItems:'center',marginBottom:'0.25rem'}}>
+                  <span style={{background:sc(viewApt.sede_id).color,color:'white',padding:'2px 10px',borderRadius:999,fontSize:'0.68rem',fontWeight:700}}>{viewApt.service||'—'}</span>
+                  {viewApt.consultorio&&<span style={{fontSize:'0.7rem',color:sc(viewApt.sede_id).color,fontWeight:600}}>📍 {viewApt.consultorio}</span>}
+                </div>
+                <h3 style={{fontFamily:'var(--font-title)',color:'var(--color-primary)',fontSize:'1.05rem',margin:'0 0 0.1rem'}}>{viewApt.patient_name}</h3>
+                {viewApt.owner&&<p style={{margin:0,fontSize:'0.78rem',color:'var(--color-text-muted)'}}>👤 {viewApt.owner}</p>}
+              </div>
+              <button onClick={()=>setViewApt(null)} style={{width:30,height:30,background:'rgba(255,255,255,0.7)',border:'1px solid var(--color-border)',borderRadius:'50%',cursor:'pointer',fontSize:'1rem',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>×</button>
+            </div>
+            {/* Body */}
+            <div style={{padding:'1.1rem 1.25rem',display:'flex',flexDirection:'column',gap:'0.6rem'}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0.5rem'}}>
+                <div style={{background:'var(--color-bg)',borderRadius:'var(--radius-sm)',padding:'0.5rem 0.7rem'}}>
+                  <div style={{fontSize:'0.62rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:'var(--color-text-muted)',marginBottom:'0.1rem'}}>Fecha</div>
+                  <div style={{fontSize:'0.85rem',fontWeight:600}}>{viewApt.date||'—'}</div>
+                </div>
+                <div style={{background:'var(--color-bg)',borderRadius:'var(--radius-sm)',padding:'0.5rem 0.7rem'}}>
+                  <div style={{fontSize:'0.62rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:'var(--color-text-muted)',marginBottom:'0.1rem'}}>Hora</div>
+                  <div style={{fontSize:'0.85rem',fontWeight:600}}>{viewApt.time||'—'}{viewApt.time_end?` – ${viewApt.time_end}`:''}</div>
+                </div>
+                {viewApt.sede_id&&(
+                  <div style={{background:'var(--color-bg)',borderRadius:'var(--radius-sm)',padding:'0.5rem 0.7rem'}}>
+                    <div style={{fontSize:'0.62rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:'var(--color-text-muted)',marginBottom:'0.1rem'}}>Sede</div>
+                    <div>{sedeBadge(viewApt.sede_id)}</div>
+                  </div>
+                )}
+                <div style={{background:'var(--color-bg)',borderRadius:'var(--radius-sm)',padding:'0.5rem 0.7rem'}}>
+                  <div style={{fontSize:'0.62rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:'var(--color-text-muted)',marginBottom:'0.1rem'}}>Estado</div>
+                  <div style={{fontSize:'0.82rem',fontWeight:600,color:STATUS_COLOR[viewApt.status]||'#888'}}>{viewApt.status||'—'}</div>
+                </div>
+              </div>
+              {viewApt.notes&&(
+                <div style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:'var(--radius-sm)',padding:'0.65rem 0.85rem'}}>
+                  <div style={{fontSize:'0.62rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:'#b45309',marginBottom:'0.3rem'}}>📝 Observaciones</div>
+                  <p style={{margin:0,fontSize:'0.82rem',color:'var(--color-text)',whiteSpace:'pre-wrap',lineHeight:1.5}}>{viewApt.notes}</p>
+                </div>
+              )}
+              {(viewApt.source==='portal'||viewApt.source==='app')&&(
+                <div style={{fontSize:'0.72rem',color:'#6d28d9',fontWeight:600,textAlign:'center'}}>📱 Agendada desde {viewApt.source==='portal'?'portal web':'app cliente'}</div>
+              )}
+            </div>
+            <div style={{padding:'0.85rem 1.25rem',borderTop:'1px solid var(--color-border)',display:'flex',justifyContent:'flex-end'}}>
+              <button onClick={()=>setViewApt(null)} style={{padding:'0.5rem 1.25rem',background:'var(--color-white)',border:'1px solid var(--color-border)',borderRadius:'var(--radius-md)',cursor:'pointer',fontFamily:'var(--font-body)',fontSize:'0.875rem',color:'var(--color-text-muted)'}}>Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Modal isOpen={modal} onClose={()=>setModal(false)} title={editId?'Editar Cita':'📅 Nueva Cita'} onSave={handleSave} size="md">
 
         {/* ── Cedula lookup (only for new appointments) ── */}
