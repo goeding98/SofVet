@@ -197,7 +197,7 @@ export default function PetDetailPage() {
   const quickActions = [
     { label: 'Nueva Consulta',   icon: '🩺', action: () => { setEditingConsult(null); setConsultModal(true); },                                                 color: 'var(--color-primary)', primary: true  },
     { label: 'Control',          icon: '📋', action: () => { setEditingControl(null); setControlModal(true); }, color: '#316d74' },
-    { label: isHospitalized ? 'Hospitalizado' : 'Hospitalizar', icon: '🏥', action: () => !isHospitalized && setHospModal(true), color: 'var(--color-danger)',  disabled: isHospitalized },
+    { label: isHospitalized ? 'Rep. Hospitaliz.' : 'Hospitalizar', icon: '🏥', action: () => isHospitalized ? setHospRepModal(true) : setHospModal(true), color: 'var(--color-danger)' },
     { label: 'Vacunar',          icon: '💉', action: () => setVacunaModal(true),       color: 'var(--color-secondary)'               },
     { label: 'Desparasitar',     icon: '🪱', action: () => setDesparasitarModal(true), color: '#7c5cbf'                               },
     { label: 'Imagenología',     icon: '🔬', action: () => setImagingModal(true),                                                  color: '#1565c0'                               },
