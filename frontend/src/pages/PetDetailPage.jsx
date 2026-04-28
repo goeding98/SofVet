@@ -266,7 +266,12 @@ export default function PetDetailPage() {
   };
 
   const handleSaveConsultation = async (data) => {
-    const { formula_productos, labs_pedidos, ...consultData } = data;
+    const {
+      formula_productos, labs_pedidos,
+      vacuna_ultima_fecha, vacuna_nombre, vacuna_proxima_fecha,
+      despar_ultima_fecha, despar_tipo, despar_proxima_fecha,
+      ...consultData
+    } = data;
     const cleaned = Object.fromEntries(Object.entries(consultData).map(([k, v]) => [k, v === '' ? null : v]));
 
     if (editingConsult) {
@@ -299,6 +304,29 @@ export default function PetDetailPage() {
       setPatientConsults(prev => [result, ...prev]);
       await _createFormulaAndLabs({ ...data, formula_productos, labs_pedidos }, petId, pet);
     }
+
+    // Save vaccine record if any field filled
+    if (vacuna_ultima_fecha || vacuna_nombre || vacuna_proxima_fecha) {
+      await addVaccine({
+        vaccine_name: vacuna_nombre || 'Vacuna',
+        date_applied: vacuna_ultima_fecha || null,
+        next_dose:    vacuna_proxima_fecha || null,
+        patient_id:   petId,
+        patient_name: pet.name,
+      }, { onError: () => {} });
+    }
+
+    // Save desparasitación record if any field filled
+    if (despar_ultima_fecha || despar_tipo || despar_proxima_fecha) {
+      await addVaccine({
+        vaccine_name: `Desparasitación - ${despar_tipo || 'sin especificar'}`,
+        date_applied: despar_ultima_fecha || null,
+        next_dose:    despar_proxima_fecha || null,
+        patient_id:   petId,
+        patient_name: pet.name,
+      }, { onError: () => {} });
+    }
+
     closeConsultModal();
   };
 

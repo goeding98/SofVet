@@ -26,6 +26,13 @@ const makeEmpty = () => ({
   medicamentos_aplicados: [],
   formula_productos: [],
   labs_pedidos: [],
+  // Vacunas y Desparasitaciones (opcional)
+  vacuna_ultima_fecha: '',
+  vacuna_nombre: '',
+  vacuna_proxima_fecha: '',
+  despar_ultima_fecha: '',
+  despar_tipo: '',
+  despar_proxima_fecha: '',
 });
 
 const lSt = {
@@ -333,6 +340,47 @@ export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft
       </div>
 
       {TA('Observaciones', 'observaciones', 2)}
+
+      {/* ── Vacunas y Desparasitaciones ── */}
+      <SectionHeader icon="💉" title="Vacunas y Desparasitaciones (opcional)" color="#7c4d9e" />
+      <div style={{ marginBottom:'1rem', display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem' }}>
+        {/* Vacuna */}
+        <div style={{ background:'#f9f5ff', border:'1px solid #d6bfee', borderRadius:'var(--radius-md)', padding:'0.85rem' }}>
+          <div style={{ fontFamily:'var(--font-title)', fontSize:'0.75rem', fontWeight:700, color:'#7c4d9e', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:'0.65rem' }}>🐾 Vacuna</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:'0.55rem' }}>
+            <div>
+              <label style={lSt}>Última vacuna</label>
+              <input type="date" value={form.vacuna_ultima_fecha} onChange={e=>setForm(f=>({...f,vacuna_ultima_fecha:e.target.value}))} style={iSt} />
+            </div>
+            <div>
+              <label style={lSt}>Nombre de la vacuna</label>
+              <input value={form.vacuna_nombre} onChange={e=>setForm(f=>({...f,vacuna_nombre:e.target.value}))} style={iSt} placeholder="Ej: Nobivac DHPPi" />
+            </div>
+            <div>
+              <label style={lSt}>Próxima vacuna</label>
+              <input type="date" value={form.vacuna_proxima_fecha} onChange={e=>setForm(f=>({...f,vacuna_proxima_fecha:e.target.value}))} style={iSt} />
+            </div>
+          </div>
+        </div>
+        {/* Desparasitación */}
+        <div style={{ background:'#f5fff8', border:'1px solid #b3e6c4', borderRadius:'var(--radius-md)', padding:'0.85rem' }}>
+          <div style={{ fontFamily:'var(--font-title)', fontSize:'0.75rem', fontWeight:700, color:'#2e7d50', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:'0.65rem' }}>🦠 Desparasitación</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:'0.55rem' }}>
+            <div>
+              <label style={lSt}>Última desparasitación</label>
+              <input type="date" value={form.despar_ultima_fecha} onChange={e=>setForm(f=>({...f,despar_ultima_fecha:e.target.value}))} style={iSt} />
+            </div>
+            <div>
+              <label style={lSt}>Tipo / producto</label>
+              <input value={form.despar_tipo} onChange={e=>setForm(f=>({...f,despar_tipo:e.target.value}))} style={iSt} placeholder="Ej: Milbemax, Drontal" />
+            </div>
+            <div>
+              <label style={lSt}>Próxima desparasitación</label>
+              <input type="date" value={form.despar_proxima_fecha} onChange={e=>setForm(f=>({...f,despar_proxima_fecha:e.target.value}))} style={iSt} />
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* ── Laboratorios ordenados ── */}
       <SectionHeader icon="🧪" title="Laboratorios ordenados (opcional)" color="#2e7d50" />
