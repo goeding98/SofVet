@@ -1593,7 +1593,12 @@ export default function PetDetailPage() {
           recordType={remitirModal.recordType}
           recordId={remitirModal.recordId}
           onClose={() => setRemitirModal(null)}
-          onSave={async (data) => { await addRemision(data); setRemitirModal(null); }}
+          onSave={async (data) => {
+            let err = null;
+            await addRemision(data, { onError: (msg) => { err = msg; } });
+            if (err) { alert('❌ Error al guardar remisión:\n\n' + err); return; }
+            setRemitirModal(null);
+          }}
           session={session}
         />
       )}
