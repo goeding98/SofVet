@@ -108,6 +108,9 @@ export default function PortalPage() {
   // ── Cancel appointment ────────────────────────────────────────────────────
   const [cancelingId, setCancelingId] = useState(null); // id being confirmed
 
+  // ── Carnet modal ──────────────────────────────────────────────────────────
+  const [carnetModal, setCarnetModal] = useState(null); // { pet, type: 'vacunas'|'despar' }
+
   const handleCancelAppointment = async (id) => {
     const { error } = await supabase.from('appointments').update({ status: 'cancelada' }).eq('id', id);
     if (error) return alert('Error al cancelar: ' + error.message);
@@ -157,7 +160,7 @@ export default function PortalPage() {
     const tod = today();
 
     const [vR, cR, pR, lR, aR, iR, hR, hrR, ppR] = await Promise.all([
-      supabase.from('vaccines').select('patient_id,vaccine_name,date_applied,next_dose').in('patient_id', ids).order('date_applied', { ascending: false }),
+      supabase.from('vaccines').select('patient_id,vaccine_name,date_applied,next_dose,vet').in('patient_id', ids).order('date_applied', { ascending: true }),
       supabase.from('consultations').select('patient_id,motivo_consulta,date,created_at').in('patient_id', ids).order('created_at', { ascending: false }),
       supabase.from('procedimientos').select('patient_id,tipo,descripcion,fecha,anestesia').in('patient_id', ids).order('fecha', { ascending: false }),
       supabase.from('laboratorios_pedidos').select('patient_id,tipo_examen,estado,fecha_solicitado').in('patient_id', ids).neq('estado','Solicitado').order('fecha_solicitado', { ascending: false }),
@@ -173,8 +176,10 @@ export default function PortalPage() {
     setClient(cl);
     setData({ pets: pets.map(p => ({
       ...p,
-      lastVac:    vac.filter(v => v.patient_id===p.id && !v.vaccine_name?.toLowerCase().includes('desparasit'))[0],
-      lastDespar: vac.filter(v => v.patient_id===p.id &&  v.vaccine_name?.toLowerCase().includes('desparasit'))[0],
+      allVacs:    vac.filter(v => v.patient_id===p.id && !v.vaccine_name?.toLowerCase().includes('desparasit')),
+      allDespar:  vac.filter(v => v.patient_id===p.id &&  v.vaccine_name?.toLowerCase().includes('desparasit')),
+      get lastVac()    { return this.allVacs[this.allVacs.length - 1] || null; },
+      get lastDespar() { return this.allDespar[this.allDespar.length - 1] || null; },
       consults:   con.filter(c => c.patient_id===p.id),
       procs:      proc.filter(x => x.patient_id===p.id),
       labs:       lab.filter(l => l.patient_id===p.id),
@@ -936,12 +941,16 @@ export default function PortalPage() {
                         main={pet.lastVac?.vaccine_name || 'Sin registro'}
                         sub={pet.lastVac ? fmt(pet.lastVac.date_applied) : null}
                         note={pet.lastVac?.next_dose ? `Próxima: ${fmt(pet.lastVac.next_dose)}` : null}
-                        empty={!pet.lastVac} C={C} />
+                        empty={!pet.lastVac} C={C}
+                        onClick={pet.allVacs.length > 0 ? () => setCarnetModal({ pet, type:'vacunas' }) : null}
+                        linkLabel="Ver Carnet de Vacunación" />
                       <MiniCard icon="🪱" label="Última desparasitación"
-                        main={pet.lastDespar?.vaccine_name || 'Sin registro'}
+                        main={pet.lastDespar?.vaccine_name?.replace('Desparasitación - ','') || 'Sin registro'}
                         sub={pet.lastDespar ? fmt(pet.lastDespar.date_applied) : null}
                         note={pet.lastDespar?.next_dose ? `Próxima: ${fmt(pet.lastDespar.next_dose)}` : null}
-                        empty={!pet.lastDespar} C={C} />
+                        empty={!pet.lastDespar} C={C}
+                        onClick={pet.allDespar.length > 0 ? () => setCarnetModal({ pet, type:'despar' }) : null}
+                        linkLabel="Ver Carnet de Desparasitación" />
                       <MiniCard icon="📋" label="Consultas" main={`${pet.consults.length} registradas`} sub="en su historia clínica" empty={pet.consults.length===0} C={C} />
                       <MiniCard icon="📅" label="Próximas citas" main={pet.agenda.length > 0 ? `${pet.agenda.length} agendada${pet.agenda.length>1?'s':''}` : 'Sin citas próximas'} sub={pet.agenda[0] ? `${fmt(pet.agenda[0].date)} · ${pet.agenda[0].service}` : null} empty={pet.agenda.length===0} C={C} />
                     </div>
@@ -1246,6 +1255,17 @@ export default function PortalPage() {
         </div>
       )}
 
+      {/* Modal: carnet vacunas / desparasitación */}
+      {carnetModal && (
+        <CarnetModal
+          pet={carnetModal.pet}
+          type={carnetModal.type}
+          client={client}
+          C={C}
+          onClose={() => setCarnetModal(null)}
+        />
+      )}
+
       {/* Modal: solicitar HC */}
       {solModal && (
         <div onClick={()=>setSolModal(false)} style={{ position:'fixed', inset:0, background:'rgba(30,78,84,0.45)', zIndex:100, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem', backdropFilter:'blur(3px)' }}>
@@ -1263,13 +1283,98 @@ export default function PortalPage() {
   );
 }
 
-function MiniCard({ icon, label, main, sub, note, empty, C }) {
+function MiniCard({ icon, label, main, sub, note, empty, C, onClick, linkLabel }) {
   return (
-    <div style={{ background:empty?'#FAFAF9':C.cream, border:`1px solid ${empty?'#EBEBEB':C.border}`, borderRadius:14, padding:'0.9rem' }}>
+    <div
+      onClick={onClick || undefined}
+      style={{ background:empty?'#FAFAF9':C.cream, border:`1px solid ${empty?'#EBEBEB':C.border}`, borderRadius:14, padding:'0.9rem', cursor: onClick ? 'pointer' : 'default', transition:'box-shadow 0.15s' }}
+    >
       <div style={{ fontSize:'0.67rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.muted, marginBottom:'0.4rem' }}>{icon} {label}</div>
       <div style={{ fontWeight:700, fontSize:'0.88rem', color:empty?'#C0C0C0':C.tealDark, lineHeight:1.3 }}>{main}</div>
       {sub  && <div style={{ fontSize:'0.74rem', color:C.muted, marginTop:'0.2rem' }}>{sub}</div>}
       {note && <div style={{ fontSize:'0.7rem', color:C.gold, marginTop:'0.25rem', fontWeight:600 }}>📅 {note}</div>}
+      {onClick && !empty && <div style={{ fontSize:'0.68rem', color:C.teal, fontWeight:700, marginTop:'0.45rem' }}>📋 {linkLabel || 'Ver carnet'} →</div>}
+    </div>
+  );
+}
+
+function CarnetModal({ pet, type, client, C, onClose }) {
+  const isVac    = type === 'vacunas';
+  const items    = isVac ? pet.allVacs : pet.allDespar;
+  const title    = isVac ? 'Carnet de Vacunación' : 'Carnet de Desparasitación';
+  const colLabel = isVac ? 'Vacuna' : 'Producto';
+  const nextCol  = isVac ? 'Próxima vacuna' : 'Próxima desparasitación';
+  const MIN_ROWS = 8;
+  const rows     = [...items];
+  while (rows.length < MIN_ROWS) rows.push(null);
+
+  const tdSt = { padding:'0.55rem 0.7rem', border:'1px solid #c5ddd9', fontSize:'0.77rem', verticalAlign:'middle' };
+
+  return (
+    <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem', overflowY:'auto' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background:'white', borderRadius:16, width:'100%', maxWidth:720, overflow:'hidden', boxShadow:'0 20px 60px rgba(0,0,0,0.3)', margin:'auto' }}>
+
+        {/* Header */}
+        <div style={{ background:C.teal, padding:'1rem 1.5rem', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <div>
+            <div style={{ fontFamily:'Georgia,serif', fontSize:'1.2rem', fontWeight:700, color:'white' }}>Pets &amp; Pets</div>
+            <div style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.75)', marginTop:'0.1rem' }}>Tranquilidad para ti · Cuidado para ellos</div>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:'1rem' }}>
+            <span style={{ fontWeight:800, fontSize:'0.95rem', color:'white' }}>{title}</span>
+            <button onClick={onClose} style={{ background:'rgba(255,255,255,0.2)', border:'none', borderRadius:999, width:30, height:30, cursor:'pointer', color:'white', fontSize:'1.2rem', lineHeight:1 }}>×</button>
+          </div>
+        </div>
+
+        {/* Pet info */}
+        <div style={{ padding:'0.85rem 1.5rem', background:'#f5fafa', borderBottom:`1px solid ${C.border}`, display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'0.3rem 1.5rem', fontSize:'0.78rem' }}>
+          <div><span style={{ color:C.muted, fontWeight:600 }}>Mascota: </span><strong>{pet.name}</strong></div>
+          <div><span style={{ color:C.muted, fontWeight:600 }}>Propietario: </span><strong>{client?.name}</strong></div>
+          <div><span style={{ color:C.muted, fontWeight:600 }}>Especie: </span>{pet.species || '—'}</div>
+          <div><span style={{ color:C.muted, fontWeight:600 }}>Raza: </span>{pet.breed || '—'}</div>
+          <div><span style={{ color:C.muted, fontWeight:600 }}>Sexo: </span>{pet.sex || '—'}</div>
+          <div><span style={{ color:C.muted, fontWeight:600 }}>Color: </span>{pet.color || '—'}</div>
+        </div>
+
+        {/* Table */}
+        <div style={{ padding:'1.1rem 1.5rem' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse' }}>
+            <thead>
+              <tr>
+                {['Fecha', colLabel, 'Médico Veterinario', nextCol].map(h => (
+                  <th key={h} style={{ padding:'0.5rem 0.7rem', background:C.teal, color:'white', textAlign:'left', fontSize:'0.71rem', fontWeight:700, border:`1px solid ${C.teal}`, letterSpacing:'0.03em' }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} style={{ background: r ? (i%2===0 ? 'white' : '#f0faf9') : (i%2===0 ? '#fafafa' : '#f5f5f5') }}>
+                  <td style={{ ...tdSt, color: r ? C.tealDark : '#ddd', fontWeight: r ? 600 : 400, whiteSpace:'nowrap' }}>
+                    {r ? (() => { try { return new Date(r.date_applied+'T12:00').toLocaleDateString('es-CO',{day:'2-digit',month:'2-digit',year:'numeric'}); } catch { return r.date_applied; } })() : ''}
+                  </td>
+                  <td style={{ ...tdSt, color: r ? C.tealDark : '#ddd', fontWeight: r ? 600 : 400 }}>
+                    {r ? (isVac ? r.vaccine_name : (r.vaccine_name?.replace('Desparasitación - ','') || r.vaccine_name)) : ''}
+                  </td>
+                  <td style={{ ...tdSt, color: r?.vet ? '#333' : '#bbb', fontSize:'0.74rem' }}>
+                    {r ? (r.vet || '—') : ''}
+                  </td>
+                  <td style={{ ...tdSt, color: r?.next_dose ? C.gold : '#bbb', fontWeight: r?.next_dose ? 700 : 400, fontSize:'0.74rem', whiteSpace:'nowrap' }}>
+                    {r ? (r.next_dose ? (() => { try { return new Date(r.next_dose+'T12:00').toLocaleDateString('es-CO',{day:'2-digit',month:'2-digit',year:'numeric'}); } catch { return r.next_dose; } })() : '—') : ''}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding:'0.6rem 1.5rem', background:'#f5fafa', borderTop:`1px solid ${C.border}`, display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:'0.7rem', color:C.muted }}>
+          <span>📍 Colseguros: Av. Cascajal #106‑74 · Ciudad Jardín: Cl.10 #51‑143</span>
+          <span>📞 320 800 0002 · 315 294 6916</span>
+        </div>
+      </div>
     </div>
   );
 }
