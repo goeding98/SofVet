@@ -395,7 +395,7 @@ export default function RemisionesPage() {
                       ) : (
                         <div style={{ display: 'flex', gap: '0.3rem' }}>
                           <button onClick={() => startEdit(r)} style={{ padding: '0.3rem 0.6rem', background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>✏️</button>
-                          {isAdmin && (
+                          {canManage && (
                             <button onClick={() => handleDelete(r.id)} style={{ padding: '0.3rem 0.6rem', background: 'var(--color-white)', border: '1px solid #fca5a5', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.72rem', color: 'var(--color-danger)' }}>🗑</button>
                           )}
                         </div>
