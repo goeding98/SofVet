@@ -394,22 +394,31 @@ export default function PetDetailPage() {
     } else {
       let imagen_url = null;
       if (notaFile) {
-        imagen_url = await new Promise((resolve) => {
-          const img = new Image();
-          const blobUrl = URL.createObjectURL(notaFile);
-          img.onload = () => {
-            URL.revokeObjectURL(blobUrl);
-            const MAX = 1024;
-            let { width: w, height: h } = img;
-            if (w > MAX || h > MAX) { if (w >= h) { h = Math.round(h * MAX / w); w = MAX; } else { w = Math.round(w * MAX / h); h = MAX; } }
-            const canvas = document.createElement('canvas');
-            canvas.width = w; canvas.height = h;
-            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-            resolve(canvas.toDataURL('image/jpeg', 0.78));
-          };
-          img.onerror = () => { URL.revokeObjectURL(blobUrl); resolve(null); };
-          img.src = blobUrl;
-        });
+        const isPdf = notaFile.type === 'application/pdf' || notaFile.name.toLowerCase().endsWith('.pdf');
+        if (isPdf) {
+          const path = `notas/${petId}/${Date.now()}_${notaFile.name}`;
+          const { error: upErr } = await supabase.storage.from('laboratorios-reports').upload(path, notaFile, { upsert: true });
+          if (upErr) { setNotaUploading(false); return alert('❌ Error subiendo PDF:\n\n' + upErr.message); }
+          const { data: urlData } = supabase.storage.from('laboratorios-reports').getPublicUrl(path);
+          imagen_url = urlData.publicUrl;
+        } else {
+          imagen_url = await new Promise((resolve) => {
+            const img = new Image();
+            const blobUrl = URL.createObjectURL(notaFile);
+            img.onload = () => {
+              URL.revokeObjectURL(blobUrl);
+              const MAX = 1024;
+              let { width: w, height: h } = img;
+              if (w > MAX || h > MAX) { if (w >= h) { h = Math.round(h * MAX / w); w = MAX; } else { w = Math.round(w * MAX / h); h = MAX; } }
+              const canvas = document.createElement('canvas');
+              canvas.width = w; canvas.height = h;
+              canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+              resolve(canvas.toDataURL('image/jpeg', 0.78));
+            };
+            img.onerror = () => { URL.revokeObjectURL(blobUrl); resolve(null); };
+            img.src = blobUrl;
+          });
+        }
       }
       let err = null;
       const result = await addNota({
@@ -982,12 +991,21 @@ export default function PetDetailPage() {
                     <p style={{ margin:'0 0 0.6rem', fontSize:'0.82rem', color:'var(--color-text)', lineHeight:1.5, whiteSpace:'pre-wrap' }}>{n.observaciones}</p>
                   )}
                   {n.imagen_url && (
-                    <img
-                      src={n.imagen_url}
-                      alt={n.titulo}
-                      onClick={() => setNotaImageView(n.imagen_url)}
-                      style={{ maxWidth:'100%', maxHeight:220, objectFit:'contain', borderRadius:'var(--radius-sm)', cursor:'zoom-in', border:'1px solid #f5c842' }}
-                    />
+                    n.imagen_url.startsWith('data:')
+                      ? <img
+                          src={n.imagen_url}
+                          alt={n.titulo}
+                          onClick={() => setNotaImageView(n.imagen_url)}
+                          style={{ maxWidth:'100%', maxHeight:220, objectFit:'contain', borderRadius:'var(--radius-sm)', cursor:'zoom-in', border:'1px solid #f5c842' }}
+                        />
+                      : <a
+                          href={n.imagen_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ display:'inline-flex', alignItems:'center', gap:'0.4rem', padding:'0.4rem 0.85rem', background:'#fef3cd', border:'1px solid #f5c842', borderRadius:'var(--radius-sm)', fontSize:'0.78rem', color:'#92400e', fontWeight:600, textDecoration:'none' }}
+                        >
+                          📄 Ver archivo adjunto
+                        </a>
                   )}
                 </div>
                 );
@@ -1471,16 +1489,16 @@ export default function PetDetailPage() {
               )}
               {!editingNota && (
               <div>
-                <label style={{ display:'block', fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', marginBottom:'0.3rem', color:'var(--color-text)' }}>Imagen (opcional)</label>
+                <label style={{ display:'block', fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', marginBottom:'0.3rem', color:'var(--color-text)' }}>Archivo adjunto — imagen o PDF (opcional)</label>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/*,application/pdf"
                   onChange={e => setNotaFile(e.target.files[0] || null)}
                   style={{ width:'100%', fontSize:'0.82rem' }}
                 />
                 {notaFile && (
                   <div style={{ marginTop:'0.4rem', fontSize:'0.75rem', color:'#b8860b' }}>
-                    📎 {notaFile.name} ({(notaFile.size / 1024).toFixed(0)} KB)
+                    {notaFile.type === 'application/pdf' || notaFile.name.toLowerCase().endsWith('.pdf') ? '📄' : '🖼️'} {notaFile.name} ({(notaFile.size / 1024).toFixed(0)} KB)
                   </div>
                 )}
               </div>
