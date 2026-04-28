@@ -7,7 +7,7 @@ const fmtCOP = v => new Intl.NumberFormat('es-CO', { style: 'currency', currency
 const lSt = { display: 'block', fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text)' };
 const iSt = { width: '100%', padding: '0.55rem 0.75rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.875rem', boxSizing: 'border-box' };
 
-const TIPOS_ALIADO = ['Clínica Veterinaria', 'Consultorio Veterinario', 'Laboratorio', 'Especialista', 'Otro'];
+const TIPOS_ALIADO = ['Clínica Veterinaria', 'Médico Independiente'];
 
 function today() { return new Date().toISOString().split('T')[0]; }
 function currentMonth() { return today().slice(0, 7); }
