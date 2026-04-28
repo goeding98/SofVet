@@ -197,7 +197,8 @@ function NuevaRemisionModal({ aliados, onClose, onSave, session }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function RemisionesPage() {
   const { session } = useAuth();
-  const isAdmin = session?.rol === 'Administrador';
+  const isAdmin    = session?.rol === 'Administrador';
+  const canManage  = isAdmin || session?.sede_id === 4;
 
   const { items: aliados,     add: addAliado,     remove: removeAliado }     = useStore('aliados');
   const { items: remisiones,  add: addRemision,   edit: editRemision, remove: removeRemision } = useStore('remisionesVis');
@@ -277,7 +278,7 @@ export default function RemisionesPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
-          {isAdmin && (
+          {canManage && (
             <button onClick={() => setShowAliados(true)} style={{ padding: '0.5rem 1rem', background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.82rem', color: 'var(--color-text)' }}>
               🏥 Gestionar aliados
             </button>
@@ -415,7 +416,7 @@ export default function RemisionesPage() {
           onClose={() => setShowAliados(false)}
           onAdd={handleAddAliado}
           onRemove={handleRemoveAliado}
-          isAdmin={isAdmin}
+          isAdmin={canManage}
         />
       )}
       {showNueva && (
