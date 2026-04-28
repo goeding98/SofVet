@@ -96,7 +96,6 @@ function NuevaRemisionModal({ aliados, onClose, onSave, session }) {
 
   const handleSave = () => {
     if (!aliadoId) { setErr('Selecciona la clínica aliada.'); return; }
-    if (!paciente.trim()) { setErr('El nombre del paciente es requerido.'); return; }
     if (!servicio.trim()) { setErr('El servicio es requerido.'); return; }
     const valorNum   = parseFloat(valor)   || null;
     const comisionNum = parseFloat(comision) || null;
@@ -145,7 +144,7 @@ function NuevaRemisionModal({ aliados, onClose, onSave, session }) {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <div>
-              <label style={lSt}>Paciente *</label>
+              <label style={lSt}>Paciente</label>
               <input value={paciente} onChange={e => setPaciente(e.target.value)} style={iSt} placeholder="Nombre del paciente" />
             </div>
             <div>
