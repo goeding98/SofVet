@@ -1070,11 +1070,22 @@ export default function PetDetailPage() {
                           {estadoCfg.label}
                         </span>
                       </div>
-                      <span style={{ fontSize:'0.72rem', color:'var(--color-text-muted)', whiteSpace:'nowrap' }}>
-                        Solicitado: {p.fecha_solicitado || '—'}{p.hora_solicitado ? ` a las ${p.hora_solicitado}` : ''}
-                        {p.fecha_reportado && ` · Reportado: ${p.fecha_reportado}`}
-                        {p.reportado_por && ` por ${p.reportado_por}`}
-                      </span>
+                      <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
+                        <span style={{ fontSize:'0.72rem', color:'var(--color-text-muted)', whiteSpace:'nowrap' }}>
+                          Solicitado: {p.fecha_solicitado || '—'}{p.hora_solicitado ? ` a las ${p.hora_solicitado}` : ''}
+                          {p.fecha_reportado && ` · Reportado: ${p.fecha_reportado}`}
+                          {p.reportado_por && ` por ${p.reportado_por}`}
+                        </span>
+                        {remisionesVis.some(r => r.record_type === 'lab' && String(r.record_id) === String(p.id)) && (
+                          <span style={{ fontSize:'0.65rem', background:'#e8f0fd', color:'#2e5cbf', borderRadius:999, padding:'1px 7px', fontWeight:700 }}>🔗 Remitido</span>
+                        )}
+                        {canRemit && (
+                          <button
+                            onClick={() => setRemitirModal({ recordType:'lab', recordId: p.id, servicio: `Laboratorio: ${p.tipo_examen}` })}
+                            style={{ padding:'0.2rem 0.6rem', background:'white', border:'1px solid #2e5cbf', color:'#2e5cbf', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)', whiteSpace:'nowrap' }}
+                          >🔗 Remitir</button>
+                        )}
+                      </div>
                     </div>
                     {/* PDF result if available */}
                     {labResult && (
