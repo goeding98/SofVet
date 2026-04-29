@@ -71,8 +71,8 @@ export default function ProcedimientosModal({ isOpen, onClose, onSave, pet, init
         ...(isAdmin ? { fecha: editFecha, hora_creacion: editHora } : {}),
       } : {
         veterinario:   session?.nombre || 'Desconocido',
-        fecha:         hoy,
-        hora_creacion: horaAhora,
+        fecha:         editFecha || hoy,
+        hora_creacion: editHora  || horaAhora,
       }),
     });
     reset(); onClose();
@@ -123,7 +123,7 @@ export default function ProcedimientosModal({ isOpen, onClose, onSave, pet, init
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'0.75rem', marginBottom:'1rem' }}>
             <div>
               <label style={lSt}>Fecha</label>
-              {(isAdmin && isEditing) ? (
+              {isAdmin ? (
                 <input type="date" value={editFecha} onChange={e => setEditFecha(e.target.value)} style={iSt} />
               ) : (
                 <input readOnly value={editFecha} style={{ ...iSt, background:'var(--color-bg)', color:'var(--color-text-muted)' }} />
@@ -131,7 +131,7 @@ export default function ProcedimientosModal({ isOpen, onClose, onSave, pet, init
             </div>
             <div>
               <label style={lSt}>Hora</label>
-              {(isAdmin && isEditing) ? (
+              {isAdmin ? (
                 <input type="time" value={editHora} onChange={e => setEditHora(e.target.value)} style={iSt} />
               ) : (
                 <input readOnly value={editHora} style={{ ...iSt, background:'var(--color-bg)', color:'var(--color-text-muted)' }} />
