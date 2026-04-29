@@ -5,7 +5,7 @@ import { useAuth } from '../utils/useAuth';
 
 const VACUNAS = {
   Perro: ['Puppy Virbac', 'Quíntuple', 'Séxtuple', 'Anti-rabia', 'KC'],
-  Gato:  ['Triple Felina', 'Leucemia'],
+  Gato:  ['Triple Felina', 'Leucemia', 'Anti-rabia'],
 };
 
 const lSt = {
