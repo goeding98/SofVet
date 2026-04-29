@@ -7,7 +7,8 @@ const fmtCOP = v => new Intl.NumberFormat('es-CO', { style: 'currency', currency
 const lSt = { display: 'block', fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text)' };
 const iSt = { width: '100%', padding: '0.55rem 0.75rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.875rem', boxSizing: 'border-box' };
 
-const TIPOS_ALIADO = ['Clínica Veterinaria', 'Médico Independiente'];
+const TIPOS_ALIADO = ['Clínica Veterinaria', 'Médico Independiente', 'Criadero', 'Peluquería', 'Petshop', 'Guardería'];
+const SEDES_OPT = [{ id:1, nombre:'Santa Mónica' }, { id:2, nombre:'Colseguros' }, { id:3, nombre:'Ciudad Jardín' }, { id:4, nombre:'Domicilio' }];
 
 function today() { return new Date().toISOString().split('T')[0]; }
 function currentMonth() { return today().slice(0, 7); }
@@ -92,6 +93,7 @@ function NuevaRemisionModal({ aliados, onClose, onSave, session }) {
   const [comision,  setComision]  = useState('');
   const [obs,       setObs]       = useState('');
   const [fecha,     setFecha]     = useState(today());
+  const [sedeId,    setSedeId]    = useState('');
   const [err,       setErr]       = useState('');
 
   const handleSave = () => {
@@ -109,6 +111,7 @@ function NuevaRemisionModal({ aliados, onClose, onSave, session }) {
       comision_pct:       comisionNum,
       observaciones:      obs.trim() || null,
       fecha,
+      sede_id:            sedeId ? parseInt(sedeId) : null,
       tipo_registro:      'manual',
       registrado_por:     session?.nombre || null,
     });
@@ -135,6 +138,14 @@ function NuevaRemisionModal({ aliados, onClose, onSave, session }) {
               <label style={lSt}>Fecha</label>
               <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={iSt} />
             </div>
+          </div>
+
+          <div>
+            <label style={lSt}>Sede de atención</label>
+            <select value={sedeId} onChange={e => setSedeId(e.target.value)} style={iSt}>
+              <option value="">— Seleccionar —</option>
+              {SEDES_OPT.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+            </select>
           </div>
 
           <div>
@@ -324,7 +335,7 @@ export default function RemisionesPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: 900 }}>
             <thead>
               <tr style={{ background: 'var(--color-bg)', borderBottom: '1px solid var(--color-border)' }}>
-                {['Fecha', 'Clínica Aliada', 'Veterinario', 'Paciente', 'Especie', 'Servicio', 'Valor Facturado', 'Comisión %', 'Valor Comisión', 'Observaciones', ''].map(h => (
+                {['Fecha', 'Sede Atención', 'Clínica Aliada', 'Veterinario', 'Paciente', 'Especie', 'Servicio', 'Valor Facturado', 'Comisión %', 'Valor Comisión', 'Observaciones', ''].map(h => (
                   <th key={h} style={{ padding: '0.55rem 0.75rem', textAlign: 'left', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -340,6 +351,9 @@ export default function RemisionesPage() {
                 return (
                   <tr key={r.id} style={{ borderBottom: i < filtradas.length - 1 ? '1px solid var(--color-border)' : 'none', background: isEdit ? '#f5f8ff' : 'transparent' }}>
                     <td style={{ padding: '0.5rem 0.75rem', whiteSpace: 'nowrap', color: 'var(--color-text-muted)' }}>{r.fecha}</td>
+                    <td style={{ padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                      {SEDES_OPT.find(s => s.id === r.sede_id)?.nombre || '—'}
+                    </td>
                     <td style={{ padding: '0.5rem 0.75rem', fontWeight: 600 }}>
                       {aliado?.nombre || '—'}
                       {aliado?.tipo && <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', fontWeight: 400 }}>{aliado.tipo}</div>}

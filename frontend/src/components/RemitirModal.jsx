@@ -3,7 +3,7 @@ import { useState } from 'react';
 const lSt = { display: 'block', fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text)' };
 const iSt = { width: '100%', padding: '0.55rem 0.75rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.875rem', boxSizing: 'border-box' };
 
-export default function RemitirModal({ aliados, pet, servicio, recordType, recordId, onClose, onSave, session }) {
+export default function RemitirModal({ aliados, pet, servicio, recordType, recordId, sedeId, onClose, onSave, session }) {
   const [aliadoId, setAliadoId] = useState('');
   const [vet,      setVet]      = useState('');
   const [err,      setErr]      = useState('');
@@ -23,6 +23,7 @@ export default function RemitirModal({ aliados, pet, servicio, recordType, recor
       tipo_registro:      'automatico',
       record_type:        recordType,
       record_id:          recordId,
+      sede_id:            sedeId || null,
       registrado_por:     session?.nombre || null,
     });
   };
