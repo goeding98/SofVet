@@ -264,7 +264,9 @@ export default function RemisionesPage() {
   const totalComisionVis = filtradas.reduce((s, r) => s + ((parseFloat(r.valor_facturado) || 0) * (parseFloat(r.comision_visitador_pct) || 0) / 100), 0);
 
   const handleAddAliado = async (data) => {
-    await addAliado(data);
+    let err = null;
+    await addAliado(data, { onError: (msg) => { err = msg; } });
+    if (err) alert('❌ Error al guardar el aliado:\n\n' + err);
   };
 
   const handleRemoveAliado = async (id) => {
