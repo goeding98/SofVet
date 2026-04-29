@@ -89,9 +89,10 @@ function NuevaRemisionModal({ aliados, onClose, onSave, session }) {
   const [paciente,  setPaciente]  = useState('');
   const [especie,   setEspecie]   = useState('');
   const [servicio,  setServicio]  = useState('');
-  const [valor,     setValor]     = useState('');
-  const [comision,  setComision]  = useState('');
-  const [obs,       setObs]       = useState('');
+  const [valor,        setValor]       = useState('');
+  const [comision,     setComision]    = useState('');
+  const [comisionVis,  setComisionVis] = useState('');
+  const [obs,          setObs]         = useState('');
   const [fecha,     setFecha]     = useState(today());
   const [sedeId,    setSedeId]    = useState('');
   const [err,       setErr]       = useState('');
@@ -99,21 +100,23 @@ function NuevaRemisionModal({ aliados, onClose, onSave, session }) {
   const handleSave = () => {
     if (!aliadoId) { setErr('Selecciona la clínica aliada.'); return; }
     if (!servicio.trim()) { setErr('El servicio es requerido.'); return; }
-    const valorNum   = parseFloat(valor)   || null;
-    const comisionNum = parseFloat(comision) || null;
+    const valorNum      = parseFloat(valor)      || null;
+    const comisionNum   = parseFloat(comision)   || null;
+    const comisionVisNum = parseFloat(comisionVis) || null;
     onSave({
-      aliado_id:          parseInt(aliadoId),
-      veterinario_aliado: vet.trim() || null,
-      paciente_nombre:    paciente.trim(),
-      especie:            especie.trim() || null,
-      servicio:           servicio.trim(),
-      valor_facturado:    valorNum,
-      comision_pct:       comisionNum,
-      observaciones:      obs.trim() || null,
+      aliado_id:               parseInt(aliadoId),
+      veterinario_aliado:      vet.trim() || null,
+      paciente_nombre:         paciente.trim(),
+      especie:                 especie.trim() || null,
+      servicio:                servicio.trim(),
+      valor_facturado:         valorNum,
+      comision_pct:            comisionNum,
+      comision_visitador_pct:  comisionVisNum,
+      observaciones:           obs.trim() || null,
       fecha,
-      sede_id:            sedeId ? parseInt(sedeId) : null,
-      tipo_registro:      'manual',
-      registrado_por:     session?.nombre || null,
+      sede_id:                 sedeId ? parseInt(sedeId) : null,
+      tipo_registro:           'manual',
+      registrado_por:          session?.nombre || null,
     });
   };
 
@@ -169,20 +172,34 @@ function NuevaRemisionModal({ aliados, onClose, onSave, session }) {
             <input value={servicio} onChange={e => setServicio(e.target.value)} style={iSt} placeholder="Ej: Consulta general, Cirugía, Laboratorio..." />
           </div>
 
+          <div>
+            <label style={lSt}>Valor facturado ($)</label>
+            <input type="number" value={valor} onChange={e => setValor(e.target.value)} style={iSt} placeholder="0" min="0" />
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <div>
-              <label style={lSt}>Valor facturado ($)</label>
-              <input type="number" value={valor} onChange={e => setValor(e.target.value)} style={iSt} placeholder="0" min="0" />
+              <label style={lSt}>Comisión aliado (%)</label>
+              <input type="number" value={comision} onChange={e => setComision(e.target.value)} style={iSt} placeholder="0" min="0" max="100" step="0.5" />
             </div>
             <div>
-              <label style={lSt}>Comisión (%)</label>
-              <input type="number" value={comision} onChange={e => setComision(e.target.value)} style={iSt} placeholder="0" min="0" max="100" step="0.5" />
+              <label style={lSt}>Comisión visitador (%)</label>
+              <input type="number" value={comisionVis} onChange={e => setComisionVis(e.target.value)} style={iSt} placeholder="0" min="0" max="100" step="0.5" />
             </div>
           </div>
 
-          {valor && comision && (
-            <div style={{ background: '#e8f5ee', border: '1px solid #a5d6b8', borderRadius: 'var(--radius-sm)', padding: '0.6rem 0.85rem', fontSize: '0.82rem', color: '#2e7d50', fontWeight: 600 }}>
-              Valor comisión: {fmtCOP((parseFloat(valor) || 0) * (parseFloat(comision) || 0) / 100)}
+          {valor && (comision || comisionVis) && (
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {valor && comision && (
+                <div style={{ flex: 1, background: '#e8f5ee', border: '1px solid #a5d6b8', borderRadius: 'var(--radius-sm)', padding: '0.55rem 0.85rem', fontSize: '0.82rem', color: '#2e7d50', fontWeight: 600 }}>
+                  Com. aliado: {fmtCOP((parseFloat(valor) || 0) * (parseFloat(comision) || 0) / 100)}
+                </div>
+              )}
+              {valor && comisionVis && (
+                <div style={{ flex: 1, background: '#f3e8ff', border: '1px solid #c4b5fd', borderRadius: 'var(--radius-sm)', padding: '0.55rem 0.85rem', fontSize: '0.82rem', color: '#7c5cbf', fontWeight: 600 }}>
+                  Com. visitador: {fmtCOP((parseFloat(valor) || 0) * (parseFloat(comisionVis) || 0) / 100)}
+                </div>
+              )}
             </div>
           )}
 
@@ -220,6 +237,7 @@ export default function RemisionesPage() {
   const [editingId,     setEditingId]     = useState(null);
   const [editValor,     setEditValor]     = useState('');
   const [editComision,  setEditComision]  = useState('');
+  const [editComisionVis, setEditComisionVis] = useState('');
   const [editObs,       setEditObs]       = useState('');
 
   const aliadoMap = useMemo(() => {
@@ -235,8 +253,9 @@ export default function RemisionesPage() {
     [remisiones, mes]
   );
 
-  const totalValor    = filtradas.reduce((s, r) => s + (parseFloat(r.valor_facturado) || 0), 0);
-  const totalComision = filtradas.reduce((s, r) => s + ((parseFloat(r.valor_facturado) || 0) * (parseFloat(r.comision_pct) || 0) / 100), 0);
+  const totalValor       = filtradas.reduce((s, r) => s + (parseFloat(r.valor_facturado) || 0), 0);
+  const totalComision    = filtradas.reduce((s, r) => s + ((parseFloat(r.valor_facturado) || 0) * (parseFloat(r.comision_pct) || 0) / 100), 0);
+  const totalComisionVis = filtradas.reduce((s, r) => s + ((parseFloat(r.valor_facturado) || 0) * (parseFloat(r.comision_visitador_pct) || 0) / 100), 0);
 
   const handleAddAliado = async (data) => {
     await addAliado(data);
@@ -256,14 +275,16 @@ export default function RemisionesPage() {
     setEditingId(r.id);
     setEditValor(r.valor_facturado ?? '');
     setEditComision(r.comision_pct ?? '');
+    setEditComisionVis(r.comision_visitador_pct ?? '');
     setEditObs(r.observaciones ?? '');
   };
 
   const saveEdit = async (id) => {
     await editRemision(id, {
-      valor_facturado: parseFloat(editValor) || null,
-      comision_pct:    parseFloat(editComision) || null,
-      observaciones:   editObs.trim() || null,
+      valor_facturado:        parseFloat(editValor) || null,
+      comision_pct:           parseFloat(editComision) || null,
+      comision_visitador_pct: parseFloat(editComisionVis) || null,
+      observaciones:          editObs.trim() || null,
     });
     setEditingId(null);
   };
@@ -321,7 +342,10 @@ export default function RemisionesPage() {
               Total facturado: {fmtCOP(totalValor)}
             </div>
             <div style={{ background: '#fef3cd', borderRadius: 'var(--radius-sm)', padding: '0.4rem 0.9rem', fontSize: '0.8rem', color: '#b8860b', fontWeight: 700 }}>
-              Comisión: {fmtCOP(totalComision)}
+              Com. aliado: {fmtCOP(totalComision)}
+            </div>
+            <div style={{ background: '#f3e8ff', borderRadius: 'var(--radius-sm)', padding: '0.4rem 0.9rem', fontSize: '0.8rem', color: '#7c5cbf', fontWeight: 700 }}>
+              Com. visitador: {fmtCOP(totalComisionVis)}
             </div>
           </div>
         )}
@@ -338,18 +362,20 @@ export default function RemisionesPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: 900 }}>
             <thead>
               <tr style={{ background: 'var(--color-bg)', borderBottom: '1px solid var(--color-border)' }}>
-                {['Fecha', 'Sede Atención', 'Clínica Aliada', 'Veterinario', 'Paciente', 'Especie', 'Servicio', 'Valor Facturado', 'Comisión %', 'Valor Comisión', 'Observaciones', ''].map(h => (
+                {['Fecha', 'Sede Atención', 'Clínica Aliada', 'Veterinario', 'Paciente', 'Especie', 'Servicio', 'Valor Facturado', 'Com. Aliado %', 'Valor Com. Aliado', 'Com. Visitador %', 'Valor Com. Visitador', 'Observaciones', ''].map(h => (
                   <th key={h} style={{ padding: '0.55rem 0.75rem', textAlign: 'left', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtradas.map((r, i) => {
-                const aliado      = aliadoMap[r.aliado_id];
-                const valorNum    = parseFloat(r.valor_facturado) || 0;
-                const comisionNum = parseFloat(r.comision_pct)    || 0;
-                const valorCom    = valorNum * comisionNum / 100;
-                const isEdit      = editingId === r.id;
+                const aliado         = aliadoMap[r.aliado_id];
+                const valorNum       = parseFloat(r.valor_facturado)        || 0;
+                const comisionNum    = parseFloat(r.comision_pct)           || 0;
+                const comisionVisNum = parseFloat(r.comision_visitador_pct) || 0;
+                const valorCom       = valorNum * comisionNum    / 100;
+                const valorComVis    = valorNum * comisionVisNum / 100;
+                const isEdit         = editingId === r.id;
 
                 return (
                   <tr key={r.id} style={{ borderBottom: i < filtradas.length - 1 ? '1px solid var(--color-border)' : 'none', background: isEdit ? '#f5f8ff' : 'transparent' }}>
@@ -383,7 +409,7 @@ export default function RemisionesPage() {
                       )}
                     </td>
 
-                    {/* Comisión % — editable */}
+                    {/* Comisión aliado % — editable */}
                     <td style={{ padding: '0.5rem 0.75rem' }}>
                       {isEdit ? (
                         <input type="number" value={editComision} onChange={e => setEditComision(e.target.value)}
@@ -397,6 +423,22 @@ export default function RemisionesPage() {
 
                     <td style={{ padding: '0.5rem 0.75rem', fontWeight: 700, color: '#2e7d50', whiteSpace: 'nowrap' }}>
                       {valorCom ? fmtCOP(valorCom) : '—'}
+                    </td>
+
+                    {/* Comisión visitador % — editable */}
+                    <td style={{ padding: '0.5rem 0.75rem' }}>
+                      {isEdit ? (
+                        <input type="number" value={editComisionVis} onChange={e => setEditComisionVis(e.target.value)}
+                          style={{ width: 70, padding: '0.3rem 0.5rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', fontFamily: 'var(--font-body)' }} min="0" max="100" step="0.5" />
+                      ) : (
+                        <span style={{ color: comisionVisNum ? 'var(--color-text)' : 'var(--color-text-muted)' }}>
+                          {comisionVisNum ? `${comisionVisNum}%` : '—'}
+                        </span>
+                      )}
+                    </td>
+
+                    <td style={{ padding: '0.5rem 0.75rem', fontWeight: 700, color: '#7c5cbf', whiteSpace: 'nowrap' }}>
+                      {valorComVis ? fmtCOP(valorComVis) : '—'}
                     </td>
 
                     <td style={{ padding: '0.5rem 0.75rem', maxWidth: 200 }}>
