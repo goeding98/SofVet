@@ -232,6 +232,9 @@ export default function RemisionesPage() {
   const { items: remisiones,  add: addRemision,   edit: editRemision, remove: removeRemision } = useStore('remisionesVis');
 
   const [mes,           setMes]           = useState(currentMonth());
+  const [filtroAliado,  setFiltroAliado]  = useState('');
+  const [filtroPaciente,setFiltroPaciente]= useState('');
+  const [filtroSede,    setFiltroSede]    = useState('');
   const [showAliados,   setShowAliados]   = useState(false);
   const [showNueva,     setShowNueva]     = useState(false);
   const [editingId,     setEditingId]     = useState(null);
@@ -246,12 +249,15 @@ export default function RemisionesPage() {
     return m;
   }, [aliados]);
 
-  const filtradas = useMemo(() =>
-    remisiones
+  const filtradas = useMemo(() => {
+    const pac = filtroPaciente.toLowerCase().trim();
+    return remisiones
       .filter(r => r.fecha?.startsWith(mes))
-      .sort((a, b) => a.fecha < b.fecha ? 1 : -1),
-    [remisiones, mes]
-  );
+      .filter(r => !filtroAliado  || String(r.aliado_id) === filtroAliado)
+      .filter(r => !filtroSede    || String(r.sede_id)   === filtroSede)
+      .filter(r => !pac           || (r.paciente_nombre || '').toLowerCase().includes(pac))
+      .sort((a, b) => a.fecha < b.fecha ? 1 : -1);
+  }, [remisiones, mes, filtroAliado, filtroSede, filtroPaciente]);
 
   const totalValor       = filtradas.reduce((s, r) => s + (parseFloat(r.valor_facturado) || 0), 0);
   const totalComision    = filtradas.reduce((s, r) => s + ((parseFloat(r.valor_facturado) || 0) * (parseFloat(r.comision_pct) || 0) / 100), 0);
@@ -351,11 +357,37 @@ export default function RemisionesPage() {
         )}
       </div>
 
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: '0.65rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <select value={filtroAliado} onChange={e => setFiltroAliado(e.target.value)}
+          style={{ padding: '0.4rem 0.65rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.82rem', color: filtroAliado ? 'var(--color-text)' : 'var(--color-text-muted)', minWidth: 170 }}>
+          <option value="">Todas las clínicas</option>
+          {aliados.map(a => <option key={a.id} value={String(a.id)}>{a.nombre}</option>)}
+        </select>
+
+        <select value={filtroSede} onChange={e => setFiltroSede(e.target.value)}
+          style={{ padding: '0.4rem 0.65rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.82rem', color: filtroSede ? 'var(--color-text)' : 'var(--color-text-muted)', minWidth: 150 }}>
+          <option value="">Todas las sedes</option>
+          {SEDES_OPT.map(s => <option key={s.id} value={String(s.id)}>{s.nombre}</option>)}
+        </select>
+
+        <input value={filtroPaciente} onChange={e => setFiltroPaciente(e.target.value)}
+          placeholder="Buscar paciente..."
+          style={{ padding: '0.4rem 0.65rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.82rem', minWidth: 170 }} />
+
+        {(filtroAliado || filtroSede || filtroPaciente) && (
+          <button onClick={() => { setFiltroAliado(''); setFiltroSede(''); setFiltroPaciente(''); }}
+            style={{ padding: '0.4rem 0.75rem', background: 'none', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
+            ✕ Limpiar filtros
+          </button>
+        )}
+      </div>
+
       {/* Table */}
       {filtradas.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
           <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🔗</div>
-          Sin remisiones en {mesLabel}.
+          {(filtroAliado || filtroSede || filtroPaciente) ? 'Sin resultados para los filtros aplicados.' : `Sin remisiones en ${mesLabel}.`}
         </div>
       ) : (
         <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden', overflowX: 'auto' }}>
