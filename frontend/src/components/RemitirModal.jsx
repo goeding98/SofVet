@@ -6,6 +6,7 @@ const iSt = { width: '100%', padding: '0.55rem 0.75rem', border: '1px solid var(
 export default function RemitirModal({ aliados, pet, servicio, recordType, recordId, sedeId, fecha, onClose, onSave, session }) {
   const [aliadoId, setAliadoId] = useState('');
   const [vet,      setVet]      = useState('');
+  const [obs,      setObs]      = useState('');
   const [err,      setErr]      = useState('');
 
   const handleSave = () => {
@@ -18,7 +19,7 @@ export default function RemitirModal({ aliados, pet, servicio, recordType, recor
       servicio:           servicio || '',
       valor_facturado:    null,
       comision_pct:       null,
-      observaciones:      null,
+      observaciones:      obs.trim() || null,
       fecha:              fecha || new Date().toISOString().split('T')[0],
       tipo_registro:      'automatico',
       record_type:        recordType,
@@ -52,6 +53,10 @@ export default function RemitirModal({ aliados, pet, servicio, recordType, recor
           <div>
             <label style={lSt}>Veterinario en clínica aliada</label>
             <input value={vet} onChange={e => setVet(e.target.value)} style={iSt} placeholder="Nombre del veterinario" />
+          </div>
+          <div>
+            <label style={lSt}>Observaciones</label>
+            <textarea value={obs} onChange={e => setObs(e.target.value)} rows={3} style={{ ...iSt, resize: 'vertical' }} placeholder="Anotaciones sobre esta remisión..." />
           </div>
           {err && <div style={{ color: 'var(--color-danger)', fontSize: '0.78rem' }}>⚠️ {err}</div>}
           <div style={{ display: 'flex', gap: '0.65rem', justifyContent: 'flex-end' }}>

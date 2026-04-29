@@ -220,6 +220,7 @@ export default function RemisionesPage() {
   const [editingId,     setEditingId]     = useState(null);
   const [editValor,     setEditValor]     = useState('');
   const [editComision,  setEditComision]  = useState('');
+  const [editObs,       setEditObs]       = useState('');
 
   const aliadoMap = useMemo(() => {
     const m = {};
@@ -255,12 +256,14 @@ export default function RemisionesPage() {
     setEditingId(r.id);
     setEditValor(r.valor_facturado ?? '');
     setEditComision(r.comision_pct ?? '');
+    setEditObs(r.observaciones ?? '');
   };
 
   const saveEdit = async (id) => {
     await editRemision(id, {
       valor_facturado: parseFloat(editValor) || null,
       comision_pct:    parseFloat(editComision) || null,
+      observaciones:   editObs.trim() || null,
     });
     setEditingId(null);
   };
@@ -396,8 +399,16 @@ export default function RemisionesPage() {
                       {valorCom ? fmtCOP(valorCom) : '—'}
                     </td>
 
-                    <td style={{ padding: '0.5rem 0.75rem', color: 'var(--color-text-muted)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {r.observaciones || '—'}
+                    <td style={{ padding: '0.5rem 0.75rem', maxWidth: 200 }}>
+                      {isEdit ? (
+                        <textarea value={editObs} onChange={e => setEditObs(e.target.value)} rows={2}
+                          style={{ width: '100%', padding: '0.3rem 0.5rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.78rem', fontFamily: 'var(--font-body)', resize: 'vertical', boxSizing: 'border-box' }}
+                          placeholder="Anotaciones..." />
+                      ) : (
+                        <span style={{ color: r.observaciones ? 'var(--color-text)' : 'var(--color-text-muted)', fontSize: '0.78rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          {r.observaciones || '—'}
+                        </span>
+                      )}
                     </td>
 
                     <td style={{ padding: '0.5rem 0.65rem', whiteSpace: 'nowrap' }}>
