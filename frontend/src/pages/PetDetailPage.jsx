@@ -885,7 +885,7 @@ export default function PetDetailPage() {
                           {canRemit && (
                             remisionesVis.some(r => r.record_type === 'consulta' && r.record_id === c.id)
                               ? <span style={{ fontSize:'0.68rem', background:'#e8f0fd', color:'#2e5cbf', borderRadius:999, padding:'1px 6px', fontWeight:700 }}>🔗</span>
-                              : <button onClick={e => { e.stopPropagation(); setRemitirModal({ recordType:'consulta', recordId:c.id, servicio: c.motivo_consulta || 'Consulta', sedeId: c.sede_id }); }}
+                              : <button onClick={e => { e.stopPropagation(); setRemitirModal({ recordType:'consulta', recordId:c.id, servicio: c.motivo_consulta || 'Consulta', sedeId: c.sede_id, fecha: c.date }); }}
                                   style={{ padding:'1px 6px', background:'white', border:'1px solid #2e5cbf', color:'#2e5cbf', borderRadius:999, cursor:'pointer', fontSize:'0.68rem', fontWeight:700, fontFamily:'var(--font-body)' }}>
                                   🔗
                                 </button>
@@ -1044,7 +1044,7 @@ export default function PetDetailPage() {
                         {canRemit && (
                           remisionesVis.some(r => r.record_type === 'procedimiento' && r.record_id === p.id)
                             ? <span style={{ padding:'2px 8px', background:'#e8f0fd', color:'#2e5cbf', borderRadius:6, fontSize:'0.7rem', fontWeight:700 }}>🔗 Remitido</span>
-                            : <button onClick={() => setRemitirModal({ recordType:'procedimiento', recordId:p.id, servicio: p.motivo || p.tipo || 'Procedimiento', sedeId: p.sede_id })}
+                            : <button onClick={() => setRemitirModal({ recordType:'procedimiento', recordId:p.id, servicio: p.motivo || p.tipo || 'Procedimiento', sedeId: p.sede_id, fecha: p.fecha })}
                                 style={{ padding:'2px 8px', background:'white', border:'1px solid #2e5cbf', color:'#2e5cbf', borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)' }}>
                                 🔗 Remitir
                               </button>
@@ -1099,7 +1099,7 @@ export default function PetDetailPage() {
                         )}
                         {canRemit && (
                           <button
-                            onClick={() => setRemitirModal({ recordType:'lab', recordId: p.id, servicio: `Laboratorio: ${p.tipo_examen}`, sedeId: p.sede_id })}
+                            onClick={() => setRemitirModal({ recordType:'lab', recordId: p.id, servicio: `Laboratorio: ${p.tipo_examen}`, sedeId: p.sede_id, fecha: p.fecha_solicitado || p.fecha })}
                             style={{ padding:'0.2rem 0.6rem', background:'white', border:'1px solid #2e5cbf', color:'#2e5cbf', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)', whiteSpace:'nowrap' }}
                           >🔗 Remitir</button>
                         )}
@@ -1170,7 +1170,7 @@ export default function PetDetailPage() {
                       {canRemit && (
                         remisionesVis.some(rv => rv.record_type === 'imagen' && String(rv.record_id) === String(r.id))
                           ? <span style={{ padding:'2px 8px', background:'#e8f0fd', color:'#2e5cbf', borderRadius:6, fontSize:'0.7rem', fontWeight:700 }}>🔗 Remitido</span>
-                          : <button onClick={() => setRemitirModal({ recordType:'imagen', recordId:r.id, servicio: `Imagenología: ${r.tipo}`, sedeId: r.sede_id })}
+                          : <button onClick={() => setRemitirModal({ recordType:'imagen', recordId:r.id, servicio: `Imagenología: ${r.tipo}`, sedeId: r.sede_id, fecha: r.date })}
                               style={{ padding:'2px 8px', background:'white', border:'1px solid #2e5cbf', color:'#2e5cbf', borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)' }}>
                               🔗 Remitir
                             </button>
@@ -1237,7 +1237,7 @@ export default function PetDetailPage() {
                           {canRemit && (
                             remisionesVis.some(rv => rv.record_type === 'vacuna' && String(rv.record_id) === String(v.id))
                               ? <span style={{ padding:'2px 8px', background:'#e8f0fd', color:'#2e5cbf', borderRadius:6, fontSize:'0.7rem', fontWeight:700 }}>🔗 Remitido</span>
-                              : <button onClick={() => setRemitirModal({ recordType:'vacuna', recordId:v.id, servicio: isDesp ? `Desparasitación: ${vName}` : `Vacuna: ${vName}`, sedeId: v.sede_id })}
+                              : <button onClick={() => setRemitirModal({ recordType:'vacuna', recordId:v.id, servicio: isDesp ? `Desparasitación: ${vName}` : `Vacuna: ${vName}`, sedeId: v.sede_id, fecha: v.date_applied })}
                                   style={{ padding:'2px 8px', background:'white', border:'1px solid #2e5cbf', color:'#2e5cbf', borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)' }}>
                                   🔗 Remitir
                                 </button>
@@ -1283,7 +1283,7 @@ export default function PetDetailPage() {
                         {canRemit && (
                           remisionesVis.some(r => r.record_type === 'hospitalizacion' && r.record_id === h.id)
                             ? <span style={{ padding:'2px 8px', background:'#e8f0fd', color:'#2e5cbf', borderRadius:6, fontSize:'0.7rem', fontWeight:700, flexShrink:0 }}>🔗 Remitido</span>
-                            : <button onClick={() => setRemitirModal({ recordType:'hospitalizacion', recordId:h.id, servicio: h.motivo || 'Hospitalización', sedeId: h.sede_id })}
+                            : <button onClick={() => setRemitirModal({ recordType:'hospitalizacion', recordId:h.id, servicio: h.motivo || 'Hospitalización', sedeId: h.sede_id, fecha: h.ingreso_date })}
                                 style={{ padding:'2px 8px', background:'white', border:'1px solid #2e5cbf', color:'#2e5cbf', borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)', flexShrink:0 }}>
                                 🔗 Remitir
                               </button>
@@ -1638,6 +1638,7 @@ export default function PetDetailPage() {
           recordType={remitirModal.recordType}
           recordId={remitirModal.recordId}
           sedeId={remitirModal.sedeId}
+          fecha={remitirModal.fecha}
           onClose={() => setRemitirModal(null)}
           onSave={async (data) => {
             let err = null;
