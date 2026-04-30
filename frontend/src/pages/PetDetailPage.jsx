@@ -1176,8 +1176,10 @@ export default function PetDetailPage() {
                         const isWord = /\.(docx?)$/.test(name);
                         const icon   = isImg ? '🖼️' : isPdf ? '📄' : isWord ? '📝' : '📎';
                         return a.url
-                          ? <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" download={isWord || undefined}
-                              style={{ background:'#d0e4ff', color:'#1565c0', padding:'3px 10px', borderRadius:999, fontSize:'0.72rem', fontWeight:500, textDecoration:'none', display:'inline-flex', alignItems:'center', gap:'0.25rem' }}>
+                          ? <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
+                              download={isWord ? a.name : undefined}
+                              onClick={e => e.stopPropagation()}
+                              style={{ background:'#d0e4ff', color:'#1565c0', padding:'3px 10px', borderRadius:999, fontSize:'0.72rem', fontWeight:500, textDecoration:'none', display:'inline-flex', alignItems:'center', gap:'0.25rem', cursor:'pointer' }}>
                               {icon} {a.name}
                             </a>
                           : <span key={i} style={{ background:'#e8e8e8', color:'#666', padding:'3px 10px', borderRadius:999, fontSize:'0.72rem', fontWeight:500 }}>{icon} {a.name}</span>;
