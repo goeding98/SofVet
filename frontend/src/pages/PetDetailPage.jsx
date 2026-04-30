@@ -85,7 +85,7 @@ export default function PetDetailPage() {
   const [sedeFilter,     setSedeFilter]     = useState(null);
   const [notaModal,      setNotaModal]      = useState(false);
   const [notaForm,       setNotaForm]       = useState({ titulo: '', observaciones: '' });
-  const [notaFile,       setNotaFile]       = useState(null);
+  const [notaFiles,      setNotaFiles]      = useState([]);
   const [notaUploading,  setNotaUploading]  = useState(false);
   const [notaImageView,  setNotaImageView]  = useState(null);
   const [editingNota,    setEditingNota]    = useState(null);
@@ -392,40 +392,20 @@ export default function PetDetailPage() {
       await editNota(editingNota.id, editPayload);
       setNotaUploading(false);
     } else {
-      let imagen_url = null;
-      if (notaFile) {
-        const isPdf = notaFile.type === 'application/pdf' || notaFile.name.toLowerCase().endsWith('.pdf');
-        if (isPdf) {
-          const path = `notas/${petId}/${Date.now()}_${notaFile.name}`;
-          const { error: upErr } = await supabase.storage.from('laboratorios-reports').upload(path, notaFile, { upsert: true });
-          if (upErr) { setNotaUploading(false); return alert('❌ Error subiendo PDF:\n\n' + upErr.message); }
-          const { data: urlData } = supabase.storage.from('laboratorios-reports').getPublicUrl(path);
-          imagen_url = urlData.publicUrl;
-        } else {
-          imagen_url = await new Promise((resolve) => {
-            const img = new Image();
-            const blobUrl = URL.createObjectURL(notaFile);
-            img.onload = () => {
-              URL.revokeObjectURL(blobUrl);
-              const MAX = 1024;
-              let { width: w, height: h } = img;
-              if (w > MAX || h > MAX) { if (w >= h) { h = Math.round(h * MAX / w); w = MAX; } else { w = Math.round(w * MAX / h); h = MAX; } }
-              const canvas = document.createElement('canvas');
-              canvas.width = w; canvas.height = h;
-              canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-              resolve(canvas.toDataURL('image/jpeg', 0.78));
-            };
-            img.onerror = () => { URL.revokeObjectURL(blobUrl); resolve(null); };
-            img.src = blobUrl;
-          });
-        }
+      const archivos = [];
+      for (const file of notaFiles) {
+        const path = `notas/${petId}/${Date.now()}_${file.name}`;
+        const { error: upErr } = await supabase.storage.from('laboratorios-reports').upload(path, file, { upsert: true });
+        if (upErr) { setNotaUploading(false); return alert('❌ Error subiendo archivo:\n\n' + upErr.message); }
+        const { data: urlData } = supabase.storage.from('laboratorios-reports').getPublicUrl(path);
+        archivos.push({ name: file.name, url: urlData.publicUrl, type: file.type });
       }
       let err = null;
       const result = await addNota({
         patient_id:    petId,
         titulo:        notaForm.titulo.trim(),
         observaciones: notaForm.observaciones.trim() || null,
-        imagen_url,
+        archivos:      archivos.length > 0 ? archivos : null,
         autor:         session?.nombre || null,
         created_at:    hoy,
         hora_creacion: horaAhora,
@@ -435,7 +415,7 @@ export default function PetDetailPage() {
     }
     setNotaModal(false);
     setNotaForm({ titulo: '', observaciones: '' });
-    setNotaFile(null);
+    setNotaFiles([]);
     setEditingNota(null);
   };
 
@@ -788,7 +768,7 @@ export default function PetDetailPage() {
             <button onClick={handleDownloadPDF} style={{ padding:'0.4rem 0.85rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, color:'var(--color-text-muted)', display:'flex', alignItems:'center', gap:'0.35rem' }}>
               📄 Descargar PDF
             </button>
-            <button onClick={() => { setNotaForm({ titulo:'', observaciones:'' }); setNotaFile(null); setNotaModal(true); }} style={{ padding:'0.4rem 0.85rem', background:'var(--color-white)', border:'1px solid #b8860b', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, color:'#b8860b', display:'flex', alignItems:'center', gap:'0.35rem' }}>
+            <button onClick={() => { setNotaForm({ titulo:'', observaciones:'' }); setNotaFiles([]); setNotaModal(true); }} style={{ padding:'0.4rem 0.85rem', background:'var(--color-white)', border:'1px solid #b8860b', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, color:'#b8860b', display:'flex', alignItems:'center', gap:'0.35rem' }}>
               📝 Agregar nota
             </button>
             <Button size="sm" variant="secondary" onClick={() => { setEditingControl(null); setControlModal(true); }}>📋 Nuevo control</Button>
@@ -990,20 +970,29 @@ export default function PetDetailPage() {
                   {n.observaciones && (
                     <p style={{ margin:'0 0 0.6rem', fontSize:'0.82rem', color:'var(--color-text)', lineHeight:1.5, whiteSpace:'pre-wrap' }}>{n.observaciones}</p>
                   )}
-                  {n.imagen_url && (
+                  {/* Archivos nuevos (array) */}
+                  {n.archivos?.length > 0 && (
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:'0.4rem', marginTop:'0.3rem' }}>
+                      {n.archivos.map((a, ai) => {
+                        const isImg = a.type?.startsWith('image/');
+                        const isPdf = a.type === 'application/pdf' || a.name?.toLowerCase().endsWith('.pdf');
+                        return isImg
+                          ? <img key={ai} src={a.url} alt={a.name} onClick={() => setNotaImageView(a.url)}
+                              style={{ maxHeight:180, maxWidth:'100%', objectFit:'contain', borderRadius:'var(--radius-sm)', cursor:'zoom-in', border:'1px solid #f5c842' }} />
+                          : <a key={ai} href={a.url} target="_blank" rel="noopener noreferrer"
+                              style={{ display:'inline-flex', alignItems:'center', gap:'0.4rem', padding:'0.4rem 0.85rem', background:'#fef3cd', border:'1px solid #f5c842', borderRadius:'var(--radius-sm)', fontSize:'0.78rem', color:'#92400e', fontWeight:600, textDecoration:'none' }}>
+                              {isPdf ? '📄' : '📝'} {a.name}
+                            </a>;
+                      })}
+                    </div>
+                  )}
+                  {/* Archivo legacy (imagen_url única) */}
+                  {!n.archivos?.length && n.imagen_url && (
                     n.imagen_url.startsWith('data:')
-                      ? <img
-                          src={n.imagen_url}
-                          alt={n.titulo}
-                          onClick={() => setNotaImageView(n.imagen_url)}
-                          style={{ maxWidth:'100%', maxHeight:220, objectFit:'contain', borderRadius:'var(--radius-sm)', cursor:'zoom-in', border:'1px solid #f5c842' }}
-                        />
-                      : <a
-                          href={n.imagen_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ display:'inline-flex', alignItems:'center', gap:'0.4rem', padding:'0.4rem 0.85rem', background:'#fef3cd', border:'1px solid #f5c842', borderRadius:'var(--radius-sm)', fontSize:'0.78rem', color:'#92400e', fontWeight:600, textDecoration:'none' }}
-                        >
+                      ? <img src={n.imagen_url} alt={n.titulo} onClick={() => setNotaImageView(n.imagen_url)}
+                          style={{ maxWidth:'100%', maxHeight:220, objectFit:'contain', borderRadius:'var(--radius-sm)', cursor:'zoom-in', border:'1px solid #f5c842' }} />
+                      : <a href={n.imagen_url} target="_blank" rel="noopener noreferrer"
+                          style={{ display:'inline-flex', alignItems:'center', gap:'0.4rem', padding:'0.4rem 0.85rem', background:'#fef3cd', border:'1px solid #f5c842', borderRadius:'var(--radius-sm)', fontSize:'0.78rem', color:'#92400e', fontWeight:600, textDecoration:'none' }}>
                           📄 Ver archivo adjunto
                         </a>
                   )}
@@ -1459,11 +1448,11 @@ export default function PetDetailPage() {
 
       {/* ── Modal: Agregar / Editar nota clínica ── */}
       {notaModal && (
-        <div onClick={() => { setNotaModal(false); setEditingNota(null); setNotaForm({ titulo: '', observaciones: '' }); setNotaFile(null); }} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem', backdropFilter:'blur(2px)' }}>
+        <div onClick={() => { setNotaModal(false); setEditingNota(null); setNotaForm({ titulo: '', observaciones: '' }); setNotaFiles([]); }} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem', backdropFilter:'blur(2px)' }}>
           <div onClick={e => e.stopPropagation()} style={{ background:'var(--color-white)', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-lg)', width:'100%', maxWidth:500, overflow:'hidden' }}>
             <div style={{ padding:'1.1rem 1.5rem', borderBottom:'1px solid var(--color-border)', background:'#fffdf0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <h3 style={{ margin:0, fontFamily:'var(--font-title)', color:'#8a6200', fontSize:'1rem' }}>{editingNota ? '✏️ Editar nota clínica' : '📝 Agregar nota clínica'}</h3>
-              <button onClick={() => { setNotaModal(false); setEditingNota(null); setNotaForm({ titulo: '', observaciones: '' }); setNotaFile(null); }} style={{ background:'none', border:'none', fontSize:'1.1rem', cursor:'pointer', color:'var(--color-text-muted)' }}>×</button>
+              <button onClick={() => { setNotaModal(false); setEditingNota(null); setNotaForm({ titulo: '', observaciones: '' }); setNotaFiles([]); }} style={{ background:'none', border:'none', fontSize:'1.1rem', cursor:'pointer', color:'var(--color-text-muted)' }}>×</button>
             </div>
             <div style={{ padding:'1.25rem 1.5rem', display:'flex', flexDirection:'column', gap:'0.9rem' }}>
               <div>
@@ -1505,22 +1494,31 @@ export default function PetDetailPage() {
               )}
               {!editingNota && (
               <div>
-                <label style={{ display:'block', fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', marginBottom:'0.3rem', color:'var(--color-text)' }}>Archivo adjunto — imagen o PDF (opcional)</label>
+                <label style={{ display:'block', fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', marginBottom:'0.3rem', color:'var(--color-text)' }}>Archivos adjuntos — imágenes, PDF o Word (opcional)</label>
                 <input
                   type="file"
-                  accept="image/*,application/pdf"
-                  onChange={e => setNotaFile(e.target.files[0] || null)}
+                  multiple
+                  accept="image/*,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  onChange={e => setNotaFiles(Array.from(e.target.files))}
                   style={{ width:'100%', fontSize:'0.82rem' }}
                 />
-                {notaFile && (
-                  <div style={{ marginTop:'0.4rem', fontSize:'0.75rem', color:'#b8860b' }}>
-                    {notaFile.type === 'application/pdf' || notaFile.name.toLowerCase().endsWith('.pdf') ? '📄' : '🖼️'} {notaFile.name} ({(notaFile.size / 1024).toFixed(0)} KB)
+                {notaFiles.length > 0 && (
+                  <div style={{ marginTop:'0.4rem', display:'flex', flexWrap:'wrap', gap:'0.3rem' }}>
+                    {notaFiles.map((f, i) => {
+                      const isPdf = f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
+                      const isDoc = f.name.toLowerCase().endsWith('.doc') || f.name.toLowerCase().endsWith('.docx');
+                      return (
+                        <span key={i} style={{ fontSize:'0.73rem', color:'#b8860b', background:'#fef3cd', border:'1px solid #f59e0b', borderRadius:999, padding:'2px 8px' }}>
+                          {isPdf ? '📄' : isDoc ? '📝' : '🖼️'} {f.name} ({(f.size/1024).toFixed(0)} KB)
+                        </span>
+                      );
+                    })}
                   </div>
                 )}
               </div>
               )}
               <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem', paddingTop:'0.25rem' }}>
-                <button onClick={() => { setNotaModal(false); setEditingNota(null); setNotaForm({ titulo: '', observaciones: '' }); setNotaFile(null); }} style={{ padding:'0.55rem 1.1rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', color:'var(--color-text-muted)' }}>Cancelar</button>
+                <button onClick={() => { setNotaModal(false); setEditingNota(null); setNotaForm({ titulo: '', observaciones: '' }); setNotaFiles([]); }} style={{ padding:'0.55rem 1.1rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', color:'var(--color-text-muted)' }}>Cancelar</button>
                 <button
                   onClick={handleSaveNota}
                   disabled={notaUploading}
