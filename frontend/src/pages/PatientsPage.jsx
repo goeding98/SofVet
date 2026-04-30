@@ -125,7 +125,14 @@ export default function PatientsPage() {
 
   const handleDelete = (row) => {
     if (confirm(`¿Eliminar a ${row.name}?`))
-      remove(row.id, { onError: (msg) => alert('❌ No se pudo eliminar:\n\n' + msg) });
+      remove(row.id, {
+        onError: (msg) => {
+          const friendly = msg.includes('foreign key')
+            ? `No se puede eliminar a ${row.name} porque tiene registros asociados (documentos, historial, consultas, etc.).\n\nElimina primero todos sus registros o contacta al administrador del sistema.`
+            : msg;
+          alert('❌ No se pudo eliminar:\n\n' + friendly);
+        },
+      });
   };
 
   const columns = [
