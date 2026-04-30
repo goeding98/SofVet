@@ -237,6 +237,7 @@ export default function RemisionesPage() {
   const [filtroSede,    setFiltroSede]    = useState('');
   const [showAliados,   setShowAliados]   = useState(false);
   const [showNueva,     setShowNueva]     = useState(false);
+  const [showStats,     setShowStats]     = useState(false);
   const [editingId,     setEditingId]     = useState(null);
   const [editValor,     setEditValor]     = useState('');
   const [editComision,  setEditComision]  = useState('');
@@ -262,6 +263,26 @@ export default function RemisionesPage() {
   const totalValor       = filtradas.reduce((s, r) => s + (parseFloat(r.valor_facturado) || 0), 0);
   const totalComision    = filtradas.reduce((s, r) => s + ((parseFloat(r.valor_facturado) || 0) * (parseFloat(r.comision_pct) || 0) / 100), 0);
   const totalComisionVis = filtradas.reduce((s, r) => s + ((parseFloat(r.valor_facturado) || 0) * (parseFloat(r.comision_visitador_pct) || 0) / 100), 0);
+
+  const ranking = useMemo(() => {
+    const byAliado = {};
+    remisiones.forEach(r => {
+      const id = r.aliado_id;
+      if (!id) return;
+      if (!byAliado[id]) byAliado[id] = { id, nombre: aliadoMap[id]?.nombre || '?', count: 0, total: 0, comAliado: 0, comVis: 0 };
+      const val = parseFloat(r.valor_facturado) || 0;
+      byAliado[id].count   += 1;
+      byAliado[id].total   += val;
+      byAliado[id].comAliado += val * (parseFloat(r.comision_pct) || 0) / 100;
+      byAliado[id].comVis    += val * (parseFloat(r.comision_visitador_pct) || 0) / 100;
+    });
+    const arr = Object.values(byAliado);
+    return {
+      porCount:  [...arr].sort((a, b) => b.count  - a.count).slice(0, 5),
+      porTotal:  [...arr].sort((a, b) => b.total  - a.total).slice(0, 5),
+      porComVis: [...arr].sort((a, b) => b.comVis - a.comVis).slice(0, 5),
+    };
+  }, [remisiones, aliadoMap]);
 
   const handleAddAliado = async (data) => {
     let err = null;
@@ -321,6 +342,9 @@ export default function RemisionesPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+          <button onClick={() => setShowStats(s => !s)} style={{ padding: '0.5rem 1rem', background: showStats ? '#2e5cbf' : 'var(--color-white)', border: `1px solid ${showStats ? '#2e5cbf' : 'var(--color-border)'}`, borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.82rem', color: showStats ? 'white' : 'var(--color-text)', fontWeight: showStats ? 600 : 400 }}>
+            📊 Estadísticas
+          </button>
           {canManage && (
             <button onClick={() => setShowAliados(true)} style={{ padding: '0.5rem 1rem', background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.82rem', color: 'var(--color-text)' }}>
               🏥 Gestionar aliados
@@ -358,6 +382,39 @@ export default function RemisionesPage() {
           </div>
         )}
       </div>
+
+      {/* Stats panel */}
+      {showStats && remisiones.length > 0 && (
+        <div style={{ marginBottom: '1.25rem', border: '1px solid #c7d9f8', borderRadius: 'var(--radius-lg)', overflow: 'hidden', background: '#f8faff' }}>
+          <div style={{ padding: '0.75rem 1.25rem', background: '#e8f0fd', borderBottom: '1px solid #c7d9f8', fontSize: '0.78rem', fontWeight: 700, color: '#2e5cbf', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            📊 Ranking global de aliados — todas las remisiones ({remisiones.length} registros)
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 0 }}>
+            {[
+              { title: '🔢 Más remisiones', data: ranking.porCount,  val: r => `${r.count} remisión${r.count !== 1 ? 'es' : ''}`, sub: r => fmtCOP(r.total) },
+              { title: '💰 Mayor facturación', data: ranking.porTotal,  val: r => fmtCOP(r.total), sub: r => `${r.count} remisión${r.count !== 1 ? 'es' : ''}` },
+              { title: '🟣 Mayor com. visitador', data: ranking.porComVis, val: r => fmtCOP(r.comVis), sub: r => fmtCOP(r.total) + ' facturado' },
+            ].map(({ title, data, val, sub }) => (
+              <div key={title} style={{ padding: '1rem 1.25rem', borderRight: '1px solid #c7d9f8' }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#2e5cbf', marginBottom: '0.6rem', textTransform: 'uppercase' }}>{title}</div>
+                {data.length === 0 && <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>Sin datos</div>}
+                {data.map((r, i) => (
+                  <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.45rem' }}>
+                    <span style={{ fontSize: '0.85rem', width: 20, textAlign: 'center', flexShrink: 0 }}>
+                      {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.nombre}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>{sub(r)}</div>
+                    </div>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#2e5cbf', whiteSpace: 'nowrap', flexShrink: 0 }}>{val(r)}</div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: '0.65rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
