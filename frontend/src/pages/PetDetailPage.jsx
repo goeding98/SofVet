@@ -1169,11 +1169,19 @@ export default function PetDetailPage() {
                   <p style={{ fontSize:'0.82rem', color:'var(--color-text)', margin:'0 0 0.4rem', lineHeight:1.5, whiteSpace:'pre-wrap' }}>{r.resultado}</p>
                   {r.archivos?.length > 0 && (
                     <div style={{ display:'flex', flexWrap:'wrap', gap:'0.35rem', marginTop:'0.3rem' }}>
-                      {r.archivos.map((a, i) => (
-                        a.url
-                          ? <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" style={{ background:'#d0e4ff', color:'#1565c0', padding:'2px 8px', borderRadius:999, fontSize:'0.72rem', fontWeight:500, textDecoration:'none' }}>📎 {a.name}</a>
-                          : <span key={i} style={{ background:'#e8e8e8', color:'#666', padding:'2px 8px', borderRadius:999, fontSize:'0.72rem', fontWeight:500 }}>📎 {a.name}</span>
-                      ))}
+                      {r.archivos.map((a, i) => {
+                        const name = a.name?.toLowerCase() || '';
+                        const isImg  = a.type?.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp)$/.test(name);
+                        const isPdf  = a.type === 'application/pdf' || name.endsWith('.pdf');
+                        const isWord = /\.(docx?)$/.test(name);
+                        const icon   = isImg ? '🖼️' : isPdf ? '📄' : isWord ? '📝' : '📎';
+                        return a.url
+                          ? <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" download={isWord || undefined}
+                              style={{ background:'#d0e4ff', color:'#1565c0', padding:'3px 10px', borderRadius:999, fontSize:'0.72rem', fontWeight:500, textDecoration:'none', display:'inline-flex', alignItems:'center', gap:'0.25rem' }}>
+                              {icon} {a.name}
+                            </a>
+                          : <span key={i} style={{ background:'#e8e8e8', color:'#666', padding:'3px 10px', borderRadius:999, fontSize:'0.72rem', fontWeight:500 }}>{icon} {a.name}</span>;
+                      })}
                     </div>
                   )}
                 </div>
