@@ -64,7 +64,8 @@ function buildApplicationSummary(aplicaciones) {
     totals[key].total      += parseFloat(String(r.dosis).replace(',', '.')) || 0;
     totals[key].aplicaciones += 1;
   });
-  return { rows, totals: Object.values(totals) };
+  const totalList = Object.values(totals).map(t => ({ ...t, total: parseFloat(t.total.toFixed(4)) }));
+  return { rows, totals: totalList };
 }
 
 function buildConsumoSummary(consumo, liquidaciones_parciales) {
