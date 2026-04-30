@@ -61,7 +61,7 @@ function buildApplicationSummary(aplicaciones) {
   rows.forEach(r => {
     const key = `${r.medicamento}__${r.unidad}`;
     if (!totals[key]) totals[key] = { medicamento: r.medicamento, unidad: r.unidad, total: 0, aplicaciones: 0 };
-    totals[key].total      += parseFloat(r.dosis) || 0;
+    totals[key].total      += parseFloat(String(r.dosis).replace(',', '.')) || 0;
     totals[key].aplicaciones += 1;
   });
   return { rows, totals: Object.values(totals) };
@@ -1206,7 +1206,7 @@ export default function HospitalizationPage() {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.65rem', paddingTop: '0.65rem', borderTop: '1px dashed var(--color-border)' }}>
                               <div>
                                 <label style={{ ...labelStyle, fontSize: '0.68rem' }}>Cantidad aplicada</label>
-                                <input value={entry.dosis} onChange={e => setCheckedMeds(prev => ({ ...prev, [i]: { ...prev[i], dosis: e.target.value } }))} style={{ width: '100%', padding: '0.4rem 0.6rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.82rem' }} />
+                                <input value={entry.dosis} onChange={e => setCheckedMeds(prev => ({ ...prev, [i]: { ...prev[i], dosis: e.target.value.replace(',', '.') } }))} style={{ width: '100%', padding: '0.4rem 0.6rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.82rem' }} />
                               </div>
                               <div>
                                 <label style={{ ...labelStyle, fontSize: '0.68rem' }}>Unidad</label>
@@ -1281,7 +1281,7 @@ export default function HospitalizationPage() {
                     {editTxMeds.map((m, i) => (
                       <tr key={i} style={{ borderBottom: i < editTxMeds.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
                         <td style={{ padding: '0.4rem 0.5rem' }}><input value={m.medicamento} onChange={e => updateEditTxMed(i, 'medicamento', e.target.value)} placeholder="Nombre" style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }} /></td>
-                        <td style={{ padding: '0.4rem 0.5rem' }}><input value={m.dosis} onChange={e => updateEditTxMed(i, 'dosis', e.target.value)} placeholder="0" style={{ width: 55, padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }} /></td>
+                        <td style={{ padding: '0.4rem 0.5rem' }}><input value={m.dosis} onChange={e => updateEditTxMed(i, 'dosis', e.target.value.replace(',', '.'))} placeholder="0" style={{ width: 55, padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }} /></td>
                         <td style={{ padding: '0.4rem 0.5rem' }}><select value={m.unidad} onChange={e => updateEditTxMed(i, 'unidad', e.target.value)} style={{ padding: '0.4rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>{UNIDADES.map(u => <option key={u}>{u}</option>)}</select></td>
                         <td style={{ padding: '0.4rem 0.5rem' }}><select value={m.via || 'IV'} onChange={e => updateEditTxMed(i, 'via', e.target.value)} style={{ padding: '0.4rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>{VIAS.map(v => <option key={v}>{v}</option>)}</select></td>
                         <td style={{ padding: '0.4rem 0.5rem' }}><select value={m.frecuencia} onChange={e => updateEditTxMed(i, 'frecuencia', e.target.value)} style={{ padding: '0.4rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>{FRECUENCIAS.map(f => <option key={f}>{f}</option>)}</select></td>

@@ -180,7 +180,7 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
                         <input value={m.medicamento} onChange={e => updateMed(i, 'medicamento', e.target.value)} placeholder="Nombre" style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }} />
                       </td>
                       <td style={{ padding: '0.4rem 0.5rem' }}>
-                        <input value={m.dosis} onChange={e => updateMed(i, 'dosis', e.target.value)} placeholder="0" style={{ width: 60, padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }} />
+                        <input value={m.dosis} onChange={e => updateMed(i, 'dosis', e.target.value.replace(',', '.'))} placeholder="0" style={{ width: 60, padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }} />
                       </td>
                       <td style={{ padding: '0.4rem 0.5rem' }}>
                         <select value={m.unidad} onChange={e => updateMed(i, 'unidad', e.target.value)} style={{ padding: '0.4rem 0.4rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
