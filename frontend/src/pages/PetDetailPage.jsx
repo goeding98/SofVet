@@ -1499,7 +1499,7 @@ export default function PetDetailPage() {
                   type="file"
                   multiple
                   accept="image/*,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                  onChange={e => setNotaFiles(Array.from(e.target.files))}
+                  onChange={e => { setNotaFiles(prev => [...prev, ...Array.from(e.target.files)]); e.target.value = ''; }}
                   style={{ width:'100%', fontSize:'0.82rem' }}
                 />
                 {notaFiles.length > 0 && (
@@ -1508,8 +1508,10 @@ export default function PetDetailPage() {
                       const isPdf = f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
                       const isDoc = f.name.toLowerCase().endsWith('.doc') || f.name.toLowerCase().endsWith('.docx');
                       return (
-                        <span key={i} style={{ fontSize:'0.73rem', color:'#b8860b', background:'#fef3cd', border:'1px solid #f59e0b', borderRadius:999, padding:'2px 8px' }}>
+                        <span key={i} style={{ fontSize:'0.73rem', color:'#b8860b', background:'#fef3cd', border:'1px solid #f59e0b', borderRadius:999, padding:'2px 8px', display:'flex', alignItems:'center', gap:'0.3rem' }}>
                           {isPdf ? '📄' : isDoc ? '📝' : '🖼️'} {f.name} ({(f.size/1024).toFixed(0)} KB)
+                          <button onClick={() => setNotaFiles(prev => prev.filter((_, idx) => idx !== i))}
+                            style={{ background:'none', border:'none', cursor:'pointer', color:'#b8860b', fontWeight:700, fontSize:'0.85rem', lineHeight:1, padding:0 }}>×</button>
                         </span>
                       );
                     })}

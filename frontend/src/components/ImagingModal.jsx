@@ -175,12 +175,17 @@ export default function ImagingModal({ isOpen, onClose, onSave, onEdit, pet, ini
 
           <div style={{ marginBottom: '1.25rem' }}>
             <label style={labelStyle}>{isEditing ? 'Agregar archivos' : 'Adjuntar imágenes / PDF'}</label>
-            <input type="file" multiple accept="image/*,.pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={e => setFiles(Array.from(e.target.files))}
+            <input type="file" multiple accept="image/*,.pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={e => { setFiles(prev => [...prev, ...Array.from(e.target.files)]); e.target.value = ''; }}
               style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-body)', fontSize: '0.82rem', background: 'var(--color-bg)' }} />
             {files.length > 0 && (
               <div style={{ marginTop: '0.4rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
                 {files.map((f, i) => (
-                  <span key={i} style={{ background: '#e8f0ff', color: '#2e5cbf', padding: '2px 8px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 500 }}>📎 {f.name}</span>
+                  <span key={i} style={{ background: '#e8f0ff', color: '#2e5cbf', padding: '2px 8px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    📎 {f.name}
+                    <button onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2e5cbf', fontWeight: 700, fontSize: '0.8rem', lineHeight: 1, padding: 0 }}>×</button>
+                  </span>
                 ))}
               </div>
             )}
