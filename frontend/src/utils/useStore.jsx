@@ -172,20 +172,25 @@ export function useStore(key) {
   }, [key, table]);
 
   // ── Optimistic remove ─────────────────────────────────────────────────────
-  const remove = useCallback(async (id) => {
+  const remove = useCallback(async (id, options = {}) => {
     if (!table) return;
+    const { onError } = options;
     const prev = cache[key] || [];
     const optimistic = prev.filter(i => i.id !== id);
     cache[key] = optimistic;
     notify(key, optimistic);
 
-    const { error } = await supabase
+    const { data: deleted, error } = await supabase
       .from(table)
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .select();
 
-    if (error) {
-      console.error(`[useStore] remove ${table}:`, error.message);
+    const failed = error || (Array.isArray(deleted) && deleted.length === 0);
+    if (failed) {
+      const msg = error?.message || 'No se pudo eliminar (sin permisos o registro no encontrado).';
+      console.error(`[useStore] remove ${table}:`, msg);
+      onError?.(msg);
       fetchAll(table).then(data => {
         cache[key] = data;
         notify(key, data);

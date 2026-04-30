@@ -124,7 +124,8 @@ export default function PatientsPage() {
   };
 
   const handleDelete = (row) => {
-    if (confirm(`¿Eliminar a ${row.name}?`)) remove(row.id);
+    if (confirm(`¿Eliminar a ${row.name}?`))
+      remove(row.id, { onError: (msg) => alert('❌ No se pudo eliminar:\n\n' + msg) });
   };
 
   const columns = [
