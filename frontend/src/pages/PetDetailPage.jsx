@@ -1499,7 +1499,7 @@ export default function PetDetailPage() {
                   type="file"
                   multiple
                   accept="image/*,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                  onChange={e => { setNotaFiles(prev => [...prev, ...Array.from(e.target.files)]); e.target.value = ''; }}
+                  onChange={e => { const picked = Array.from(e.target.files); e.target.value = ''; setNotaFiles(prev => [...prev, ...picked]); }}
                   style={{ width:'100%', fontSize:'0.82rem' }}
                 />
                 {notaFiles.length > 0 && (

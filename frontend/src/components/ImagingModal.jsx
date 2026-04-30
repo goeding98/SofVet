@@ -176,7 +176,7 @@ export default function ImagingModal({ isOpen, onClose, onSave, onEdit, pet, ini
           <div style={{ marginBottom: '1.25rem' }}>
             <label style={labelStyle}>{isEditing ? 'Agregar archivos' : 'Adjuntar imágenes / PDF'}</label>
             <input type="file" multiple accept="image/*,.pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              onChange={e => { setFiles(prev => [...prev, ...Array.from(e.target.files)]); e.target.value = ''; }}
+              onChange={e => { const picked = Array.from(e.target.files); e.target.value = ''; setFiles(prev => [...prev, ...picked]); }}
               style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-body)', fontSize: '0.82rem', background: 'var(--color-bg)' }} />
             {files.length > 0 && (
               <div style={{ marginTop: '0.4rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
