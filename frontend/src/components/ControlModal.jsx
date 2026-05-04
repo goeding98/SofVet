@@ -3,8 +3,10 @@ import Modal from './Modal';
 import Button from './Button';
 import { useSede, SEDES } from '../utils/useSede';
 import { useAuth } from '../utils/useAuth';
+import { useStore } from '../utils/useStore';
 
-const EMPTY_MED = { medicamento: '', dosis: '', via: 'VO' };
+const EMPTY_MED  = { medicamento: '', dosis: '', via: 'VO' };
+const EMPTY_PROD = { producto: '', cantidad: '', instrucciones: '' };
 const VIAS = ['VO','IM','IV','SC','Tópica','Inhalada','Oftálmica','Ótica'];
 const MUCOSAS_OPTS = ['Rosadas húmedas','Pálidas','Congestivas','Cianóticas','Ictéricas','Secas'];
 
@@ -47,14 +49,22 @@ const SectionHeader = ({ icon, title, color='var(--color-primary)' }) => (
 export default function ControlModal({ isOpen, onClose, onSave, onDelete, pet, initialData = null, mode = 'new' }) {
   const { sedeActual, isAdmin } = useSede();
   const { session } = useAuth();
+  const { add: addFormula } = useStore('formulas_medicas');
   const canChooseSede = isAdmin || session?.sede_id === 4;
   const [form, setForm] = useState(makeEmpty);
   const [sedeId, setSedeId] = useState(sedeActual || 1);
   const [confirmDel, setConfirmDel] = useState(false);
 
+  const [incluirFormula, setIncluirFormula] = useState(false);
+  const [formulaProds,   setFormulaProds]   = useState([{ ...EMPTY_PROD }]);
+  const [formulaObs,     setFormulaObs]     = useState('');
+
   useEffect(() => {
     if (isOpen) {
       setConfirmDel(false);
+      setIncluirFormula(false);
+      setFormulaProds([{ ...EMPTY_PROD }]);
+      setFormulaObs('');
       if (initialData) {
         setForm({ ...makeEmpty(), ...initialData, medicamentos_aplicados: initialData.medicamentos_aplicados || [] });
         setSedeId(initialData.sede_id || sedeActual || 1);
@@ -78,11 +88,30 @@ export default function ControlModal({ isOpen, onClose, onSave, onDelete, pet, i
     } else {
       onSave({ ...form, sede_id: sedeId || null, veterinario: session?.nombre || null });
     }
+    if (incluirFormula && pet?.id) {
+      const prods = formulaProds.filter(p => p.producto.trim());
+      if (prods.length > 0 || formulaObs.trim()) {
+        addFormula({
+          patient_id:    pet.id,
+          patient_name:  pet.name,
+          fecha:         form.date,
+          productos:     prods,
+          estado:        'Pendiente',
+          veterinario:   session?.nombre || null,
+          observaciones: formulaObs.trim() || null,
+          hora_creacion: horaAhora,
+        });
+      }
+    }
   };
 
   const addMed    = () => set('medicamentos_aplicados', [...form.medicamentos_aplicados, { ...EMPTY_MED }]);
   const removeMed = (i) => set('medicamentos_aplicados', form.medicamentos_aplicados.filter((_,idx)=>idx!==i));
   const updMed    = (i,k,v) => set('medicamentos_aplicados', form.medicamentos_aplicados.map((m,idx)=>idx===i?{...m,[k]:v}:m));
+
+  const addFProd    = () => setFormulaProds(p => [...p, { ...EMPTY_PROD }]);
+  const removeFProd = (i) => setFormulaProds(p => p.filter((_,idx)=>idx!==i));
+  const updFProd    = (i,k,v) => setFormulaProds(p => p.map((r,idx)=>idx===i?{...r,[k]:v}:r));
 
   const TA = (label, key, rows=3) => (
     <div style={{ marginBottom:'1rem' }}>
@@ -227,6 +256,51 @@ export default function ControlModal({ isOpen, onClose, onSave, onDelete, pet, i
       </div>
 
       {TA('Observaciones', 'observaciones', 2)}
+
+      {/* Fórmula médica opcional */}
+      <div style={{ marginTop:'1.25rem', border:`1px solid ${incluirFormula ? '#316d74' : 'var(--color-border)'}`, borderRadius:'var(--radius-md)', overflow:'hidden', transition:'border-color 0.2s' }}>
+        <button
+          type="button"
+          onClick={() => setIncluirFormula(v => !v)}
+          style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0.7rem 1rem', background: incluirFormula ? '#f0faf9' : 'var(--color-bg)', border:'none', cursor:'pointer', fontFamily:'var(--font-body)', textAlign:'left' }}
+        >
+          <span style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+            <span style={{ fontSize:'1rem' }}>💊</span>
+            <span style={{ fontFamily:'var(--font-title)', fontSize:'0.85rem', fontWeight:700, color: incluirFormula ? '#316d74' : 'var(--color-text-muted)', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+              Fórmula médica para casa
+            </span>
+            <span style={{ fontSize:'0.7rem', color:'var(--color-text-muted)', fontWeight:400, fontStyle:'italic' }}>(opcional)</span>
+          </span>
+          <span style={{ fontSize:'0.85rem', color: incluirFormula ? '#316d74' : 'var(--color-text-muted)', fontWeight:700 }}>
+            {incluirFormula ? '▲ Ocultar' : '▼ Agregar'}
+          </span>
+        </button>
+
+        {incluirFormula && (
+          <div style={{ padding:'1rem', borderTop:'1px solid #cce8e6', background:'#f9fffe' }}>
+            {/* Productos */}
+            <div style={{ marginBottom:'0.75rem' }}>
+              {formulaProds.map((p, i) => (
+                <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 90px 1fr 28px', gap:'0.4rem', marginBottom:'0.4rem', alignItems:'center' }}>
+                  <input value={p.producto}      onChange={e => updFProd(i,'producto',e.target.value)}      placeholder="Producto / medicamento"                      style={inl} />
+                  <input value={p.cantidad}      onChange={e => updFProd(i,'cantidad',e.target.value)}      placeholder="Cantidad"                                    style={inl} />
+                  <input value={p.instrucciones} onChange={e => updFProd(i,'instrucciones',e.target.value)} placeholder="Indicaciones (ej: 1 tab cada 12h por 5 días)" style={inl} />
+                  <button onClick={() => removeFProd(i)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-danger)', fontSize:'1.1rem', lineHeight:1, padding:0 }}>×</button>
+                </div>
+              ))}
+              <button onClick={addFProd} style={{ fontSize:'0.78rem', color:'#316d74', background:'none', border:'1px dashed #99b2aa', borderRadius:'var(--radius-sm)', padding:'0.3rem 0.85rem', cursor:'pointer', fontFamily:'var(--font-body)', fontWeight:600, marginTop:'0.1rem' }}>
+                + Agregar medicamento
+              </button>
+            </div>
+
+            {/* Observaciones de la fórmula */}
+            <div>
+              <label style={{ ...lSt, color:'#316d74' }}>Indicaciones generales</label>
+              <textarea value={formulaObs} onChange={e => setFormulaObs(e.target.value)} rows={2} placeholder="Ej: Reposo, dieta blanda, regresar si hay vómito..." style={{ ...taSt, borderColor:'#cce8e6' }} />
+            </div>
+          </div>
+        )}
+      </div>
     </Modal>
   );
 }
