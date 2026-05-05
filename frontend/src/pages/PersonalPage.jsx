@@ -653,12 +653,13 @@ export default function PersonalPage() {
     if (!window.confirm(`¿Borrar todos los turnos de ${mesLabel}? Esta acción no se puede deshacer.`)) return;
     const empIds = empsFiltrados.map(e => e.id);
     if (!empIds.length) return;
+    const lastDay = String(daysInMonth(mes)).padStart(2, '0');
     const { error } = await supabase
       .from('turnos')
       .delete()
       .in('user_id', empIds)
       .gte('fecha', `${mes}-01`)
-      .lte('fecha', `${mes}-31`);
+      .lte('fecha', `${mes}-${lastDay}`);
     if (error) { alert('Error al borrar: ' + error.message); return; }
     await refreshTurnos();
   };
