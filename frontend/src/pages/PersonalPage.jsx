@@ -543,16 +543,22 @@ export default function PersonalPage() {
     const groups = [groupA, groupB];
 
     // Generate hospi doctor schedules
+    // Rule: NOC→DIA next day = 24h straight, forbidden.
+    // Fix: within each block one doctor does ALL DIA, the other ALL NOC (no intra-block alternation).
+    // Roles swap between consecutive blocks of the same group (rest days separate them safely).
+    const groupBlockNum = [0, 0];
     let curGroup = 0;
     let blockDay  = 0;
 
     for (let d = 1; d <= totalDias; d++) {
       if (blockDay >= blockSize) { curGroup = 1 - curGroup; blockDay = 0; }
+      if (blockDay === 0) groupBlockNum[curGroup]++;
 
-      const fecha    = `${mesGen}-${String(d).padStart(2, '0')}`;
-      const active   = groups[curGroup];
-      const resting  = groups[1 - curGroup];
-      const d0IsDIA  = blockDay % 2 === 0;
+      const fecha   = `${mesGen}-${String(d).padStart(2, '0')}`;
+      const active  = groups[curGroup];
+      const resting = groups[1 - curGroup];
+      // Odd-numbered blocks: [0]=DIA; even-numbered: [0]=NOC — roles flip each block
+      const d0IsDIA = groupBlockNum[curGroup] % 2 === 1;
 
       if (active[0]) setS(active[0].id, fecha, d0IsDIA ? 'DIA' : 'NOC', d0IsDIA ? '06:00' : '18:00', d0IsDIA ? '18:00' : '06:00');
       if (active[1]) setS(active[1].id, fecha, d0IsDIA ? 'NOC' : 'DIA', d0IsDIA ? '18:00' : '06:00', d0IsDIA ? '06:00' : '18:00');
