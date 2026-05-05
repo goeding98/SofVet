@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
 import { SEDES } from '../utils/useSede';
+import { supabase } from '../utils/supabaseClient';
 
 const GRUPOS = [
   { value: 'medico_hospitalizacion', label: 'Médico Hospitalización' },
@@ -262,6 +263,100 @@ function PermisoModal({ isOpen, onClose, onSave, usuarios, session }) {
   );
 }
 
+// ── CalendarioModal ────────────────────────────────────────────────────────────
+function CalendarioModal({ isOpen, onClose, onGenerate, hospPairs, mesActual }) {
+  const [mesGen,      setMesGen]      = useState(mesActual);
+  const [diaStarters, setDiaStarters] = useState({});
+  const [consultaDia, setConsultaDia] = useState(true);
+  const [auxiliarDia, setAuxiliarDia] = useState(true);
+  const [loading,     setLoading]     = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setMesGen(mesActual);
+    const defaults = {};
+    hospPairs.forEach(([a]) => { defaults[a.id] = a.id; });
+    setDiaStarters(defaults);
+  }, [isOpen, mesActual, hospPairs]);
+
+  if (!isOpen) return null;
+
+  const handleGenerate = async () => {
+    setLoading(true);
+    await onGenerate({ mesGen, diaStarters, consultaDia, auxiliarDia });
+    setLoading(false);
+    onClose();
+  };
+
+  return (
+    <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1200, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background:'white', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-lg)', width:'100%', maxWidth:520, overflow:'hidden' }}>
+        <div style={{ padding:'1rem 1.5rem', borderBottom:'1px solid var(--color-border)', background:'#f0f4ff', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <h3 style={{ margin:0, fontFamily:'var(--font-title)', color:'#2e5cbf', fontSize:'1rem' }}>📅 Generar calendario</h3>
+          <button onClick={onClose} style={{ width:32, height:32, background:'white', border:'1px solid var(--color-border)', borderRadius:'50%', cursor:'pointer', fontSize:'1rem' }}>×</button>
+        </div>
+        <div style={{ padding:'1.25rem 1.5rem', display:'flex', flexDirection:'column', gap:'1rem' }}>
+
+          <div>
+            <label style={lSt}>Mes a generar</label>
+            <input type="month" value={mesGen} onChange={e => setMesGen(e.target.value)} style={iSt} />
+          </div>
+
+          {hospPairs.length > 0 && (
+            <div>
+              <div style={{ fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:'#15803d', marginBottom:'0.5rem' }}>
+                Hospitalización — ¿quién empieza de DIA el día 1?
+              </div>
+              {hospPairs.map(([a, b]) => (
+                <div key={a.id} style={{ display:'flex', alignItems:'center', gap:'0.6rem', marginBottom:'0.45rem', padding:'0.45rem 0.75rem', background:'#f0fdf4', borderRadius:'var(--radius-sm)', border:'1px solid #bbf7d0' }}>
+                  <span style={{ fontSize:'0.8rem', flex:1, color:'#166534' }}>
+                    {a.nombre}{b ? ` + ${b.nombre}` : ''}
+                  </span>
+                  <div style={{ display:'flex', gap:'0.3rem' }}>
+                    {[a, b].filter(Boolean).map(p => (
+                      <button key={p.id}
+                        onClick={() => setDiaStarters(prev => ({ ...prev, [a.id]: p.id }))}
+                        style={{ padding:'0.22rem 0.55rem', borderRadius:999, border:`1.5px solid ${diaStarters[a.id]===p.id ? '#15803d' : 'var(--color-border)'}`, background: diaStarters[a.id]===p.id ? '#bbf7d0' : 'white', color: diaStarters[a.id]===p.id ? '#15803d' : 'var(--color-text-muted)', fontSize:'0.72rem', fontWeight:600, cursor:'pointer', fontFamily:'var(--font-body)' }}>
+                        {p.nombre.split(' ')[0]} = DIA
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <div style={{ fontSize:'0.72rem', color:'var(--color-text-muted)', marginTop:'0.3rem' }}>
+                El patrón es DIA/NOC alternando cada día (cobertura 24h continua). Los descansos se ajustan manualmente.
+              </div>
+            </div>
+          )}
+
+          <div style={{ display:'flex', flexDirection:'column', gap:'0.45rem', padding:'0.75rem', background:'var(--color-bg)', borderRadius:'var(--radius-sm)', border:'1px solid var(--color-border)' }}>
+            <label style={{ display:'flex', alignItems:'center', gap:'0.5rem', cursor:'pointer', fontSize:'0.82rem' }}>
+              <input type="checkbox" checked={consultaDia} onChange={e => setConsultaDia(e.target.checked)} />
+              Médico Consulta: DIA de lunes a sábado, descanso domingos
+            </label>
+            <label style={{ display:'flex', alignItems:'center', gap:'0.5rem', cursor:'pointer', fontSize:'0.82rem' }}>
+              <input type="checkbox" checked={auxiliarDia} onChange={e => setAuxiliarDia(e.target.checked)} />
+              Auxiliares: DIA de lunes a sábado, descanso domingos
+            </label>
+          </div>
+
+          <div style={{ fontSize:'0.75rem', color:'#92400e', background:'#fef9c3', padding:'0.5rem 0.75rem', borderRadius:'var(--radius-sm)', border:'1px solid #f59e0b' }}>
+            ⚠️ Los turnos existentes en el mes seleccionado serán reemplazados. Ajusta manualmente después.
+          </div>
+
+          <div style={{ display:'flex', gap:'0.75rem', justifyContent:'flex-end' }}>
+            <button onClick={onClose} style={{ padding:'0.55rem 1.25rem', background:'white', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.85rem', color:'var(--color-text-muted)' }}>Cancelar</button>
+            <button onClick={handleGenerate} disabled={loading}
+              style={{ padding:'0.55rem 1.5rem', background:'#2e5cbf', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor: loading ? 'default' : 'pointer', fontFamily:'var(--font-body)', fontSize:'0.85rem', fontWeight:600, opacity: loading ? 0.7 : 1 }}>
+              {loading ? 'Generando...' : '📅 Generar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── PersonCard (draggable) ─────────────────────────────────────────────────────
 function PersonCard({ u, grp, draggedId, onDragStart, onEdit }) {
   const isDragging = draggedId === u.id;
@@ -301,7 +396,7 @@ function PersonCard({ u, grp, draggedId, onDragStart, onEdit }) {
 // ── Main Page ──────────────────────────────────────────────────────────────────
 export default function PersonalPage() {
   const { session, users, editPersonalMeta } = useAuth();
-  const { items: turnos,   add: addTurno,   edit: editTurno }   = useStore('turnos');
+  const { items: turnos, add: addTurno, edit: editTurno, refresh: refreshTurnos } = useStore('turnos');
   const { items: permisos, add: addPermiso, edit: editPermiso } = useStore('permisos_empleados');
 
   const [tab,          setTab]          = useState('calendario');
@@ -316,8 +411,24 @@ export default function PersonalPage() {
   const [resolving,    setResolving]    = useState(null);
   const [draggedId,    setDraggedId]    = useState(null);
   const [dragOver,     setDragOver]     = useState(null);
+  const [showCalModal, setShowCalModal] = useState(false);
 
   const userMap = useMemo(() => Object.fromEntries(users.map(u => [u.id, u])), [users]);
+
+  // Pairs for hospitalización (used by CalendarioModal)
+  const hospPairs = useMemo(() => {
+    const hosp = empsFiltrados.filter(e => e.grupo === 'medico_hospitalizacion');
+    const seen  = new Set();
+    const pairs = [];
+    hosp.forEach(e => {
+      if (seen.has(e.id)) return;
+      seen.add(e.id);
+      const partner = hosp.find(p => !seen.has(p.id) && (p.id === e.par_id || p.par_id === e.id));
+      if (partner) { seen.add(partner.id); pairs.push([e, partner]); }
+      else pairs.push([e, null]);
+    });
+    return pairs;
+  }, [empsFiltrados]);
 
   const turnoMap = useMemo(() => {
     const m = {};
@@ -366,6 +477,46 @@ export default function PersonalPage() {
     });
     return m;
   }, [permisos, usuariosRHH]);
+
+  const handleGenerarCalendario = async ({ mesGen, diaStarters, consultaDia, auxiliarDia }) => {
+    const totalDias = daysInMonth(mesGen);
+    const rows = [];
+
+    // Hospitalización: DIA/NOC alternating every day per pair
+    hospPairs.forEach(([a, b]) => {
+      for (let d = 1; d <= totalDias; d++) {
+        const fecha    = `${mesGen}-${String(d).padStart(2, '0')}`;
+        const aIsDIA   = (diaStarters[a.id] === a.id) ? ((d % 2) === 1) : ((d % 2) === 0);
+        const push = (uid, isDIA) => rows.push({
+          user_id:     uid,
+          fecha,
+          tipo:        isDIA ? 'DIA' : 'NOC',
+          hora_inicio: isDIA ? '06:00' : '18:00',
+          hora_fin:    isDIA ? '18:00' : '06:00',
+        });
+        push(a.id, aIsDIA);
+        if (b) push(b.id, !aIsDIA);
+      }
+    });
+
+    // Consulta + Auxiliar: DIA lun-sáb, DESCANSO domingo
+    const gruposExtra = [];
+    if (consultaDia) gruposExtra.push('medico_consulta');
+    if (auxiliarDia)  gruposExtra.push('auxiliar');
+    empsFiltrados.filter(e => gruposExtra.includes(e.grupo)).forEach(e => {
+      for (let d = 1; d <= totalDias; d++) {
+        const fecha  = `${mesGen}-${String(d).padStart(2, '0')}`;
+        const esDom  = dayOfWeek(mesGen, d) === 0;
+        rows.push({ user_id: e.id, fecha, tipo: esDom ? 'DESCANSO' : 'DIA', hora_inicio: esDom ? null : '06:00', hora_fin: esDom ? null : '18:00' });
+      }
+    });
+
+    if (!rows.length) return;
+    const { error } = await supabase.from('turnos').upsert(rows, { onConflict: 'user_id,fecha' });
+    if (error) { alert('Error al generar: ' + error.message); return; }
+    await refreshTurnos();
+    setMes(mesGen);
+  };
 
   const handleDragStart = (e, userId) => {
     setDraggedId(userId);
@@ -481,9 +632,13 @@ export default function PersonalPage() {
               style={{ padding:'0.4rem 0.65rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.82rem' }}>
               {SEDES.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
             </select>
-            <span style={{ fontSize:'0.72rem', color:'var(--color-text-muted)', marginLeft:'auto' }}>
+            <span style={{ fontSize:'0.72rem', color:'var(--color-text-muted)' }}>
               Haz clic en una celda para asignar turno
             </span>
+            <button onClick={() => setShowCalModal(true)}
+              style={{ marginLeft:'auto', padding:'0.38rem 0.9rem', background:'#2e5cbf', color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600 }}>
+              + Generar calendario
+            </button>
           </div>
 
           {empsFiltrados.length === 0 ? (
@@ -720,6 +875,13 @@ export default function PersonalPage() {
       )}
 
       {/* ── Modals ── */}
+      <CalendarioModal
+        isOpen={showCalModal}
+        onClose={() => setShowCalModal(false)}
+        onGenerate={handleGenerarCalendario}
+        hospPairs={hospPairs}
+        mesActual={mes}
+      />
       <HRMetaModal
         isOpen={empModal}
         onClose={() => { setEmpModal(false); setEditingEmp(null); }}
