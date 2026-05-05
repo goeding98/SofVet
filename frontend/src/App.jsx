@@ -27,6 +27,7 @@ import HCRequestsPage from './pages/HCRequestsPage';
 import CertificadosViajePage from './pages/CertificadosViajePage';
 import PortalPage from './pages/PortalPage';
 import RemisionesPage from './pages/RemisionesPage';
+import PersonalPage from './pages/PersonalPage';
 
 function ProtectedLayout({ children }) {
   const { session } = useAuth();
@@ -91,6 +92,7 @@ function AppRoutes() {
           <Route path="/import"               element={<ProtectedLayout><ImportPage /></ProtectedLayout>} />
           <Route path="/hc-requests"          element={<ProtectedLayout><HCRequestsPage /></ProtectedLayout>} />
           <Route path="/certificados-viaje"   element={<ProtectedLayout><CertificadosViajePage /></ProtectedLayout>} />
+          <Route path="/personal"             element={<ProtectedLayout><PersonalPage /></ProtectedLayout>} />
         </>
       )}
 

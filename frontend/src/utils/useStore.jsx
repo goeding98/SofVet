@@ -26,6 +26,9 @@ const TABLE_MAP = {
   controles:               'controles',
   aliados:                 'aliados',
   remisionesVis:           'remisiones',
+  empleados:               'empleados',
+  turnos:                  'turnos',
+  permisos_empleados:      'permisos_empleados',
 };
 
 // ── Module-level cache (survives navigation, shared across all components) ──

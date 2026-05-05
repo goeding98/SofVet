@@ -100,6 +100,7 @@ export default function Sidebar() {
             <>
               <SectionLabel>Administración</SectionLabel>
               <MenuItem item={{ path: '/users',               label: 'Usuarios',           icon: '👥' }} />
+              <MenuItem item={{ path: '/personal',            label: 'Personal',           icon: '🗓️' }} />
               <MenuItem item={{ path: '/import',              label: 'Importar datos',     icon: '⬇️' }} />
               <MenuItem item={{ path: '/hc-requests',         label: 'Hist. Clínicas',     icon: '📄' }} badge={hcPending} />
               <MenuItem item={{ path: '/certificados-viaje',  label: 'Cert. de Viaje',     icon: '✈️' }} badge={certPending} />
