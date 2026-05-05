@@ -124,6 +124,20 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
+  // ── Editar metadata de personal (grupo, fecha_ingreso, vac, par) ─────────
+  const editPersonalMeta = async (id, data) => {
+    const changes = {
+      grupo:               data.grupo            ?? null,
+      fecha_ingreso:       data.fecha_ingreso     ?? null,
+      par_id:              data.par_id            ?? null,
+      'vacaciones_dias_año': parseInt(data['vacaciones_dias_año']) || 15,
+    };
+    const { error } = await supabase.from('sofvet_users').update(changes).eq('id', id);
+    if (error) return { success: false, error: error.message };
+    setUsers(prev => prev.map(u => u.id === id ? { ...u, ...changes } : u));
+    return { success: true };
+  };
+
   // ── Resetear contraseña de otro usuario (solo admin) ───────────────────
   const resetUserPassword = async (id, newPassword) => {
     const { error } = await supabase
@@ -152,7 +166,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, users, login, logout, createUser, editUser, deleteUser, toggleUserStatus, changePassword, resetUserPassword }}>
+    <AuthContext.Provider value={{ session, users, login, logout, createUser, editUser, deleteUser, toggleUserStatus, changePassword, resetUserPassword, editPersonalMeta }}>
       {children}
     </AuthContext.Provider>
   );
