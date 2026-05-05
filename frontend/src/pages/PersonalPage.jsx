@@ -415,21 +415,6 @@ export default function PersonalPage() {
 
   const userMap = useMemo(() => Object.fromEntries(users.map(u => [u.id, u])), [users]);
 
-  // Pairs for hospitalización (used by CalendarioModal)
-  const hospPairs = useMemo(() => {
-    const hosp = empsFiltrados.filter(e => e.grupo === 'medico_hospitalizacion');
-    const seen  = new Set();
-    const pairs = [];
-    hosp.forEach(e => {
-      if (seen.has(e.id)) return;
-      seen.add(e.id);
-      const partner = hosp.find(p => !seen.has(p.id) && (p.id === e.par_id || p.par_id === e.id));
-      if (partner) { seen.add(partner.id); pairs.push([e, partner]); }
-      else pairs.push([e, null]);
-    });
-    return pairs;
-  }, [empsFiltrados]);
-
   const turnoMap = useMemo(() => {
     const m = {};
     turnos.forEach(t => { m[`${t.user_id}_${t.fecha}`] = t; });
@@ -445,6 +430,21 @@ export default function PersonalPage() {
       )
     ).sort((a, b) => GRUPO_ORDER.indexOf(a.grupo || 'otro') - GRUPO_ORDER.indexOf(b.grupo || 'otro')),
   [users, sedeFilter]);
+
+  // Pairs for hospitalización (must be after empsFiltrados)
+  const hospPairs = useMemo(() => {
+    const hosp = empsFiltrados.filter(e => e.grupo === 'medico_hospitalizacion');
+    const seen  = new Set();
+    const pairs = [];
+    hosp.forEach(e => {
+      if (seen.has(e.id)) return;
+      seen.add(e.id);
+      const partner = hosp.find(p => !seen.has(p.id) && (p.id === e.par_id || p.par_id === e.id));
+      if (partner) { seen.add(partner.id); pairs.push([e, partner]); }
+      else pairs.push([e, null]);
+    });
+    return pairs;
+  }, [empsFiltrados]);
 
   // Empleados tab: all active non-Caja/Lab at sede or with grupo set
   const usuariosRHH = useMemo(() =>
