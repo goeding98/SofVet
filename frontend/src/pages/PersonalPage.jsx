@@ -24,6 +24,7 @@ const DRAG_GROUPS = [
 const TURNO_CFG = {
   DIA:      { label:'DIA', bg:'#bbf7d0', color:'#15803d', hi:'06:00', hf:'18:00' },
   NOC:      { label:'NOC', bg:'#bfdbfe', color:'#1e40af', hi:'18:00', hf:'06:00' },
+  CONSULTA: { label:'CON', bg:'#f3e8ff', color:'#7c3aed', hi:'10:00', hf:'19:00' },
   DESCANSO: { label:'D',   bg:'#f1f5f9', color:'#94a3b8', hi:null,    hf:null    },
 };
 
@@ -43,7 +44,8 @@ function calcHoras(tipo, hi, hf) {
   if (tipo === 'DESCANSO' || !hi || !hf) return 0;
   const toMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
   const mi = toMin(hi), mf = toMin(hf);
-  return parseFloat(((mf > mi ? mf - mi : 1440 - mi + mf) / 60).toFixed(1));
+  const raw = (mf > mi ? mf - mi : 1440 - mi + mf) / 60;
+  return parseFloat(Math.max(0, raw - 1).toFixed(1));
 }
 
 function turnoLabel(tipo, hi, hf) {
@@ -264,33 +266,56 @@ function PermisoModal({ isOpen, onClose, onSave, usuarios, session }) {
 }
 
 // ── CalendarioModal ────────────────────────────────────────────────────────────
-function CalendarioModal({ isOpen, onClose, onGenerate, hospPairs, mesActual }) {
-  const [mesGen,      setMesGen]      = useState(mesActual);
-  const [diaStarters, setDiaStarters] = useState({});
-  const [consultaDia, setConsultaDia] = useState(true);
-  const [auxiliarDia, setAuxiliarDia] = useState(true);
-  const [loading,     setLoading]     = useState(false);
+function CalendarioModal({ isOpen, onClose, onGenerate, hospDoctors, mesActual }) {
+  const [mesGen,    setMesGen]    = useState(mesActual);
+  const [groupAIds, setGroupAIds] = useState([]);
+  const [diaDayOne, setDiaDayOne] = useState({ A: null, B: null });
+  const [blockSize, setBlockSize] = useState(3);
+  const [loading,   setLoading]   = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     setMesGen(mesActual);
-    const defaults = {};
-    hospPairs.forEach(([a]) => { defaults[a.id] = a.id; });
-    setDiaStarters(defaults);
-  }, [isOpen, mesActual, hospPairs]);
+    setGroupAIds([]);
+    setDiaDayOne({ A: null, B: null });
+    setBlockSize(3);
+  }, [isOpen, mesActual]);
 
   if (!isOpen) return null;
 
+  const groupADocs = hospDoctors.filter(d => groupAIds.includes(d.id));
+  const groupBDocs = hospDoctors.filter(d => !groupAIds.includes(d.id));
+
+  const toggleA = (id) => {
+    setGroupAIds(prev => {
+      if (prev.includes(id)) return prev.filter(x => x !== id);
+      if (prev.length >= 2) return prev;
+      return [...prev, id];
+    });
+  };
+
+  const canGenerate = hospDoctors.length === 0 || groupAIds.length === 2;
+
   const handleGenerate = async () => {
     setLoading(true);
-    await onGenerate({ mesGen, diaStarters, consultaDia, auxiliarDia });
+    await onGenerate({ mesGen, groupAIds, blockSize, diaDayOne });
     setLoading(false);
     onClose();
   };
 
+  const starterBtn = (doc, groupKey, color, bg) => {
+    const active = diaDayOne[groupKey] === doc.id;
+    return (
+      <button key={doc.id} onClick={() => setDiaDayOne(prev => ({ ...prev, [groupKey]: doc.id }))}
+        style={{ padding:'0.25rem 0.6rem', borderRadius:999, border:`1.5px solid ${active ? color : 'var(--color-border)'}`, background: active ? bg : 'white', color: active ? color : 'var(--color-text-muted)', fontSize:'0.7rem', fontWeight:600, cursor:'pointer', fontFamily:'var(--font-body)' }}>
+        {doc.nombre.split(' ')[0]} = DIA
+      </button>
+    );
+  };
+
   return (
     <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1200, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem' }}>
-      <div onClick={e => e.stopPropagation()} style={{ background:'white', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-lg)', width:'100%', maxWidth:520, overflow:'hidden' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background:'white', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-lg)', width:'100%', maxWidth:540, overflow:'hidden' }}>
         <div style={{ padding:'1rem 1.5rem', borderBottom:'1px solid var(--color-border)', background:'#f0f4ff', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <h3 style={{ margin:0, fontFamily:'var(--font-title)', color:'#2e5cbf', fontSize:'1rem' }}>📅 Generar calendario</h3>
           <button onClick={onClose} style={{ width:32, height:32, background:'white', border:'1px solid var(--color-border)', borderRadius:'50%', cursor:'pointer', fontSize:'1rem' }}>×</button>
@@ -302,42 +327,53 @@ function CalendarioModal({ isOpen, onClose, onGenerate, hospPairs, mesActual }) 
             <input type="month" value={mesGen} onChange={e => setMesGen(e.target.value)} style={iSt} />
           </div>
 
-          {hospPairs.length > 0 && (
+          {hospDoctors.length > 0 && (
             <div>
-              <div style={{ fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:'#15803d', marginBottom:'0.5rem' }}>
-                Hospitalización — ¿quién empieza de DIA el día 1?
+              <label style={lSt}>Grupo A — selecciona 2 médicos que trabajan primero</label>
+              <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', marginBottom:'0.65rem' }}>
+                {hospDoctors.map(d => {
+                  const isA = groupAIds.includes(d.id);
+                  return (
+                    <button key={d.id} onClick={() => toggleA(d.id)}
+                      style={{ padding:'0.3rem 0.75rem', borderRadius:999, border:`2px solid ${isA ? '#15803d' : 'var(--color-border)'}`, background: isA ? '#bbf7d0' : 'white', color: isA ? '#15803d' : 'var(--color-text-muted)', fontWeight:700, fontSize:'0.78rem', cursor:'pointer', fontFamily:'var(--font-body)' }}>
+                      {d.nombre.split(' ')[0]} {isA ? '✓' : ''}
+                    </button>
+                  );
+                })}
               </div>
-              {hospPairs.map(([a, b]) => (
-                <div key={a.id} style={{ display:'flex', alignItems:'center', gap:'0.6rem', marginBottom:'0.45rem', padding:'0.45rem 0.75rem', background:'#f0fdf4', borderRadius:'var(--radius-sm)', border:'1px solid #bbf7d0' }}>
-                  <span style={{ fontSize:'0.8rem', flex:1, color:'#166534' }}>
-                    {a.nombre}{b ? ` + ${b.nombre}` : ''}
-                  </span>
-                  <div style={{ display:'flex', gap:'0.3rem' }}>
-                    {[a, b].filter(Boolean).map(p => (
-                      <button key={p.id}
-                        onClick={() => setDiaStarters(prev => ({ ...prev, [a.id]: p.id }))}
-                        style={{ padding:'0.22rem 0.55rem', borderRadius:999, border:`1.5px solid ${diaStarters[a.id]===p.id ? '#15803d' : 'var(--color-border)'}`, background: diaStarters[a.id]===p.id ? '#bbf7d0' : 'white', color: diaStarters[a.id]===p.id ? '#15803d' : 'var(--color-text-muted)', fontSize:'0.72rem', fontWeight:600, cursor:'pointer', fontFamily:'var(--font-body)' }}>
-                        {p.nombre.split(' ')[0]} = DIA
-                      </button>
-                    ))}
+
+              {groupAIds.length === 2 && (
+                <div style={{ display:'flex', flexDirection:'column', gap:'0.45rem' }}>
+                  <div style={{ padding:'0.55rem 0.75rem', background:'#f0fdf4', borderRadius:'var(--radius-sm)', border:'1px solid #bbf7d0' }}>
+                    <div style={{ fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', color:'#15803d', marginBottom:'0.35rem' }}>Grupo A — ¿quién empieza de DIA el día 1?</div>
+                    <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap' }}>
+                      {groupADocs.map(d => starterBtn(d, 'A', '#15803d', '#bbf7d0'))}
+                    </div>
+                  </div>
+                  <div style={{ padding:'0.55rem 0.75rem', background:'#eff6ff', borderRadius:'var(--radius-sm)', border:'1px solid #bfdbfe' }}>
+                    <div style={{ fontSize:'0.68rem', fontWeight:700, textTransform:'uppercase', color:'#1e40af', marginBottom:'0.35rem' }}>Grupo B — ¿quién empieza de DIA en su primer bloque?</div>
+                    <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap' }}>
+                      {groupBDocs.map(d => starterBtn(d, 'B', '#1e40af', '#bfdbfe'))}
+                    </div>
                   </div>
                 </div>
-              ))}
-              <div style={{ fontSize:'0.72rem', color:'var(--color-text-muted)', marginTop:'0.3rem' }}>
-                El patrón es DIA/NOC alternando cada día (cobertura 24h continua). Los descansos se ajustan manualmente.
-              </div>
+              )}
             </div>
           )}
 
-          <div style={{ display:'flex', flexDirection:'column', gap:'0.45rem', padding:'0.75rem', background:'var(--color-bg)', borderRadius:'var(--radius-sm)', border:'1px solid var(--color-border)' }}>
-            <label style={{ display:'flex', alignItems:'center', gap:'0.5rem', cursor:'pointer', fontSize:'0.82rem' }}>
-              <input type="checkbox" checked={consultaDia} onChange={e => setConsultaDia(e.target.checked)} />
-              Médico Consulta: DIA de lunes a sábado, descanso domingos
-            </label>
-            <label style={{ display:'flex', alignItems:'center', gap:'0.5rem', cursor:'pointer', fontSize:'0.82rem' }}>
-              <input type="checkbox" checked={auxiliarDia} onChange={e => setAuxiliarDia(e.target.checked)} />
-              Auxiliares: DIA de lunes a sábado, descanso domingos
-            </label>
+          <div>
+            <label style={lSt}>Días consecutivos por bloque</label>
+            <div style={{ display:'flex', gap:'0.4rem' }}>
+              {[3, 4].map(n => (
+                <button key={n} onClick={() => setBlockSize(n)}
+                  style={{ padding:'0.3rem 0.85rem', borderRadius:999, border:`2px solid ${blockSize === n ? '#2e5cbf' : 'var(--color-border)'}`, background: blockSize === n ? '#dbeafe' : 'white', color: blockSize === n ? '#2e5cbf' : 'var(--color-text-muted)', fontWeight:700, fontSize:'0.82rem', cursor:'pointer', fontFamily:'var(--font-body)' }}>
+                  {n} días
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize:'0.7rem', color:'var(--color-text-muted)', marginTop:'0.35rem' }}>
+              Hospi: Grupo A trabaja N días, Grupo B descansa, luego alternan. Auxiliares siguen a su médico. Consulta descansa domingos — ese día el médico DIA de hospi baja a consulta (10–7).
+            </div>
           </div>
 
           <div style={{ fontSize:'0.75rem', color:'#92400e', background:'#fef9c3', padding:'0.5rem 0.75rem', borderRadius:'var(--radius-sm)', border:'1px solid #f59e0b' }}>
@@ -346,8 +382,8 @@ function CalendarioModal({ isOpen, onClose, onGenerate, hospPairs, mesActual }) 
 
           <div style={{ display:'flex', gap:'0.75rem', justifyContent:'flex-end' }}>
             <button onClick={onClose} style={{ padding:'0.55rem 1.25rem', background:'white', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.85rem', color:'var(--color-text-muted)' }}>Cancelar</button>
-            <button onClick={handleGenerate} disabled={loading}
-              style={{ padding:'0.55rem 1.5rem', background:'#2e5cbf', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor: loading ? 'default' : 'pointer', fontFamily:'var(--font-body)', fontSize:'0.85rem', fontWeight:600, opacity: loading ? 0.7 : 1 }}>
+            <button onClick={handleGenerate} disabled={loading || !canGenerate}
+              style={{ padding:'0.55rem 1.5rem', background:'#2e5cbf', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:(loading || !canGenerate) ? 'default' : 'pointer', fontFamily:'var(--font-body)', fontSize:'0.85rem', fontWeight:600, opacity:(loading || !canGenerate) ? 0.5 : 1 }}>
               {loading ? 'Generando...' : '📅 Generar'}
             </button>
           </div>
@@ -446,6 +482,10 @@ export default function PersonalPage() {
     return pairs;
   }, [empsFiltrados]);
 
+  const hospDoctors = useMemo(() =>
+    empsFiltrados.filter(e => e.grupo === 'medico_hospitalizacion'),
+  [empsFiltrados]);
+
   // Empleados tab: all active non-Caja/Lab at sede or with grupo set
   const usuariosRHH = useMemo(() =>
     users.filter(u =>
@@ -478,37 +518,88 @@ export default function PersonalPage() {
     return m;
   }, [permisos, usuariosRHH]);
 
-  const handleGenerarCalendario = async ({ mesGen, diaStarters, consultaDia, auxiliarDia }) => {
+  const handleGenerarCalendario = async ({ mesGen, groupAIds, blockSize, diaDayOne }) => {
     const totalDias = daysInMonth(mesGen);
-    const rows = [];
+    const scheduleMap = {};  // { userId: { fecha: { tipo, hora_inicio, hora_fin } } }
 
-    // Hospitalización: DIA/NOC alternating every day per pair
-    hospPairs.forEach(([a, b]) => {
-      for (let d = 1; d <= totalDias; d++) {
-        const fecha    = `${mesGen}-${String(d).padStart(2, '0')}`;
-        const aIsDIA   = (diaStarters[a.id] === a.id) ? ((d % 2) === 1) : ((d % 2) === 0);
-        const push = (uid, isDIA) => rows.push({
-          user_id:     uid,
-          fecha,
-          tipo:        isDIA ? 'DIA' : 'NOC',
-          hora_inicio: isDIA ? '06:00' : '18:00',
-          hora_fin:    isDIA ? '18:00' : '06:00',
-        });
-        push(a.id, aIsDIA);
-        if (b) push(b.id, !aIsDIA);
-      }
-    });
+    const setS = (id, fecha, tipo, hi, hf) => {
+      if (!scheduleMap[id]) scheduleMap[id] = {};
+      scheduleMap[id][fecha] = { tipo, hora_inicio: hi ?? null, hora_fin: hf ?? null };
+    };
 
-    // Consulta + Auxiliar: DIA lun-sáb, DESCANSO domingo
-    const gruposExtra = [];
-    if (consultaDia) gruposExtra.push('medico_consulta');
-    if (auxiliarDia)  gruposExtra.push('auxiliar');
-    empsFiltrados.filter(e => gruposExtra.includes(e.grupo)).forEach(e => {
+    const hospDocs  = empsFiltrados.filter(e => e.grupo === 'medico_hospitalizacion');
+    const auxs      = empsFiltrados.filter(e => e.grupo === 'auxiliar');
+    const consultas = empsFiltrados.filter(e => e.grupo === 'medico_consulta');
+
+    // Build rotation groups A / B; place DIA-starter at index 0
+    const sortByStarter = (docs, key) => {
+      const startId = diaDayOne[key];
+      if (!startId) return docs;
+      const idx = docs.findIndex(d => d.id === startId);
+      return idx > 0 ? [docs[idx], ...docs.filter((_, i) => i !== idx)] : docs;
+    };
+    const groupA = sortByStarter(hospDocs.filter(d => groupAIds.includes(d.id)), 'A');
+    const groupB = sortByStarter(hospDocs.filter(d => !groupAIds.includes(d.id)), 'B');
+    const groups = [groupA, groupB];
+
+    // Generate hospi doctor schedules
+    let curGroup = 0;
+    let blockDay  = 0;
+
+    for (let d = 1; d <= totalDias; d++) {
+      if (blockDay >= blockSize) { curGroup = 1 - curGroup; blockDay = 0; }
+
+      const fecha    = `${mesGen}-${String(d).padStart(2, '0')}`;
+      const active   = groups[curGroup];
+      const resting  = groups[1 - curGroup];
+      const d0IsDIA  = blockDay % 2 === 0;
+
+      if (active[0]) setS(active[0].id, fecha, d0IsDIA ? 'DIA' : 'NOC', d0IsDIA ? '06:00' : '18:00', d0IsDIA ? '18:00' : '06:00');
+      if (active[1]) setS(active[1].id, fecha, d0IsDIA ? 'NOC' : 'DIA', d0IsDIA ? '18:00' : '06:00', d0IsDIA ? '06:00' : '18:00');
+      resting.forEach(doc => setS(doc.id, fecha, 'DESCANSO', null, null));
+
+      blockDay++;
+    }
+
+    // Generate consulta schedules (rest Sundays; work = CONSULTA 10-19)
+    consultas.forEach(emp => {
       for (let d = 1; d <= totalDias; d++) {
         const fecha  = `${mesGen}-${String(d).padStart(2, '0')}`;
         const esDom  = dayOfWeek(mesGen, d) === 0;
-        rows.push({ user_id: e.id, fecha, tipo: esDom ? 'DESCANSO' : 'DIA', hora_inicio: esDom ? null : '06:00', hora_fin: esDom ? null : '18:00' });
+        setS(emp.id, fecha, esDom ? 'DESCANSO' : 'CONSULTA', esDom ? null : '10:00', esDom ? null : '19:00');
       }
+    });
+
+    // On consulta rest days (Sundays): the DIA hospi doctor covers consulta instead
+    if (consultas.length > 0) {
+      for (let d = 1; d <= totalDias; d++) {
+        if (dayOfWeek(mesGen, d) !== 0) continue;
+        const fecha = `${mesGen}-${String(d).padStart(2, '0')}`;
+        hospDocs.forEach(doc => {
+          if (scheduleMap[doc.id]?.[fecha]?.tipo === 'DIA') {
+            scheduleMap[doc.id][fecha] = { tipo: 'CONSULTA', hora_inicio: '10:00', hora_fin: '19:00' };
+          }
+        });
+      }
+    }
+
+    // Auxiliaries: mirror their paired doctor exactly
+    auxs.forEach(aux => {
+      if (!aux.par_id) return;
+      for (let d = 1; d <= totalDias; d++) {
+        const fecha = `${mesGen}-${String(d).padStart(2, '0')}`;
+        const ds = scheduleMap[aux.par_id]?.[fecha];
+        if (ds) setS(aux.id, fecha, ds.tipo, ds.hora_inicio, ds.hora_fin);
+        else    setS(aux.id, fecha, 'DESCANSO', null, null);
+      }
+    });
+
+    // Flatten to upsert rows
+    const rows = [];
+    Object.entries(scheduleMap).forEach(([userId, dayMap]) => {
+      Object.entries(dayMap).forEach(([fecha, s]) => {
+        rows.push({ user_id: parseInt(userId), fecha, tipo: s.tipo, hora_inicio: s.hora_inicio, hora_fin: s.hora_fin });
+      });
     });
 
     if (!rows.length) return;
@@ -723,7 +814,7 @@ export default function PersonalPage() {
             {Object.entries(TURNO_CFG).map(([t, cfg]) => (
               <span key={t} style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', fontSize:'0.72rem', color:'var(--color-text-muted)' }}>
                 <span style={{ background:cfg.bg, color:cfg.color, padding:'1px 6px', borderRadius:4, fontWeight:700, fontSize:'0.65rem' }}>{cfg.label}</span>
-                {t === 'DIA' ? '6AM–6PM (12h)' : t === 'NOC' ? '6PM–6AM (12h)' : 'Descanso'}
+                {t === 'DIA' ? '6AM–6PM (11h)' : t === 'NOC' ? '6PM–6AM (11h)' : t === 'CONSULTA' ? '10AM–7PM (8h)' : 'Descanso'}
               </span>
             ))}
             <span style={{ fontSize:'0.72rem', color:'#dc2626', fontWeight:600 }}>Rojo = supera {MAX_HORAS}h/mes</span>
@@ -879,7 +970,7 @@ export default function PersonalPage() {
         isOpen={showCalModal}
         onClose={() => setShowCalModal(false)}
         onGenerate={handleGenerarCalendario}
-        hospPairs={hospPairs}
+        hospDoctors={hospDoctors}
         mesActual={mes}
       />
       <HRMetaModal
