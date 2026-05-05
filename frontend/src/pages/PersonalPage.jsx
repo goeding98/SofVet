@@ -583,12 +583,13 @@ export default function PersonalPage() {
       }
     }
 
-    // Auxiliaries: mirror their paired doctor exactly
+    // Auxiliaries: mirror their paired doctor (bidirectional lookup)
     auxs.forEach(aux => {
-      if (!aux.par_id) return;
+      const doctorId = aux.par_id ?? hospDocs.find(d => d.par_id === aux.id)?.id ?? null;
+      if (!doctorId) return;
       for (let d = 1; d <= totalDias; d++) {
         const fecha = `${mesGen}-${String(d).padStart(2, '0')}`;
-        const ds = scheduleMap[aux.par_id]?.[fecha];
+        const ds = scheduleMap[doctorId]?.[fecha];
         if (ds) setS(aux.id, fecha, ds.tipo, ds.hora_inicio, ds.hora_fin);
         else    setS(aux.id, fecha, 'DESCANSO', null, null);
       }
@@ -751,7 +752,7 @@ export default function PersonalPage() {
                     <div style={{ fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:'var(--color-text-muted)', marginBottom:'0.4rem', padding:'0 2px' }}>
                       {GRUPO_LABELS[grupo]}
                     </div>
-                    <div style={{ border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', overflow:'hidden' }}>
+                    <div style={{ border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)' }}>
                       <table style={{ borderCollapse:'collapse', fontSize:'0.72rem', width:'100%' }}>
                         <thead>
                           <tr style={{ background:'var(--color-bg)', borderBottom:'1px solid var(--color-border)' }}>
@@ -762,7 +763,7 @@ export default function PersonalPage() {
                                 <div style={{ fontSize:'0.6rem', fontWeight:400 }}>{DIAS_SEMANA[dayOfWeek(mes, d)]}</div>
                               </th>
                             ))}
-                            <th style={{ padding:'0.45rem 0.5rem', textAlign:'center', fontWeight:700, color:'var(--color-text-muted)', whiteSpace:'nowrap', minWidth:60 }}>Horas</th>
+                            <th style={{ padding:'0.45rem 0.5rem', textAlign:'center', fontWeight:700, color:'var(--color-text-muted)', whiteSpace:'nowrap', minWidth:60, position:'sticky', right:0, background:'var(--color-bg)', zIndex:2, borderLeft:'1px solid var(--color-border)' }}>Horas</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -794,7 +795,7 @@ export default function PersonalPage() {
                                     </td>
                                   );
                                 })}
-                                <td style={{ padding:'0.35rem 0.5rem', textAlign:'center', fontWeight:700, whiteSpace:'nowrap', color: pasado ? '#dc2626' : '#15803d', background: pasado ? '#fef2f2' : '#f0fdf4', borderLeft:'1px solid var(--color-border)' }}>
+                                <td style={{ padding:'0.35rem 0.5rem', textAlign:'center', fontWeight:700, whiteSpace:'nowrap', color: pasado ? '#dc2626' : '#15803d', background: pasado ? '#fef2f2' : '#f0fdf4', borderLeft:'1px solid var(--color-border)', position:'sticky', right:0, zIndex:1 }}>
                                   {horas}h
                                   {pasado && <div style={{ fontSize:'0.6rem', fontWeight:600 }}>+{Math.round(horas - MAX_HORAS)}h</div>}
                                 </td>
