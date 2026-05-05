@@ -528,8 +528,14 @@ export default function PersonalPage() {
     };
 
     const hospDocs  = empsFiltrados.filter(e => e.grupo === 'medico_hospitalizacion');
-    const auxs      = empsFiltrados.filter(e => e.grupo === 'auxiliar');
     const consultas = empsFiltrados.filter(e => e.grupo === 'medico_consulta');
+    const hospDocIds = new Set(hospDocs.map(d => d.id));
+    // Detect auxiliaries by par_id link to a hospi doctor, regardless of grupo field
+    const auxs = empsFiltrados.filter(e => {
+      if (hospDocIds.has(e.id)) return false;
+      const docId = e.par_id ?? hospDocs.find(d => d.par_id === e.id)?.id ?? null;
+      return docId !== null;
+    });
 
     // Build rotation groups A / B; place DIA-starter at index 0
     const sortByStarter = (docs, key) => {
@@ -643,6 +649,20 @@ export default function PersonalPage() {
     setDragOver(null);
   };
 
+  const handleBorrarMes = async () => {
+    if (!window.confirm(`¿Borrar todos los turnos de ${mesLabel}? Esta acción no se puede deshacer.`)) return;
+    const empIds = empsFiltrados.map(e => e.id);
+    if (!empIds.length) return;
+    const { error } = await supabase
+      .from('turnos')
+      .delete()
+      .in('user_id', empIds)
+      .gte('fecha', `${mes}-01`)
+      .lte('fecha', `${mes}-31`);
+    if (error) { alert('Error al borrar: ' + error.message); return; }
+    await refreshTurnos();
+  };
+
   const handleSaveHRMeta = async (data) => {
     if (editingEmp) await editPersonalMeta(editingEmp.id, data);
     setEditingEmp(null);
@@ -733,10 +753,16 @@ export default function PersonalPage() {
             <span style={{ fontSize:'0.72rem', color:'var(--color-text-muted)' }}>
               Haz clic en una celda para asignar turno
             </span>
-            <button onClick={() => setShowCalModal(true)}
-              style={{ marginLeft:'auto', padding:'0.38rem 0.9rem', background:'#2e5cbf', color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600 }}>
-              + Generar calendario
-            </button>
+            <div style={{ marginLeft:'auto', display:'flex', gap:'0.4rem' }}>
+              <button onClick={handleBorrarMes}
+                style={{ padding:'0.38rem 0.9rem', background:'white', color:'#dc2626', border:'1px solid #dc2626', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600 }}>
+                🗑️ Borrar mes
+              </button>
+              <button onClick={() => setShowCalModal(true)}
+                style={{ padding:'0.38rem 0.9rem', background:'#2e5cbf', color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600 }}>
+                + Generar calendario
+              </button>
+            </div>
           </div>
 
           {empsFiltrados.length === 0 ? (
