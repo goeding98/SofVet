@@ -13,6 +13,13 @@ const GRUPOS = [
 const GRUPO_ORDER  = ['medico_hospitalizacion','medico_consulta','auxiliar','admin','otro'];
 const GRUPO_LABELS = Object.fromEntries(GRUPOS.map(g => [g.value, g.label]));
 
+const DRAG_GROUPS = [
+  { value: 'medico_hospitalizacion', label: 'Médico Hospitalización', accent: '#15803d', bg: '#f0fdf4' },
+  { value: 'medico_consulta',        label: 'Médico Consulta',        accent: '#1e40af', bg: '#eff6ff' },
+  { value: 'auxiliar',               label: 'Auxiliar',               accent: '#b45309', bg: '#fffbeb' },
+  { value: 'admin',                  label: 'Admin / Coordinador',    accent: '#7c3aed', bg: '#f5f3ff' },
+];
+
 const TURNO_CFG = {
   DIA:      { label:'DIA', bg:'#bbf7d0', color:'#15803d', hi:'06:00', hf:'18:00' },
   NOC:      { label:'NOC', bg:'#bfdbfe', color:'#1e40af', hi:'18:00', hf:'06:00' },
@@ -255,6 +262,42 @@ function PermisoModal({ isOpen, onClose, onSave, usuarios, session }) {
   );
 }
 
+// ── PersonCard (draggable) ─────────────────────────────────────────────────────
+function PersonCard({ u, grp, draggedId, onDragStart, onEdit }) {
+  const isDragging = draggedId === u.id;
+  return (
+    <div
+      draggable
+      onDragStart={e => onDragStart(e, u.id)}
+      onDragEnd={() => {}}
+      style={{
+        background:   isDragging ? '#e8f0ff' : grp.bg,
+        border:       `1px solid ${grp.accent}44`,
+        borderRadius: 'var(--radius-sm)',
+        padding:      '0.3rem 0.55rem 0.3rem 0.4rem',
+        cursor:       'grab',
+        opacity:      isDragging ? 0.45 : 1,
+        display:      'flex',
+        alignItems:   'center',
+        gap:          '0.35rem',
+        fontSize:     '0.8rem',
+        fontWeight:   600,
+        userSelect:   'none',
+        color:        grp.accent,
+        transition:   'opacity 0.1s',
+      }}>
+      <span style={{ color: `${grp.accent}88`, fontSize:'0.75rem', letterSpacing:'-0.5px' }}>⠿</span>
+      {u.nombre}
+      <button
+        onClick={e => { e.stopPropagation(); onEdit(); }}
+        onMouseDown={e => e.stopPropagation()}
+        style={{ marginLeft:'0.15rem', background:'none', border:'none', cursor:'pointer', fontSize:'0.68rem', padding:'0 1px', opacity:0.6, lineHeight:1 }}>
+        ✏️
+      </button>
+    </div>
+  );
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────────
 export default function PersonalPage() {
   const { session, users, editPersonalMeta } = useAuth();
@@ -271,6 +314,8 @@ export default function PersonalPage() {
   const [filtroEstado, setFiltroEstado] = useState('todos');
   const [comentario,   setComentario]   = useState('');
   const [resolving,    setResolving]    = useState(null);
+  const [draggedId,    setDraggedId]    = useState(null);
+  const [dragOver,     setDragOver]     = useState(null);
 
   const userMap = useMemo(() => Object.fromEntries(users.map(u => [u.id, u])), [users]);
 
@@ -321,6 +366,33 @@ export default function PersonalPage() {
     });
     return m;
   }, [permisos, usuariosRHH]);
+
+  const handleDragStart = (e, userId) => {
+    setDraggedId(userId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, grupo) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOver(grupo);
+  };
+
+  const handleDrop = async (e, newGrupo) => {
+    e.preventDefault();
+    if (!draggedId) return;
+    const u = users.find(x => x.id === draggedId);
+    if (u && u.grupo !== newGrupo) {
+      await editPersonalMeta(draggedId, {
+        grupo:                 newGrupo,
+        fecha_ingreso:         u.fecha_ingreso,
+        'vacaciones_dias_año': u['vacaciones_dias_año'] || 15,
+        par_id:                u.par_id,
+      });
+    }
+    setDraggedId(null);
+    setDragOver(null);
+  };
 
   const handleSaveHRMeta = async (data) => {
     if (editingEmp) await editPersonalMeta(editingEmp.id, data);
@@ -507,56 +579,64 @@ export default function PersonalPage() {
       {/* ── TAB: EMPLEADOS ── */}
       {tab === 'empleados' && (
         <div>
-          <div style={{ fontSize:'0.78rem', color:'var(--color-text-muted)', marginBottom:'0.75rem', background:'#f0f4ff', padding:'0.6rem 0.9rem', borderRadius:'var(--radius-sm)', border:'1px solid #dce4f7' }}>
-            Asigna grupo, fecha de ingreso y pareja. Quienes tengan grupo aparecen en el calendario. Los empleados se gestionan desde <strong>Usuarios</strong>.
+          <div style={{ fontSize:'0.78rem', color:'var(--color-text-muted)', marginBottom:'1rem', background:'#f0f4ff', padding:'0.6rem 0.9rem', borderRadius:'var(--radius-sm)', border:'1px solid #dce4f7' }}>
+            Arrastra las personas entre grupos. Haz clic en ✏️ para editar ingreso, vacaciones y pareja.
           </div>
-          {usuariosRHH.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'3rem', color:'var(--color-text-muted)' }}>
-              <div style={{ fontSize:'2rem', marginBottom:'0.5rem' }}>👤</div>
-              <p>No hay personal activo en esta sede.</p>
-            </div>
-          ) : (
-            <div style={{ border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', overflow:'hidden', overflowX:'auto' }}>
-              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.82rem' }}>
-                <thead>
-                  <tr style={{ background:'var(--color-bg)', borderBottom:'1px solid var(--color-border)' }}>
-                    {['Nombre','Rol','Grupo','Ingreso','Vac. acum.','Vac. usadas','Saldo','Pareja',''].map(h => (
-                      <th key={h} style={{ padding:'0.55rem 0.75rem', textAlign:'left', fontSize:'0.65rem', fontWeight:700, textTransform:'uppercase', color:'var(--color-text-muted)', whiteSpace:'nowrap' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {usuariosRHH.map((e, i, arr) => {
-                    const acum   = calcVacAcumulados(e.fecha_ingreso, e['vacaciones_dias_año']);
-                    const usados = vacConsumidasPorEmp[e.id] || 0;
-                    const saldo  = Math.round((acum - usados) * 10) / 10;
-                    const par    = e.par_id ? userMap[e.par_id] : null;
-                    return (
-                      <tr key={e.id} style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
-                        <td style={{ padding:'0.55rem 0.75rem', fontWeight:600 }}>{e.nombre}</td>
-                        <td style={{ padding:'0.55rem 0.75rem', color:'var(--color-text-muted)', fontSize:'0.75rem' }}>{e.rol}</td>
-                        <td style={{ padding:'0.55rem 0.75rem' }}>
-                          {e.grupo
-                            ? <span style={{ background:'#e8f0ff', color:'#2e5cbf', borderRadius:999, padding:'2px 8px', fontSize:'0.72rem', fontWeight:600 }}>{GRUPO_LABELS[e.grupo] || e.grupo}</span>
-                            : <span style={{ color:'#ccc', fontSize:'0.72rem' }}>sin grupo</span>
-                          }
-                        </td>
-                        <td style={{ padding:'0.55rem 0.75rem', color:'var(--color-text-muted)', whiteSpace:'nowrap' }}>{e.fecha_ingreso || '—'}</td>
-                        <td style={{ padding:'0.55rem 0.75rem', fontWeight:600, color:'#2e5cbf' }}>{acum > 0 ? `${acum}d` : '—'}</td>
-                        <td style={{ padding:'0.55rem 0.75rem', color:'var(--color-text-muted)' }}>{usados > 0 ? `${usados}d` : '—'}</td>
-                        <td style={{ padding:'0.55rem 0.75rem', fontWeight:700, color: saldo >= 0 ? '#15803d' : '#dc2626' }}>{acum > 0 ? `${saldo}d` : '—'}</td>
-                        <td style={{ padding:'0.55rem 0.75rem', color:'var(--color-text-muted)', fontSize:'0.75rem' }}>{par?.nombre || '—'}</td>
-                        <td style={{ padding:'0.55rem 0.65rem' }}>
-                          <button onClick={() => { setEditingEmp(e); setEmpModal(true); }}
-                            style={{ padding:'0.25rem 0.65rem', background:'white', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.72rem', color:'var(--color-text-muted)' }}>✏️</button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+
+          {DRAG_GROUPS.map(grp => {
+            const members = usuariosRHH.filter(u => u.grupo === grp.value);
+            const isOver  = dragOver === grp.value;
+            return (
+              <div key={grp.value}
+                onDragOver={e => handleDragOver(e, grp.value)}
+                onDrop={e => handleDrop(e, grp.value)}
+                onDragLeave={() => setDragOver(null)}
+                style={{ border:`2px solid ${isOver ? grp.accent : 'var(--color-border)'}`, borderRadius:'var(--radius-md)', background: isOver ? grp.bg : 'white', marginBottom:'0.75rem', transition:'border-color 0.12s, background 0.12s', minHeight:72 }}>
+                <div style={{ padding:'0.5rem 0.85rem', borderBottom:'1px solid var(--color-border)', display:'flex', alignItems:'center', gap:'0.6rem', background: isOver ? grp.bg : '#fafafa', borderRadius:'var(--radius-md) var(--radius-md) 0 0' }}>
+                  <span style={{ fontWeight:700, fontSize:'0.75rem', color: grp.accent, textTransform:'uppercase', letterSpacing:'0.05em' }}>{grp.label}</span>
+                  <span style={{ fontSize:'0.7rem', color:'var(--color-text-muted)' }}>{members.length} persona{members.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div style={{ padding:'0.5rem 0.65rem', display:'flex', flexWrap:'wrap', gap:'0.4rem', minHeight:44, alignItems:'flex-start' }}>
+                  {members.map(u => (
+                    <PersonCard key={u.id} u={u} grp={grp} draggedId={draggedId}
+                      onDragStart={handleDragStart}
+                      onEdit={() => { setEditingEmp(u); setEmpModal(true); }}
+                    />
+                  ))}
+                  {members.length === 0 && !isOver && (
+                    <span style={{ color:'#ccc', fontSize:'0.75rem', padding:'0.3rem 0.2rem', fontStyle:'italic' }}>Arrastra aquí</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Sin grupo */}
+          {(() => {
+            const sinGrupo = usuariosRHH.filter(u => !DRAG_GROUPS.find(g => g.value === u.grupo));
+            if (!sinGrupo.length) return null;
+            const isOver = dragOver === '__sin__';
+            return (
+              <div
+                onDragOver={e => handleDragOver(e, '__sin__')}
+                onDrop={e => handleDrop(e, null)}
+                onDragLeave={() => setDragOver(null)}
+                style={{ border:`2px dashed ${isOver ? '#666' : 'var(--color-border)'}`, borderRadius:'var(--radius-md)', background: isOver ? '#f8f8f8' : 'white', minHeight:72 }}>
+                <div style={{ padding:'0.5rem 0.85rem', borderBottom:'1px solid var(--color-border)', display:'flex', alignItems:'center', gap:'0.6rem' }}>
+                  <span style={{ fontWeight:700, fontSize:'0.75rem', color:'var(--color-text-muted)', textTransform:'uppercase', letterSpacing:'0.05em' }}>Sin grupo</span>
+                  <span style={{ fontSize:'0.7rem', color:'var(--color-text-muted)' }}>{sinGrupo.length} persona{sinGrupo.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div style={{ padding:'0.5rem 0.65rem', display:'flex', flexWrap:'wrap', gap:'0.4rem', minHeight:44, alignItems:'flex-start' }}>
+                  {sinGrupo.map(u => (
+                    <PersonCard key={u.id} u={u} grp={{ accent:'#94a3b8', bg:'#f8fafc' }} draggedId={draggedId}
+                      onDragStart={handleDragStart}
+                      onEdit={() => { setEditingEmp(u); setEmpModal(true); }}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
