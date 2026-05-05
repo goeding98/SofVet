@@ -10,6 +10,12 @@ const iSt = { width: '100%', padding: '0.55rem 0.75rem', border: '1px solid var(
 const TIPOS_ALIADO = ['Clínica Veterinaria', 'Médico Independiente', 'Criadero', 'Peluquería', 'Petshop', 'Guardería'];
 const SEDES_OPT = [{ id:1, nombre:'Santa Mónica' }, { id:2, nombre:'Colseguros' }, { id:3, nombre:'Ciudad Jardín' }, { id:4, nombre:'Domicilio' }];
 
+const TECHO_BASE     = 1_000_000;
+const BONO_VOLUMEN   = 20_000;
+const BONO_NUEVO     = 50_000;
+const UMBRAL_VOLUMEN = 5;
+const UMBRAL_NUEVO   = 3;
+
 function today() { return new Date().toISOString().split('T')[0]; }
 function currentMonth() { return today().slice(0, 7); }
 
@@ -235,9 +241,10 @@ export default function RemisionesPage() {
   const [filtroAliado,  setFiltroAliado]  = useState('');
   const [filtroPaciente,setFiltroPaciente]= useState('');
   const [filtroSede,    setFiltroSede]    = useState('');
-  const [showAliados,   setShowAliados]   = useState(false);
-  const [showNueva,     setShowNueva]     = useState(false);
-  const [showStats,     setShowStats]     = useState(false);
+  const [showAliados,      setShowAliados]      = useState(false);
+  const [showNueva,        setShowNueva]        = useState(false);
+  const [showStats,        setShowStats]        = useState(false);
+  const [showLiquidacion,  setShowLiquidacion]  = useState(false);
   const [editingId,     setEditingId]     = useState(null);
   const [editValor,     setEditValor]     = useState('');
   const [editComision,  setEditComision]  = useState('');
@@ -261,8 +268,14 @@ export default function RemisionesPage() {
   }, [remisiones, mes, filtroAliado, filtroSede, filtroPaciente]);
 
   const totalValor       = filtradas.reduce((s, r) => s + (parseFloat(r.valor_facturado) || 0), 0);
-  const totalComision    = filtradas.reduce((s, r) => s + ((parseFloat(r.valor_facturado) || 0) * (parseFloat(r.comision_pct) || 0) / 100), 0);
-  const totalComisionVis = filtradas.reduce((s, r) => s + ((parseFloat(r.valor_facturado) || 0) * (parseFloat(r.comision_visitador_pct) || 0) / 100), 0);
+  const totalComision    = filtradas.reduce((s, r) => {
+    const base = Math.min(parseFloat(r.valor_facturado) || 0, TECHO_BASE);
+    return s + base * (parseFloat(r.comision_pct) || 0) / 100;
+  }, 0);
+  const totalComisionVis = filtradas.reduce((s, r) => {
+    const base = Math.min(parseFloat(r.valor_facturado) || 0, TECHO_BASE);
+    return s + base * (parseFloat(r.comision_visitador_pct) || 0) / 100;
+  }, 0);
 
   const ranking = useMemo(() => {
     const byAliado = {};
@@ -283,6 +296,53 @@ export default function RemisionesPage() {
       porComVis: [...arr].sort((a, b) => b.comVis - a.comVis).slice(0, 5),
     };
   }, [remisiones, aliadoMap]);
+
+  const liquidacion = useMemo(() => {
+    const año = mes.slice(0, 4);
+    const delMes       = remisiones.filter(r => r.fecha?.startsWith(mes));
+    const delAñoAntes  = remisiones.filter(r => r.fecha?.startsWith(año) && !r.fecha.startsWith(mes));
+
+    const aliadosConHistorial = new Set(
+      delAñoAntes.filter(r => (parseFloat(r.valor_facturado) || 0) > 0).map(r => r.aliado_id)
+    );
+
+    const byAliado = {};
+    delMes.forEach(r => {
+      const id = r.aliado_id;
+      if (!id) return;
+      if (!byAliado[id]) byAliado[id] = { id, nombre: aliadoMap[id]?.nombre || '?', items: [] };
+      byAliado[id].items.push(r);
+    });
+
+    const rows = Object.values(byAliado).map(a => {
+      const conValor       = a.items.filter(r => (parseFloat(r.valor_facturado) || 0) > 0);
+      const totalFacturado = conValor.reduce((s, r) => s + (parseFloat(r.valor_facturado) || 0), 0);
+      const comAliadoTotal = conValor.reduce((s, r) => {
+        const base = Math.min(parseFloat(r.valor_facturado) || 0, TECHO_BASE);
+        return s + base * (parseFloat(r.comision_pct) || 0) / 100;
+      }, 0);
+      const comVisTotal = conValor.reduce((s, r) => {
+        const base = Math.min(parseFloat(r.valor_facturado) || 0, TECHO_BASE);
+        return s + base * (parseFloat(r.comision_visitador_pct) || 0) / 100;
+      }, 0);
+
+      const n         = conValor.length;
+      const esNuevo   = !aliadosConHistorial.has(a.id);
+      const bonoVol   = n > UMBRAL_VOLUMEN ? (n - UMBRAL_VOLUMEN) * BONO_VOLUMEN : 0;
+      const bonoNuevo = esNuevo && n >= UMBRAL_NUEVO ? BONO_NUEVO : 0;
+
+      return {
+        id: a.id, nombre: a.nombre,
+        totalItems: a.items.length, conValor: n,
+        totalFacturado, comAliadoTotal, comVisTotal,
+        esNuevo, bonoVol, bonoNuevo, totalBonos: bonoVol + bonoNuevo,
+      };
+    }).sort((a, b) => b.totalFacturado - a.totalFacturado);
+
+    const sumComVis = rows.reduce((s, r) => s + r.comVisTotal, 0);
+    const sumBonos  = rows.reduce((s, r) => s + r.totalBonos, 0);
+    return { rows, sumComVis, sumBonos, total: sumComVis + sumBonos };
+  }, [remisiones, mes, aliadoMap]);
 
   const handleAddAliado = async (data) => {
     let err = null;
@@ -342,6 +402,9 @@ export default function RemisionesPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+          <button onClick={() => setShowLiquidacion(true)} style={{ padding: '0.5rem 1rem', background: '#7c5cbf', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.82rem', fontWeight: 600 }}>
+            💰 Liquidación
+          </button>
           <button onClick={() => setShowStats(s => !s)} style={{ padding: '0.5rem 1rem', background: showStats ? '#2e5cbf' : 'var(--color-white)', border: `1px solid ${showStats ? '#2e5cbf' : 'var(--color-border)'}`, borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.82rem', color: showStats ? 'white' : 'var(--color-text)', fontWeight: showStats ? 600 : 400 }}>
             📊 Estadísticas
           </button>
@@ -464,8 +527,10 @@ export default function RemisionesPage() {
                 const valorNum       = parseFloat(r.valor_facturado)        || 0;
                 const comisionNum    = parseFloat(r.comision_pct)           || 0;
                 const comisionVisNum = parseFloat(r.comision_visitador_pct) || 0;
-                const valorCom       = valorNum * comisionNum    / 100;
-                const valorComVis    = valorNum * comisionVisNum / 100;
+                const baseNum        = Math.min(valorNum, TECHO_BASE);
+                const valorCom       = baseNum * comisionNum    / 100;
+                const valorComVis    = baseNum * comisionVisNum / 100;
+                const techo          = valorNum > TECHO_BASE;
                 const isEdit         = editingId === r.id;
 
                 return (
@@ -496,6 +561,7 @@ export default function RemisionesPage() {
                       ) : (
                         <span style={{ fontWeight: valorNum ? 600 : 400, color: valorNum ? 'var(--color-text)' : 'var(--color-text-muted)' }}>
                           {valorNum ? fmtCOP(valorNum) : '—'}
+                          {techo && <span title="Base comisionable limitada a $1.000.000" style={{ marginLeft: '0.3rem', fontSize: '0.62rem', background: '#fff3cd', color: '#b8860b', borderRadius: 4, padding: '1px 4px', fontWeight: 700 }}>techo</span>}
                         </span>
                       )}
                     </td>
@@ -584,6 +650,95 @@ export default function RemisionesPage() {
           onSave={handleSaveRemision}
           session={session}
         />
+      )}
+
+      {/* ── Modal Liquidación ── */}
+      {showLiquidacion && (
+        <div onClick={() => setShowLiquidacion(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1200, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', overflowY: 'auto', backdropFilter: 'blur(2px)' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 780, margin: 'auto', overflow: 'hidden' }}>
+
+            {/* Header */}
+            <div style={{ padding: '1.1rem 1.5rem', background: 'linear-gradient(135deg, #4a2d8a, #7c5cbf)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontFamily: 'var(--font-title)', color: 'white', fontSize: '1.1rem' }}>💰 Liquidación Visitadora Médica</h3>
+                <p style={{ margin: '0.2rem 0 0', fontSize: '0.78rem', color: 'rgba(255,255,255,0.75)', textTransform: 'capitalize' }}>{mesLabel} · base comisionable máx. {fmtCOP(TECHO_BASE)}</p>
+              </div>
+              <button onClick={() => setShowLiquidacion(false)} style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 'var(--radius-full)', cursor: 'pointer', color: 'white', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+            </div>
+
+            <div style={{ padding: '1.25rem 1.5rem' }}>
+              {liquidacion.rows.length === 0 ? (
+                <p style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: '2rem' }}>Sin remisiones con valor facturado en {mesLabel}.</p>
+              ) : (
+                <>
+                  {/* Tabla por aliado */}
+                  <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: '1.25rem' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                      <thead>
+                        <tr style={{ background: '#f3e8ff', borderBottom: '1px solid #d8b4fe' }}>
+                          {['Clínica Aliada', 'Remisiones', 'Total Facturado', 'Com. Visitadora', 'Bonos', 'Subtotal'].map(h => (
+                            <th key={h} style={{ padding: '0.55rem 0.75rem', textAlign: 'left', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', color: '#7c5cbf', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {liquidacion.rows.map((r, i) => (
+                          <tr key={r.id} style={{ borderBottom: i < liquidacion.rows.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
+                            <td style={{ padding: '0.6rem 0.75rem' }}>
+                              <span style={{ fontWeight: 600 }}>{r.nombre}</span>
+                              {r.esNuevo && r.conValor >= UMBRAL_NUEVO && (
+                                <span style={{ marginLeft: '0.4rem', fontSize: '0.62rem', background: '#dcfce7', color: '#16a34a', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>🆕 NUEVO</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '0.6rem 0.75rem', color: 'var(--color-text-muted)' }}>
+                              <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>{r.conValor}</span> con valor
+                              {r.totalItems !== r.conValor && <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}> ({r.totalItems} total)</span>}
+                            </td>
+                            <td style={{ padding: '0.6rem 0.75rem', fontWeight: 600 }}>{fmtCOP(r.totalFacturado)}</td>
+                            <td style={{ padding: '0.6rem 0.75rem', color: '#7c5cbf', fontWeight: 600 }}>{r.comVisTotal ? fmtCOP(r.comVisTotal) : '—'}</td>
+                            <td style={{ padding: '0.6rem 0.75rem' }}>
+                              {r.totalBonos > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                                  {r.bonoVol > 0 && <span style={{ fontSize: '0.72rem', color: '#b8860b', fontWeight: 600 }}>🎯 Vol. +{r.conValor - UMBRAL_VOLUMEN} rem → {fmtCOP(r.bonoVol)}</span>}
+                                  {r.bonoNuevo > 0 && <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 600 }}>✨ Nuevo aliado → {fmtCOP(r.bonoNuevo)}</span>}
+                                </div>
+                              ) : <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
+                            </td>
+                            <td style={{ padding: '0.6rem 0.75rem', fontWeight: 700, color: '#4a2d8a' }}>{fmtCOP(r.comVisTotal + r.totalBonos)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Resumen */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+                    <div style={{ background: '#f3e8ff', border: '1px solid #d8b4fe', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem' }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', color: '#7c5cbf', marginBottom: '0.3rem' }}>Comisiones</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#7c5cbf' }}>{fmtCOP(liquidacion.sumComVis)}</div>
+                    </div>
+                    <div style={{ background: '#fef9c3', border: '1px solid #fde047', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem' }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', color: '#b8860b', marginBottom: '0.3rem' }}>Bonos</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#b8860b' }}>{fmtCOP(liquidacion.sumBonos)}</div>
+                      <div style={{ fontSize: '0.68rem', color: '#b8860b', marginTop: '0.2rem' }}>
+                        {liquidacion.rows.filter(r => r.bonoVol > 0).length > 0 && `🎯 Volumen × ${liquidacion.rows.filter(r => r.bonoVol > 0).length} aliado(s)  `}
+                        {liquidacion.rows.filter(r => r.bonoNuevo > 0).length > 0 && `✨ Nuevos × ${liquidacion.rows.filter(r => r.bonoNuevo > 0).length}`}
+                      </div>
+                    </div>
+                    <div style={{ background: 'linear-gradient(135deg, #4a2d8a, #7c5cbf)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem' }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(255,255,255,0.75)', marginBottom: '0.3rem' }}>Total a pagar</div>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'white' }}>{fmtCOP(liquidacion.total)}</div>
+                    </div>
+                  </div>
+
+                  <p style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', margin: 0 }}>
+                    * Comisiones calculadas sobre base máx. {fmtCOP(TECHO_BASE)} por remisión. Bono volumen: {fmtCOP(BONO_VOLUMEN)} por cada paciente sobre el {UMBRAL_VOLUMEN}° por clínica. Bono nuevo aliado: {fmtCOP(BONO_NUEVO)} si es primera vez en el año y remite {UMBRAL_NUEVO}+ pacientes con valor.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
