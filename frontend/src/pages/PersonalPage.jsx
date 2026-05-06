@@ -393,6 +393,264 @@ function CalendarioModal({ isOpen, onClose, onGenerate, hospDoctors, mesActual }
   );
 }
 
+// ── MesCalendar ───────────────────────────────────────────────────────────────
+function MesCalendar({ year, month, selectedDays, permitMap, onDayMouseDown, onDayMouseEnter, todayStr, dragRange }) {
+  const monthDate = new Date(year, month, 1);
+  const label     = monthDate.toLocaleDateString('es-CO', { month: 'long' });
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  const firstDow  = monthDate.getDay();
+
+  return (
+    <div style={{ width: 172, flexShrink: 0 }}>
+      <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'capitalize', color: 'var(--color-primary)', marginBottom: '0.25rem', textAlign: 'center' }}>
+        {label}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 24px)', gap: '1px' }}>
+        {['D','L','M','W','J','V','S'].map(d => (
+          <div key={d} style={{ width: 24, textAlign: 'center', fontSize: '0.58rem', fontWeight: 700, color: '#94a3b8', padding: '2px 0' }}>{d}</div>
+        ))}
+        {Array.from({ length: firstDow }, (_, i) => <div key={`pad${i}`} style={{ width: 24 }} />)}
+        {Array.from({ length: totalDays }, (_, i) => {
+          const day     = i + 1;
+          const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          const permit  = permitMap[dateStr];
+          const isSel   = selectedDays.has(dateStr);
+          const inDrag  = dragRange?.has(dateStr);
+          const isToday = dateStr === todayStr;
+          const isPast  = dateStr < todayStr;
+
+          let bg = 'transparent';
+          let color = isPast ? '#cbd5e1' : 'var(--color-text)';
+
+          if (permit && !isSel && !inDrag) {
+            bg    = permit.estado === 'aprobado' ? '#bbf7d0' : permit.estado === 'rechazado' ? '#fecaca' : '#fef08a';
+            color = permit.estado === 'aprobado' ? '#15803d' : permit.estado === 'rechazado' ? '#dc2626' : '#92400e';
+          }
+          if (inDrag)  { bg = '#93c5fd'; color = '#1e3a8a'; }
+          if (isSel)   { bg = '#2563eb'; color = 'white';   }
+
+          return (
+            <div key={day}
+              onMouseDown={isPast ? undefined : () => onDayMouseDown(dateStr)}
+              onMouseEnter={isPast ? undefined : () => onDayMouseEnter(dateStr)}
+              style={{
+                width: 24, height: 22,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.68rem',
+                borderRadius: 3,
+                background: bg,
+                color,
+                cursor:     isPast ? 'default' : 'pointer',
+                fontWeight: isToday ? 700 : 400,
+                border:     isToday ? '1.5px solid #2563eb' : '1.5px solid transparent',
+                userSelect: 'none',
+                boxSizing:  'border-box',
+              }}
+            >
+              {day}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── PermisoDetalleModal ────────────────────────────────────────────────────────
+function PermisoDetalleModal({ isOpen, dias, onClose, onSave }) {
+  const [tipo,   setTipo]   = useState('remunerado');
+  const [motivo, setMotivo] = useState('');
+
+  useEffect(() => { if (isOpen) { setTipo('remunerado'); setMotivo(''); } }, [isOpen]);
+
+  if (!isOpen) return null;
+  const fi = dias[0];
+  const ff = dias[dias.length - 1];
+
+  return (
+    <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1400, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background:'white', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-lg)', width:'100%', maxWidth:400, overflow:'hidden' }}>
+        <div style={{ padding:'1rem 1.5rem', borderBottom:'1px solid var(--color-border)', background:'#f0fdf4', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <div>
+            <h3 style={{ margin:0, fontFamily:'var(--font-title)', color:'#2e7d50', fontSize:'1rem' }}>📋 Solicitud de permiso</h3>
+            <div style={{ fontSize:'0.75rem', color:'var(--color-text-muted)', marginTop:'0.2rem' }}>
+              {dias.length} día{dias.length !== 1 ? 's' : ''}{dias.length > 1 ? ` · ${fi} → ${ff}` : ` · ${fi}`}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ width:32, height:32, background:'white', border:'1px solid var(--color-border)', borderRadius:'50%', cursor:'pointer', fontSize:'1rem' }}>×</button>
+        </div>
+        <div style={{ padding:'1.25rem 1.5rem', display:'flex', flexDirection:'column', gap:'0.85rem' }}>
+          <div>
+            <label style={lSt}>Tipo de permiso *</label>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:'0.4rem' }}>
+              {TIPOS_PERMISO.map(t => (
+                <button key={t.value} onClick={() => setTipo(t.value)}
+                  style={{ padding:'0.35rem 0.85rem', borderRadius:999, border:`2px solid ${tipo === t.value ? t.color : 'var(--color-border)'}`, background: tipo === t.value ? `${t.color}22` : 'white', color: tipo === t.value ? t.color : 'var(--color-text-muted)', fontWeight: tipo === t.value ? 700 : 400, fontSize:'0.78rem', cursor:'pointer', fontFamily:'var(--font-body)' }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label style={lSt}>Motivo</label>
+            <textarea value={motivo} onChange={e => setMotivo(e.target.value)} rows={3}
+              style={{ ...iSt, resize:'vertical' }} placeholder="Describe el motivo del permiso..." />
+          </div>
+          <div style={{ display:'flex', gap:'0.75rem', justifyContent:'flex-end' }}>
+            <button onClick={onClose} style={{ padding:'0.55rem 1.25rem', background:'white', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.85rem', color:'var(--color-text-muted)' }}>Cancelar</button>
+            <button onClick={() => onSave(tipo, motivo)} style={{ padding:'0.55rem 1.5rem', background:'#2e7d50', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.85rem', fontWeight:600 }}>📋 Enviar solicitud</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PermisoCalendario ──────────────────────────────────────────────────────────
+function PermisoCalendario({ session, permisos, onSolicitar }) {
+  const [selectedDays, setSelectedDays] = useState(new Set());
+  const [dragAnchor,   setDragAnchor]   = useState(null);
+  const [dragHover,    setDragHover]    = useState(null);
+  const [isDragging,   setIsDragging]   = useState(false);
+  const [detailOpen,   setDetailOpen]   = useState(false);
+
+  const today    = useMemo(() => new Date(), []);
+  const todayStr = useMemo(() => today.toISOString().split('T')[0], [today]);
+  const thisYear = today.getFullYear();
+
+  const myPermisos = useMemo(() =>
+    permisos.filter(p => p.user_id === session?.id),
+  [permisos, session]);
+
+  const permitMap = useMemo(() => {
+    const m = {};
+    myPermisos.forEach(p => {
+      const cur = new Date(p.fecha_inicio + 'T12:00:00');
+      const end = new Date(p.fecha_fin   + 'T12:00:00');
+      while (cur <= end) {
+        m[cur.toISOString().split('T')[0]] = p;
+        cur.setDate(cur.getDate() + 1);
+      }
+    });
+    return m;
+  }, [myPermisos]);
+
+  const dragRange = useMemo(() => {
+    if (!isDragging || !dragAnchor || !dragHover) return null;
+    const a = dragAnchor < dragHover ? dragAnchor : dragHover;
+    const b = dragAnchor < dragHover ? dragHover  : dragAnchor;
+    const s = new Set();
+    const cur = new Date(a + 'T12:00:00');
+    const end = new Date(b + 'T12:00:00');
+    while (cur <= end) {
+      const k = cur.toISOString().split('T')[0];
+      if (k >= todayStr) s.add(k);
+      cur.setDate(cur.getDate() + 1);
+    }
+    return s;
+  }, [isDragging, dragAnchor, dragHover, todayStr]);
+
+  useEffect(() => {
+    const handleUp = () => {
+      if (!isDragging) return;
+      if (dragRange && dragRange.size > 1) {
+        setSelectedDays(prev => { const n = new Set(prev); dragRange.forEach(d => n.add(d)); return n; });
+      } else if (dragAnchor && dragAnchor >= todayStr) {
+        setSelectedDays(prev => { const n = new Set(prev); if (n.has(dragAnchor)) n.delete(dragAnchor); else n.add(dragAnchor); return n; });
+      }
+      setIsDragging(false); setDragAnchor(null); setDragHover(null);
+    };
+    window.addEventListener('mouseup', handleUp);
+    return () => window.removeEventListener('mouseup', handleUp);
+  }, [isDragging, dragRange, dragAnchor, todayStr]);
+
+  const handleDayMouseDown  = (d) => { setDragAnchor(d); setDragHover(d); setIsDragging(true); };
+  const handleDayMouseEnter = (d) => { if (isDragging) setDragHover(d); };
+
+  const handleSolicitar = (tipo, motivo) => {
+    const sorted = [...selectedDays].sort();
+    onSolicitar({ days: sorted, tipo, motivo });
+    setSelectedDays(new Set());
+    setDetailOpen(false);
+  };
+
+  return (
+    <div style={{ userSelect: 'none' }}>
+      {selectedDays.size > 0 && (
+        <div style={{ marginBottom:'1rem', display:'flex', alignItems:'center', gap:'0.75rem', background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:'var(--radius-md)', padding:'0.65rem 1rem', flexWrap:'wrap' }}>
+          <span style={{ fontSize:'0.85rem', fontWeight:600, color:'#1e40af' }}>
+            {selectedDays.size} día{selectedDays.size !== 1 ? 's' : ''} seleccionado{selectedDays.size !== 1 ? 's' : ''}
+          </span>
+          <button onClick={() => setDetailOpen(true)}
+            style={{ padding:'0.35rem 1rem', background:'#2e5cbf', color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.82rem', fontWeight:600 }}>
+            📋 Solicitar permiso
+          </button>
+          <button onClick={() => setSelectedDays(new Set())}
+            style={{ padding:'0.35rem 0.75rem', background:'white', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', color:'var(--color-text-muted)' }}>
+            Limpiar
+          </button>
+        </div>
+      )}
+
+      {[thisYear, thisYear + 1].map(year => (
+        <div key={year} style={{ marginBottom:'1.5rem' }}>
+          <div style={{ fontSize:'1rem', fontWeight:700, color:'var(--color-primary)', marginBottom:'0.75rem', fontFamily:'var(--font-title)' }}>{year}</div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:'1.25rem' }}>
+            {Array.from({ length: 12 }, (_, m) => (
+              <MesCalendar key={m} year={year} month={m}
+                selectedDays={selectedDays}
+                permitMap={permitMap}
+                onDayMouseDown={handleDayMouseDown}
+                onDayMouseEnter={handleDayMouseEnter}
+                todayStr={todayStr}
+                dragRange={isDragging ? dragRange : null}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <div style={{ display:'flex', gap:'0.75rem', flexWrap:'wrap', marginTop:'0.5rem', fontSize:'0.7rem', color:'var(--color-text-muted)', borderTop:'1px solid var(--color-border)', paddingTop:'0.65rem' }}>
+        <span style={{ display:'flex', alignItems:'center', gap:'0.3rem' }}><span style={{ background:'#2563eb', color:'white', padding:'0 6px', borderRadius:3, fontWeight:700 }}>15</span> Seleccionado</span>
+        <span style={{ display:'flex', alignItems:'center', gap:'0.3rem' }}><span style={{ background:'#fef08a', color:'#92400e', padding:'0 6px', borderRadius:3, fontWeight:700 }}>15</span> Pendiente</span>
+        <span style={{ display:'flex', alignItems:'center', gap:'0.3rem' }}><span style={{ background:'#bbf7d0', color:'#15803d', padding:'0 6px', borderRadius:3, fontWeight:700 }}>15</span> Aprobado</span>
+        <span style={{ display:'flex', alignItems:'center', gap:'0.3rem' }}><span style={{ background:'#fecaca', color:'#dc2626', padding:'0 6px', borderRadius:3, fontWeight:700 }}>15</span> Rechazado</span>
+      </div>
+
+      {myPermisos.length > 0 && (
+        <div style={{ marginTop:'1.75rem' }}>
+          <div style={{ fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:'var(--color-text-muted)', marginBottom:'0.65rem' }}>Mis solicitudes</div>
+          {[...myPermisos].sort((a, b) => (b.created_at||'').localeCompare(a.created_at||'')).map(p => {
+            const tipoCfg  = TIPOS_PERMISO.find(t => t.value === p.tipo);
+            const estadoClr = p.estado === 'aprobado' ? '#15803d' : p.estado === 'rechazado' ? '#dc2626' : '#b8860b';
+            const estadoBg  = p.estado === 'aprobado' ? '#f0fdf4' : p.estado === 'rechazado' ? '#fef2f2' : '#fef9c3';
+            return (
+              <div key={p.id} style={{ border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', padding:'0.65rem 0.85rem', marginBottom:'0.5rem', background: estadoBg }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'0.5rem' }}>
+                  <div style={{ display:'flex', gap:'0.4rem', alignItems:'center', flexWrap:'wrap' }}>
+                    <span style={{ fontSize:'0.75rem', fontWeight:600, color:tipoCfg?.color, border:`1px solid ${tipoCfg?.color}`, borderRadius:999, padding:'1px 8px' }}>{tipoCfg?.label || p.tipo}</span>
+                    <span style={{ fontSize:'0.7rem', fontWeight:700, color:estadoClr, border:`1px solid ${estadoClr}`, borderRadius:999, padding:'1px 8px' }}>{p.estado}</span>
+                  </div>
+                  <span style={{ fontSize:'0.73rem', color:'var(--color-text-muted)' }}>{p.fecha_inicio} → {p.fecha_fin} · {p.dias}d</span>
+                </div>
+                {p.motivo && <p style={{ margin:'0.3rem 0 0', fontSize:'0.73rem', color:'var(--color-text-muted)' }}>{p.motivo}</p>}
+                {p.comentario_admin && <p style={{ margin:'0.2rem 0 0', fontSize:'0.73rem', color:estadoClr }}>💬 {p.comentario_admin}</p>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <PermisoDetalleModal
+        isOpen={detailOpen}
+        dias={[...selectedDays].sort()}
+        onClose={() => setDetailOpen(false)}
+        onSave={handleSolicitar}
+      />
+    </div>
+  );
+}
+
 // ── PersonCard (draggable) ─────────────────────────────────────────────────────
 function PersonCard({ u, grp, draggedId, onDragStart, onEdit }) {
   const isDragging = draggedId === u.id;
@@ -435,7 +693,9 @@ export default function PersonalPage() {
   const { items: turnos, add: addTurno, edit: editTurno, refresh: refreshTurnos } = useStore('turnos');
   const { items: permisos, add: addPermiso, edit: editPermiso } = useStore('permisos_empleados');
 
-  const [tab,          setTab]          = useState('calendario');
+  const isAdmin = session?.rol === 'Administrador';
+
+  const [tab,          setTab]          = useState(session?.rol === 'Administrador' ? 'calendario' : 'permisos');
   const [mes,          setMes]          = useState(currentMonth());
   const [sedeFilter,   setSedeFilter]   = useState(2);
   const [empModal,     setEmpModal]     = useState(false);
@@ -685,6 +945,21 @@ export default function PersonalPage() {
     await addPermiso({ ...data, estado: 'pendiente', fecha_solicitud: new Date().toISOString().split('T')[0] });
   };
 
+  const handleSolicitarFromCalendar = async ({ days, tipo, motivo }) => {
+    const sorted = [...days].sort();
+    await addPermiso({
+      user_id:         session.id,
+      tipo,
+      fecha_inicio:    sorted[0],
+      fecha_fin:       sorted[sorted.length - 1],
+      dias:            sorted.length,
+      motivo:          motivo.trim() || null,
+      solicitado_por:  session?.nombre || null,
+      estado:          'pendiente',
+      fecha_solicitud: new Date().toISOString().split('T')[0],
+    });
+  };
+
   const handleResolver = async (permiso, estado) => {
     await editPermiso(permiso.id, {
       estado,
@@ -724,7 +999,7 @@ export default function PersonalPage() {
           <p style={{ margin:0, fontSize:'0.82rem', color:'var(--color-text-muted)' }}>Calendario de turnos y gestión de permisos</p>
         </div>
         <div style={{ display:'flex', gap:'0.5rem' }}>
-          {tab === 'permisos' && (
+          {tab === 'permisos' && isAdmin && (
             <button onClick={() => setPermisoModal(true)}
               style={{ padding:'0.5rem 1.1rem', background:'#2e7d50', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.85rem', fontWeight:600 }}>
               + Nueva solicitud
@@ -735,9 +1010,9 @@ export default function PersonalPage() {
 
       {/* Tabs */}
       <div style={{ display:'flex', gap:'0.4rem', marginBottom:'1.5rem' }}>
-        <button style={tabSt('calendario')} onClick={() => setTab('calendario')}>📅 Calendario</button>
-        <button style={tabSt('empleados')}  onClick={() => setTab('empleados')}>👤 Empleados</button>
-        <button style={tabSt('permisos')}   onClick={() => setTab('permisos')}>📋 Permisos</button>
+        {isAdmin && <button style={tabSt('calendario')} onClick={() => setTab('calendario')}>📅 Calendario</button>}
+        {isAdmin && <button style={tabSt('empleados')}  onClick={() => setTab('empleados')}>👤 Empleados</button>}
+        <button style={tabSt('permisos')} onClick={() => setTab('permisos')}>📋 Permisos</button>
       </div>
 
       {/* ── TAB: CALENDARIO ── */}
@@ -921,7 +1196,11 @@ export default function PersonalPage() {
       )}
 
       {/* ── TAB: PERMISOS ── */}
-      {tab === 'permisos' && (
+      {tab === 'permisos' && !isAdmin && (
+        <PermisoCalendario session={session} permisos={permisos} onSolicitar={handleSolicitarFromCalendar} />
+      )}
+
+      {tab === 'permisos' && isAdmin && (
         <div>
           <div style={{ display:'flex', gap:'0.5rem', marginBottom:'1rem', flexWrap:'wrap', alignItems:'center' }}>
             {['todos','pendiente','aprobado','rechazado'].map(e => (

@@ -97,11 +97,17 @@ export default function Sidebar() {
             </>
           )}
 
+          {(session?.rol === 'Administrador' || session?.sede_id === 2) && (
+            <>
+              <SectionLabel>Personal</SectionLabel>
+              <MenuItem item={{ path: '/personal', label: 'Personal', icon: '🗓️' }} />
+            </>
+          )}
+
           {session?.rol === 'Administrador' && (
             <>
               <SectionLabel>Administración</SectionLabel>
               <MenuItem item={{ path: '/users',               label: 'Usuarios',           icon: '👥' }} />
-              <MenuItem item={{ path: '/personal',            label: 'Personal',           icon: '🗓️' }} />
               <MenuItem item={{ path: '/import',              label: 'Importar datos',     icon: '⬇️' }} />
               <MenuItem item={{ path: '/hc-requests',         label: 'Hist. Clínicas',     icon: '📄' }} badge={hcPending} />
               <MenuItem item={{ path: '/certificados-viaje',  label: 'Cert. de Viaje',     icon: '✈️' }} badge={certPending} />

@@ -87,6 +87,10 @@ function AppRoutes() {
       <Route path="/prepagada"          element={<ProtectedLayout><PrepagadaPage /></ProtectedLayout>} />
       <Route path="/remisiones"         element={<ProtectedLayout><RemisionesPage /></ProtectedLayout>} />
 
+      {(isAdmin || session?.sede_id === 2) && (
+        <Route path="/personal" element={<ProtectedLayout><PersonalPage /></ProtectedLayout>} />
+      )}
+
       {/* Admin-only */}
       {isAdmin && (
         <>
@@ -94,7 +98,6 @@ function AppRoutes() {
           <Route path="/import"               element={<ProtectedLayout><ImportPage /></ProtectedLayout>} />
           <Route path="/hc-requests"          element={<ProtectedLayout><HCRequestsPage /></ProtectedLayout>} />
           <Route path="/certificados-viaje"   element={<ProtectedLayout><CertificadosViajePage /></ProtectedLayout>} />
-          <Route path="/personal"             element={<ProtectedLayout><PersonalPage /></ProtectedLayout>} />
         </>
       )}
 
