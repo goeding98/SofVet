@@ -230,7 +230,7 @@ export default function ImagenesResultModal({ isOpen, onClose, onSave, onEdit, p
             <button onClick={() => fileRef.current?.click()} style={{ width:'100%', padding:'0.75rem', border:'2px dashed var(--color-border)', borderRadius:'var(--radius-md)', background:'var(--color-bg)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.82rem', color:'var(--color-text-muted)' }}>
               📎 {files.length > 0 ? 'Agregar más archivos' : 'Seleccionar archivos'}
             </button>
-            <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.dcm,.dicom" multiple onChange={handleFiles} style={{ display:'none' }} />
+            <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.dcm,.dicom,.doc,.docx" multiple onChange={handleFiles} style={{ display:'none' }} />
 
             {totalFiles > 0 && (
               <div style={{ marginTop:'0.4rem', fontSize:'0.75rem', color:'#1565c0' }}>
