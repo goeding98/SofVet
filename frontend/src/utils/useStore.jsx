@@ -28,6 +28,8 @@ const TABLE_MAP = {
   remisionesVis:           'remisiones',
   turnos:                  'turnos',
   permisos_empleados:      'permisos_empleados',
+  imagenesPedidos:         'imagenes_pedidos',
+  imagenes:                'imagenes',
 };
 
 // ── Module-level cache (survives navigation, shared across all components) ──

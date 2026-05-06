@@ -1,0 +1,16 @@
+export const TIPOS_IMAGEN = [
+  'Radiografía',
+  'Ecografía abdominal',
+  'Ecografía cardiaca (ecocardiograma)',
+  'Ecografía general',
+  'Ecografía ocular',
+  'Tomografía (TAC)',
+  'Resonancia magnética (RMI)',
+  'Endoscopía',
+  'Colonoscopía',
+  'Broncoscopía',
+  'Rinoscopía',
+  'Otoscopía',
+  'Fluoroscopía',
+  'Otro',
+];

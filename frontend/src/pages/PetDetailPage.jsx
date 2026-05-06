@@ -16,6 +16,8 @@ import ImagingModal from '../components/ImagingModal';
 import ProcedimientosModal from '../components/ProcedimientosModal';
 import LaboratoriosModal from '../components/LaboratoriosModal';
 import SolicitarLabModal from '../components/SolicitarLabModal';
+import SolicitarImagenModal from '../components/SolicitarImagenModal';
+import ImagenesResultModal from '../components/ImagenesResultModal';
 import LaboratoriosSinReportarModal from '../components/LaboratoriosSinReportarModal';
 import HospitalizationReportModal from '../components/HospitalizationReportModal';
 import HospReviewModal from '../components/HospReviewModal';
@@ -54,6 +56,8 @@ export default function PetDetailPage() {
   const { items: controles, add: addControl, edit: editControl, remove: removeControl } = useStore('controles');
   const { items: aliados }                  = useStore('aliados');
   const { items: remisionesVis, add: addRemision } = useStore('remisionesVis');
+  const { items: imagenesPedidosList, add: addImagenPedido, edit: editImagenPedido } = useStore('imagenesPedidos');
+  const { items: imagenesResult, add: addImagenResult, edit: editImagenResult } = useStore('imagenes');
 
   const { sedeActual, isAdmin: isAdminUser } = useSede();
   const { session } = useAuth();
@@ -67,6 +71,10 @@ export default function PetDetailPage() {
   const [labModal,       setLabModal]       = useState(false);
   const [labSolModal,    setLabSolModal]    = useState(false);
   const [labChoiceOpen,  setLabChoiceOpen]  = useState(false);
+  const [imgChoiceOpen,  setImgChoiceOpen]  = useState(false);
+  const [imgSolModal,    setImgSolModal]    = useState(false);
+  const [imgSubirModal,  setImgSubirModal]  = useState(false);
+  const [editingImagen,  setEditingImagen]  = useState(null);
   const [editingLab,     setEditingLab]     = useState(null); // { lab record } being edited
   const [labSRModal,     setLabSRModal]     = useState(false);
   const [hospRepModal,   setHospRepModal]   = useState(false);
@@ -146,6 +154,8 @@ export default function PetDetailPage() {
     .filter(p => p.patient_id === petId && p.estado !== 'Solicitado')
     .sort((a, b) => b.fecha_solicitado?.localeCompare(a.fecha_solicitado));
 
+  const petImagenesPedidos = imagenesPedidosList.filter(p => p.patient_id === petId);
+
   const petNotas = notasClincias
     .filter(n => n.patient_id === petId)
     .sort((a, b) => b.created_at?.localeCompare(a.created_at));
@@ -201,7 +211,7 @@ export default function PetDetailPage() {
     { label: isHospitalized ? 'Rep. Hospitaliz.' : 'Hospitalizar', icon: '🏥', action: () => isHospitalized ? setHospRepModal(true) : setHospModal(true), color: 'var(--color-danger)' },
     { label: 'Vacunar',          icon: '💉', action: () => setVacunaModal(true),       color: 'var(--color-secondary)'               },
     { label: 'Desparasitar',     icon: '🪱', action: () => setDesparasitarModal(true), color: '#7c5cbf'                               },
-    { label: 'Imagenología',     icon: '🔬', action: () => setImagingModal(true),                                                  color: '#1565c0'                               },
+    { label: 'Imagenología',     icon: '🔬', action: () => setImgChoiceOpen(true),                                              color: '#1565c0'                               },
     { label: 'Procedimientos',   icon: '⚕️', action: () => setProcedModal(true),    color: '#c0392b'  },
     { label: 'Laboratorio',      icon: '🧪', action: () => setLabChoiceOpen(true),   color: '#2e7d50'  },
     { label: 'Fórmula Médica',   icon: '💊', action: () => setFormulasModal(true),   color: '#a6785b'  },
@@ -352,6 +362,35 @@ export default function PetDetailPage() {
   const handleSolicitarLab = async (data) => {
     await addLabPedido({ ...data, patient_id: petId });
     setLabSolModal(false);
+  };
+
+  const handleSolicitarImagen = async (data) => {
+    await addImagenPedido({ ...data, patient_id: petId });
+    setImgSolModal(false);
+  };
+
+  const handleSaveImagenResult = async (data) => {
+    let saveErr = null;
+    const result = await addImagenResult(
+      { ...data, patient_id: petId, patient_name: pet.name },
+      { onError: (m) => { saveErr = m; } }
+    );
+    if (!result) { alert('❌ Error al guardar imagen:\n\n' + saveErr); return; }
+    const pedido = imagenesPedidosList.find(p =>
+      p.patient_id === petId &&
+      p.tipo_examen === data.tipo &&
+      (p.estado === 'Solicitado' || p.estado === 'Subido SIN REPORTAR')
+    );
+    if (pedido) {
+      editImagenPedido(pedido.id, { estado: 'Subido SIN REPORTAR', fecha_subido: new Date().toISOString().split('T')[0] });
+    }
+    setImgSubirModal(false);
+  };
+
+  const handleEditImagenResult = async (imgId, changes) => {
+    await editImagenResult(imgId, changes);
+    setEditingImagen(null);
+    setImgSubirModal(false);
   };
 
   const handleSaveControl = async (data) => {
@@ -1635,6 +1674,48 @@ export default function PetDetailPage() {
         sedeActual={sedeActual}
         isAdmin={isAdminUser}
       />
+
+      <SolicitarImagenModal isOpen={imgSolModal} onClose={() => setImgSolModal(false)} onSave={handleSolicitarImagen} pet={pet} />
+
+      <ImagenesResultModal
+        isOpen={imgSubirModal}
+        onClose={() => { setImgSubirModal(false); setEditingImagen(null); }}
+        onSave={handleSaveImagenResult}
+        onEdit={handleEditImagenResult}
+        pet={pet}
+        pedidos={petImagenesPedidos}
+        initialData={editingImagen}
+        imgId={editingImagen?.id || null}
+      />
+
+      {/* Imagen choice mini-modal */}
+      {imgChoiceOpen && (
+        <div onClick={() => setImgChoiceOpen(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', backdropFilter:'blur(2px)' }}>
+          <div onClick={e=>e.stopPropagation()} style={{ background:'var(--color-white)', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-lg)', padding:'1.5rem', width:340, display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+            <div style={{ fontFamily:'var(--font-title)', color:'#1565c0', fontSize:'1rem', fontWeight:700, marginBottom:'0.25rem' }}>🔬 Imagenología — {pet.name}</div>
+            <button
+              onClick={() => { setImgChoiceOpen(false); setImgSolModal(true); }}
+              style={{ padding:'0.9rem 1rem', background:'#e8f0ff', border:'2px solid #1565c0', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', fontWeight:600, color:'#1565c0', textAlign:'left', display:'flex', alignItems:'center', gap:'0.75rem' }}
+            >
+              <span style={{ fontSize:'1.4rem' }}>📝</span>
+              <div>
+                <div>Solicitar imagen</div>
+                <div style={{ fontSize:'0.72rem', fontWeight:400, color:'var(--color-text-muted)', marginTop:'0.1rem' }}>Crea un pedido · el resultado se sube después</div>
+              </div>
+            </button>
+            <button
+              onClick={() => { setImgChoiceOpen(false); setImgSubirModal(true); }}
+              style={{ padding:'0.9rem 1rem', background:'#f5f8ff', border:'2px solid #3b82f6', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', fontWeight:600, color:'#3b82f6', textAlign:'left', display:'flex', alignItems:'center', gap:'0.75rem' }}
+            >
+              <span style={{ fontSize:'1.4rem' }}>📁</span>
+              <div>
+                <div>Subir resultado</div>
+                <div style={{ fontSize:'0.72rem', fontWeight:400, color:'var(--color-text-muted)', marginTop:'0.1rem' }}>Tienes el archivo del resultado listo para subir</div>
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
 
       <HospitalizationReportModal isOpen={hospRepModal} onClose={() => { setHospRepModal(false); setEditingReport(null); }} onSave={handleSaveHospReport} onDelete={(id) => { removeHospReport(id); setHospRepModal(false); setEditingReport(null); }} pet={pet} hospitalizationId={editingReport?.hospitalization_id || activeHosp?.id} initialData={editingReport} />
 

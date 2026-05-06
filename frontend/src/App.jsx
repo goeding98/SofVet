@@ -28,6 +28,7 @@ import CertificadosViajePage from './pages/CertificadosViajePage';
 import PortalPage from './pages/PortalPage';
 import RemisionesPage from './pages/RemisionesPage';
 import PersonalPage from './pages/PersonalPage';
+import ImagenesPage from './pages/ImagenesPage';
 
 function ProtectedLayout({ children }) {
   const { session } = useAuth();
@@ -79,6 +80,7 @@ function AppRoutes() {
       <Route path="/grooming"          element={<ProtectedLayout><GroomingPage /></ProtectedLayout>} />
       <Route path="/hospitalization"   element={<ProtectedLayout><HospitalizationPage /></ProtectedLayout>} />
       <Route path="/laboratorios"      element={<ProtectedLayout><LaboratoriosPage /></ProtectedLayout>} />
+      <Route path="/imagenes"           element={<ProtectedLayout><ImagenesPage /></ProtectedLayout>} />
       <Route path="/remissions"        element={<ProtectedLayout><RemissionsPage /></ProtectedLayout>} />
       <Route path="/eps"               element={<ProtectedLayout><EPSPage /></ProtectedLayout>} />
       <Route path="/documents"          element={<ProtectedLayout><DocumentsPage /></ProtectedLayout>} />
