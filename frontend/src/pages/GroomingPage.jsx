@@ -55,7 +55,7 @@ const BLOCK_COLOR = '#7c5cbf';
 const BLOCK_BG    = '#f0ebff';
 
 const mkForm = (date, time) => ({
-  patient_name:'', breed:'', owner:'', owner_phone:'',
+  patient_name:'', breed:'', owner:'', owner_phone:'', owner_cedula:'',
   services:[], date:date||'', time:time||'09:00',
   time_end:addMins(time||'09:00', 60),
   notes:'', sede_id:null, status:'pendiente',
@@ -227,6 +227,7 @@ function DayTableView({ dayStr, dayItems, isAdmin, onAdd, onEdit, onDelete, onSt
                 <th style={thSt}>Mascota</th>
                 <th style={thSt}>Raza</th>
                 <th style={thSt}>Tutor</th>
+                <th style={thSt}>Cédula</th>
                 <th style={thSt}># Contacto</th>
                 <th style={thSt}>Servicio</th>
                 <th style={thSt}>Agenda</th>
@@ -252,6 +253,7 @@ function DayTableView({ dayStr, dayItems, isAdmin, onAdd, onEdit, onDelete, onSt
                     <td style={{ ...tdSt, fontWeight:700 }}>✂️ {it.patient_name}</td>
                     <td style={{ ...tdSt, color:'var(--color-text-muted)', fontSize:'0.78rem' }}>{it.breed || '—'}</td>
                     <td style={{ ...tdSt, fontWeight:600 }}>{it.owner || '—'}</td>
+                    <td style={{ ...tdSt, color:'var(--color-text-muted)', fontSize:'0.78rem', whiteSpace:'nowrap' }}>{it.owner_cedula || '—'}</td>
                     <td style={{ ...tdSt, color:'var(--color-text-muted)', fontSize:'0.78rem', whiteSpace:'nowrap' }}>{it.owner_phone || '—'}</td>
                     <td style={{ ...tdSt, fontSize:'0.78rem' }}>
                       <div style={{ display:'flex', flexWrap:'wrap', gap:'0.2rem' }}>
@@ -298,7 +300,7 @@ function DayTableView({ dayStr, dayItems, isAdmin, onAdd, onEdit, onDelete, onSt
             {/* Totals row */}
             <tfoot>
               <tr style={{ background:'#f5f0ff' }}>
-                <td colSpan={7} style={{ padding:'0.55rem 0.75rem', fontSize:'0.78rem', fontWeight:700, color:BLOCK_COLOR }}>
+                <td colSpan={8} style={{ padding:'0.55rem 0.75rem', fontSize:'0.78rem', fontWeight:700, color:BLOCK_COLOR }}>
                   TOTAL ({dayItems.length} servicios)
                 </td>
                 <td style={{ padding:'0.55rem 0.75rem', textAlign:'right', fontWeight:800, color:BLOCK_COLOR, fontSize:'0.9rem', whiteSpace:'nowrap' }}>
@@ -394,9 +396,10 @@ export default function GroomingPage() {
     if (foundClient) {
       setForm(f => ({
         ...f,
-        owner:       foundClient.name  || f.owner,
-        owner_phone: foundClient.phone || f.owner_phone,
-        direccion:   foundClient.address || f.direccion,
+        owner:        foundClient.name    || f.owner,
+        owner_phone:  foundClient.phone   || f.owner_phone,
+        direccion:    foundClient.address || f.direccion,
+        owner_cedula: foundClient.cedula  || foundClient.document || f.owner_cedula,
       }));
     }
   }, [foundClient]);
@@ -464,6 +467,7 @@ export default function GroomingPage() {
       breed:            form.breed?.trim()         || null,
       owner:            form.owner?.trim()          || null,
       owner_phone:      form.owner_phone?.trim()    || null,
+      owner_cedula:     form.owner_cedula?.trim()   || null,
       services:         form.services               || [],
       date:             form.date                   || '',
       time:             form.time                   || null,
@@ -584,7 +588,7 @@ export default function GroomingPage() {
                     </div>
                   </div>
                   <div style={{fontWeight:700,fontSize:'0.82rem'}}>✂️ {it.patient_name}{it.breed?<span style={{fontWeight:400,color:'var(--color-text-muted)'}}> · {it.breed}</span>:''}</div>
-                  {it.owner&&<div style={{fontSize:'0.7rem',color:'var(--color-text-muted)'}}>👤 {it.owner}{it.owner_phone?` · ${it.owner_phone}`:''}</div>}
+                  {it.owner&&<div style={{fontSize:'0.7rem',color:'var(--color-text-muted)'}}>👤 {it.owner}{it.owner_cedula?` · CC ${it.owner_cedula}`:''}{it.owner_phone?` · ${it.owner_phone}`:''}</div>}
                   {it.valor_servicio&&<div style={{fontSize:'0.72rem',fontWeight:700,color:BLOCK_COLOR,marginTop:'0.2rem'}}>{fmtCOP(it.valor_servicio)}{it.transporte&&it.valor_transporte?` + ${fmtCOP(it.valor_transporte)} transp.`:''}</div>}
                   <div style={{display:'flex',flexWrap:'wrap',gap:'0.25rem',marginTop:'0.3rem'}}>
                     {svcs.map(s=><span key={s} style={{background:'#f0ebff',color:BLOCK_COLOR,padding:'1px 6px',borderRadius:999,fontSize:'0.62rem',fontWeight:600}}>{s}</span>)}
@@ -703,6 +707,10 @@ export default function GroomingPage() {
           <div style={{marginBottom:'0.75rem'}}>
             <label style={labelSt}>Propietario</label>
             <input style={inputSt} value={form.owner||''} onChange={e=>setF('owner',e.target.value)} placeholder="Nombre del tutor" />
+          </div>
+          <div style={{marginBottom:'0.75rem'}}>
+            <label style={labelSt}>Cédula propietario</label>
+            <input style={inputSt} value={form.owner_cedula||''} onChange={e=>setF('owner_cedula',e.target.value)} placeholder="Número de cédula" />
           </div>
           <div style={{marginBottom:'0.75rem'}}>
             <label style={labelSt}># Contacto</label>
