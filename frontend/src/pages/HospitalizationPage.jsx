@@ -263,6 +263,8 @@ export default function HospitalizationPage() {
     setCheckedMeds(init);
     setApplyNotas('');
     setApplyError('');
+    setEditTxInsumos([]);
+    setNewInsumo(''); setNewInsumoCant(1);
     setApplyModal(true);
   };
 
@@ -278,7 +280,7 @@ export default function HospitalizationPage() {
         dosis:       v.dosis,
         unidad:      v.unidad,
       }));
-    if (!selected_meds.length) { setApplyError('Selecciona al menos un medicamento aplicado.'); return; }
+    if (!selected_meds.length && !editTxInsumos.length) { setApplyError('Selecciona al menos un medicamento o agrega un insumo.'); return; }
     const now = new Date();
     const newApp = {
       medicamentos: selected_meds,
@@ -288,7 +290,11 @@ export default function HospitalizationPage() {
       hora:         now.toTimeString().slice(0, 5),
       sede_id:      applyHosp.sede_id,
     };
-    editHosp(applyHospId, { aplicaciones: [...(applyHosp.aplicaciones || []), newApp] });
+    const updates = { aplicaciones: [...(applyHosp.aplicaciones || []), newApp] };
+    if (editTxInsumos.length) {
+      updates.insumos = [...(applyHosp.insumos || []), ...editTxInsumos];
+    }
+    editHosp(applyHospId, updates);
     setApplyModal(false);
   };
 
@@ -368,8 +374,6 @@ export default function HospitalizationPage() {
   const openEditTx = (h) => {
     setEditTxHospId(h.id);
     setEditTxMeds((h.tratamiento || []).map(t => ({ ...t })));
-    setEditTxInsumos((h.insumos || []).map(i => ({ ...i })));
-    setNewInsumo(''); setNewInsumoCant(1);
     setEditTxModal(true);
   };
   const updateEditTxMed = (i, field, val) => setEditTxMeds(m => m.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
@@ -379,10 +383,7 @@ export default function HospitalizationPage() {
     setNewInsumo(''); setNewInsumoCant(1);
   };
   const handleSaveEditTx = () => {
-    editHosp(editTxHospId, {
-      tratamiento: editTxMeds.filter(m => m.medicamento.trim()),
-      insumos: editTxInsumos,
-    });
+    editHosp(editTxHospId, { tratamiento: editTxMeds.filter(m => m.medicamento.trim()) });
     setEditTxModal(false);
   };
 
@@ -1287,6 +1288,47 @@ export default function HospitalizationPage() {
                 )}
               </div>
 
+              {/* Insumos de Hospital */}
+              <div style={{ borderTop: '2px solid var(--color-border)', paddingTop: '1rem' }}>
+                <label style={{ ...labelStyle, marginBottom: '0.65rem' }}>🧴 Insumos de Hospital</label>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end', marginBottom: '0.6rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 170 }}>
+                    <input
+                      list="insumos-hospital-list"
+                      value={newInsumo}
+                      onChange={e => setNewInsumo(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleAddInsumo()}
+                      placeholder="Buscar insumo..."
+                      style={{ width: '100%', padding: '0.45rem 0.65rem', fontSize: '0.82rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)' }}
+                    />
+                    <datalist id="insumos-hospital-list">
+                      {INSUMOS_HOSPITAL.map(item => <option key={item} value={item} />)}
+                    </datalist>
+                  </div>
+                  <input
+                    type="number" min="1" value={newInsumoCant}
+                    onChange={e => setNewInsumoCant(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAddInsumo()}
+                    placeholder="Cant."
+                    style={{ width: 64, padding: '0.45rem 0.5rem', fontSize: '0.82rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)' }}
+                  />
+                  <button onClick={handleAddInsumo} style={{ padding: '0.45rem 0.8rem', background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.82rem', fontWeight: 700 }}>+</button>
+                </div>
+                {editTxInsumos.length > 0 && (
+                  <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                    {editTxInsumos.map((item, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0.7rem', borderBottom: i < editTxInsumos.length - 1 ? '1px solid var(--color-border)' : 'none', background: i % 2 === 0 ? 'var(--color-bg)' : 'var(--color-white)', fontSize: '0.82rem' }}>
+                        <span>{item.insumo}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                          <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>x{item.cantidad}</span>
+                          <button onClick={() => setEditTxInsumos(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'var(--color-danger-bg)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '0.15rem 0.4rem', fontSize: '0.65rem' }}>✕</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label style={labelStyle}>Notas de aplicación</label>
                 <textarea value={applyNotas} onChange={e => setApplyNotas(e.target.value)} rows={2} placeholder="Observaciones adicionales..." style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-body)', resize: 'vertical', fontSize: '0.875rem' }} />
@@ -1359,61 +1401,6 @@ export default function HospitalizationPage() {
                   </tbody>
                 </table>
               </div>
-              {/* ── Insumos de Hospital ── */}
-              <div style={{ marginTop: '1.5rem', borderTop: '2px solid var(--color-border)', paddingTop: '1.25rem' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-muted)', marginBottom: '0.85rem' }}>🧴 Insumos de Hospital</div>
-
-                {/* Fila para agregar */}
-                <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-end', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, minWidth: 200 }}>
-                    <label style={{ display: 'block', fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text)', marginBottom: '0.25rem' }}>Insumo</label>
-                    <input
-                      list="insumos-hospital-list"
-                      value={newInsumo}
-                      onChange={e => setNewInsumo(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleAddInsumo()}
-                      placeholder="Buscar insumo..."
-                      style={{ width: '100%', padding: '0.45rem 0.65rem', fontSize: '0.82rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)' }}
-                    />
-                    <datalist id="insumos-hospital-list">
-                      {INSUMOS_HOSPITAL.map(item => <option key={item} value={item} />)}
-                    </datalist>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text)', marginBottom: '0.25rem' }}>Cantidad</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={newInsumoCant}
-                      onChange={e => setNewInsumoCant(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleAddInsumo()}
-                      style={{ width: 72, padding: '0.45rem 0.5rem', fontSize: '0.82rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)' }}
-                    />
-                  </div>
-                  <button
-                    onClick={handleAddInsumo}
-                    style={{ padding: '0.45rem 0.9rem', background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.82rem', fontWeight: 700, whiteSpace: 'nowrap' }}
-                  >+ Agregar</button>
-                </div>
-
-                {/* Lista de insumos agregados */}
-                {editTxInsumos.length > 0 ? (
-                  <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-                    {editTxInsumos.map((item, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', borderBottom: i < editTxInsumos.length - 1 ? '1px solid var(--color-border)' : 'none', background: i % 2 === 0 ? 'var(--color-bg)' : 'var(--color-white)' }}>
-                        <span style={{ fontSize: '0.82rem' }}>{item.insumo}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                          <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-primary)' }}>x{item.cantidad}</span>
-                          <button onClick={() => setEditTxInsumos(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'var(--color-danger-bg)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '0.2rem 0.45rem', fontSize: '0.68rem' }}>✕</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', padding: '0.5rem 0', margin: 0 }}>Sin insumos agregados.</p>
-                )}
-              </div>
-
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.25rem' }}>
                 <button onClick={() => setEditTxModal(false)} style={{ padding: '0.55rem 1.1rem', background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Cancelar</button>
                 <button onClick={handleSaveEditTx} style={{ padding: '0.55rem 1.25rem', background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600 }}>💾 Guardar cambios</button>
