@@ -203,7 +203,9 @@ export default function HospitalizationPage() {
   const [abonoValor,  setAbonoValor]  = useState('');
 
   // ── derived ─────────────────────────────────────────────────────────────
-  const activos    = hosps.filter(h => h.status === 'activo'     && (hospSedeFilter === null || h.sede_id === hospSedeFilter));
+  const activos         = hosps.filter(h => h.status === 'activo' && (hospSedeFilter === null || h.sede_id === hospSedeFilter));
+  const activosCompleta = activos.filter(h => h.tipo !== 'semi');
+  const activosSemi     = activos.filter(h => h.tipo === 'semi');
   const noCobradas = hosps.filter(h => h.status === 'no_cobrada' && (hospSedeFilter === null || h.sede_id === hospSedeFilter)).slice(-20).reverse();
   const selected    = hosps.find(h => h.id === selectedId);
   const applyHosp   = hosps.find(h => h.id === applyHospId);
@@ -456,14 +458,14 @@ export default function HospitalizationPage() {
     <div>
       <div className="page-header">
         <h1>Hospitalización</h1>
-        <p>{activos.length} paciente(s) hospitalizado(s) · {noCobradas.length} sin cobrar</p>
+        <p>{activosCompleta.length} hospitalización completa · {activosSemi.length} semi-hospitalización · {noCobradas.length} sin cobrar</p>
       </div>
 
       {/* ── Section 1: Active ── */}
       <div style={{ marginBottom: '1.5rem' }}>
 
         <Card
-          title={`Pacientes hospitalizados ahora (${activos.length})`}
+          title={`Hospitalización Completa (${activosCompleta.length})`}
           action={
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               {canSeeAllSedes && (
@@ -485,10 +487,10 @@ export default function HospitalizationPage() {
             </div>
           }
         >
-          {activos.length === 0 ? (
+          {activosCompleta.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🏥</div>
-              <p>No hay pacientes hospitalizados en este momento.</p>
+              <p>No hay pacientes en hospitalización completa en este momento.</p>
               <p style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>Para hospitalizar, ve a la ficha del paciente y usa el botón "Hospitalizar".</p>
             </div>
           ) : (
@@ -502,7 +504,7 @@ export default function HospitalizationPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {activos.map((h, idx) => (
+                  {activosCompleta.map((h, idx) => (
                     <tr
                       key={h.id}
                       style={{ borderBottom: '1px solid var(--color-border)', background: selectedId === h.id ? 'rgba(49,109,116,0.05)' : idx % 2 === 0 ? 'transparent' : 'rgba(49,109,116,0.02)', cursor: 'pointer' }}
@@ -562,6 +564,87 @@ export default function HospitalizationPage() {
           )}
         </Card>
 
+      </div>
+
+      {/* ── Section 2: Semi-hospitalización ── */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <Card title={`Semi-hospitalización (${activosSemi.length})`}>
+          {activosSemi.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🏨</div>
+              <p>No hay pacientes en semi-hospitalización en este momento.</p>
+              <p style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>Para semi-hospitalizar, ve a la ficha del paciente y usa el botón "Semi-hospitalizar".</p>
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
+                    {['Paciente', 'Cliente', 'Sede', 'Motivo', 'Ingreso', 'Veterinario', 'Acciones'].map(h => (
+                      <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {activosSemi.map((h, idx) => (
+                    <tr
+                      key={h.id}
+                      style={{ borderBottom: '1px solid var(--color-border)', background: selectedId === h.id ? 'rgba(230,126,34,0.06)' : idx % 2 === 0 ? 'transparent' : 'rgba(230,126,34,0.02)', cursor: 'pointer' }}
+                      onClick={() => setSelectedId(selectedId === h.id ? null : h.id)}
+                    >
+                      <td style={{ padding: '0.85rem 1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontSize: '1.3rem' }}>{speciesIcon(h.species)}</span>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{h.patient_name}</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{h.species}{h.breed ? ` · ${h.breed}` : ''}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.875rem' }}>
+                        <div style={{ fontWeight: 500 }}>{h.client_name}</div>
+                        {h.client_phone && <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{h.client_phone}</div>}
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>{sedeBadge(h.sede_id)}</td>
+                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem', maxWidth: 180 }}>
+                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.motivo || '—'}</div>
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                        <div>{h.ingreso_date}</div>
+                        <div style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{h.ingreso_time}</div>
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem' }}><VetName name={h.responsible_vet} /></td>
+                      <td style={{ padding: '0.85rem 1rem' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                          <button onClick={() => setSelectedId(selectedId === h.id ? null : h.id)} style={btnStyle('var(--color-primary)')}>
+                            {selectedId === h.id ? 'Ocultar' : 'Detalles'}
+                          </button>
+                          {(isAuxiliar || isMedico) && (
+                            <button onClick={() => openApply(h)} style={btnStyle('var(--color-secondary)')}>💊 Tratamiento</button>
+                          )}
+                          {(isAuxiliar || isMedico || isCaja) && (
+                            <button onClick={() => openConsumo(h)} style={btnStyle('#e67e22')}>📋 Consumo</button>
+                          )}
+                          {(isAuxiliar || isMedico || isCaja) && (
+                            <>
+                              <button onClick={() => openAbonos(h)} style={btnStyle('#8e44ad')}>💰 Abonos</button>
+                              <button onClick={() => openAlta(h)} style={btnStyle('var(--color-success)')}>✅ Alta</button>
+                              <button onClick={() => handleDeslinde(h)} style={btnStyle('#b45309')}>📋 Deslinde</button>
+                              <button onClick={() => handleFallecido(h)} style={btnStyle('var(--color-danger)')}>💀 Fallecido</button>
+                            </>
+                          )}
+                          {h.patient_id && (
+                            <button onClick={() => navigate(`/patients/${h.patient_id}`)} style={btnStyle('#7c5cbf')}>🐾 Ficha</button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
       </div>
 
       {/* ══════════════ MODAL: DETALLE PACIENTE ══════════════ */}

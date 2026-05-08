@@ -10,7 +10,7 @@ const UNIDADES    = ['ml', 'tabletas', 'paquetes', 'mg', 'comprimidos', 'gotas',
 const FRECUENCIAS = ['Cada 2 horas', 'Cada 4 horas', 'Cada 6 horas', 'Cada 8 horas', 'Cada 12 horas', 'Cada 24 horas', 'Una sola vez'];
 const VIAS        = ['IV', 'IM', 'VO', 'SC', 'Tópica', 'Inhalada', 'Oftálmica', 'Ótica'];
 
-export default function HospitalizationModal({ isOpen, onClose, pet, client, initialData }) {
+export default function HospitalizationModal({ isOpen, onClose, pet, client, initialData, tipo = 'completa' }) {
   const navigate = useNavigate();
   const { session } = useAuth();
   const { sedeActual, isAdmin } = useSede();
@@ -89,6 +89,7 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
       responsible_vet: session?.nombre || 'Sin asignar',
       status:          'activo',
       aplicaciones:    [],
+      tipo,
     });
 
     editPatient(pet.id, { status: 'hospitalizado' });
@@ -111,7 +112,11 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
         {/* Header */}
         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-danger-bg)' }}>
           <div>
-            <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-danger)', fontSize: '1.1rem', margin: 0 }}>{isEditing ? '✏️ Editar Hospitalización' : '🏥 Nueva Hospitalización'}</h3>
+            <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-danger)', fontSize: '1.1rem', margin: 0 }}>
+              {isEditing
+                ? (tipo === 'semi' ? '✏️ Editar Semi-hospitalización' : '✏️ Editar Hospitalización')
+                : (tipo === 'semi' ? '🏥 Nueva Semi-hospitalización' : '🏥 Nueva Hospitalización')}
+            </h3>
             <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
               {pet.name} · {pet.species} {pet.breed ? `(${pet.breed})` : ''} · {pet.weight} kg · {ageLabel(pet.birth_date || pet.fecha_nacimiento, pet.age)}
             </p>
@@ -223,7 +228,7 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
               Cancelar
             </button>
             <button onClick={handleSave} style={{ padding: '0.6rem 1.5rem', background: 'var(--color-danger)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600 }}>
-              {isEditing ? '💾 Guardar cambios' : '🏥 Guardar y Hospitalizar'}
+              {isEditing ? '💾 Guardar cambios' : (tipo === 'semi' ? '🏥 Guardar y Semi-hospitalizar' : '🏥 Guardar y Hospitalizar')}
             </button>
           </div>
         </div>

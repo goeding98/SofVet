@@ -65,6 +65,7 @@ export default function PetDetailPage() {
   const [consultModal,   setConsultModal]   = useState(false);
   const [editingConsult, setEditingConsult] = useState(null); // consultation being edited
   const [hospModal,      setHospModal]      = useState(false);
+  const [semiHospModal,  setSemiHospModal]  = useState(false);
   const [imagingModal,   setImagingModal]   = useState(false);
   const [editingImaging, setEditingImaging] = useState(null);
   const [procedModal,    setProcedModal]    = useState(false);
@@ -208,7 +209,8 @@ export default function PetDetailPage() {
   const quickActions = [
     { label: 'Nueva Consulta',   icon: '🩺', action: () => { setEditingConsult(null); setConsultModal(true); },                                                 color: 'var(--color-primary)', primary: true  },
     { label: 'Control',          icon: '📋', action: () => { setEditingControl(null); setControlModal(true); }, color: '#316d74' },
-    { label: isHospitalized ? 'Rep. Hospitaliz.' : 'Hospitalizar', icon: '🏥', action: () => isHospitalized ? setHospRepModal(true) : setHospModal(true), color: 'var(--color-danger)' },
+    { label: isHospitalized ? 'Rep. Hospitaliz.' : 'Hospitalizar',      icon: '🏥', action: () => isHospitalized ? setHospRepModal(true) : setHospModal(true),     color: 'var(--color-danger)' },
+    { label: isHospitalized ? 'Rep. Semi-hosp.'  : 'Semi-hospitalizar', icon: '🏨', action: () => isHospitalized ? setHospRepModal(true) : setSemiHospModal(true), color: '#e67e22' },
     { label: 'Vacunar',          icon: '💉', action: () => setVacunaModal(true),       color: 'var(--color-secondary)'               },
     { label: 'Desparasitar',     icon: '🪱', action: () => setDesparasitarModal(true), color: '#7c5cbf'                               },
     { label: 'Imagenología',     icon: '🔬', action: () => setImgChoiceOpen(true),                                              color: '#1565c0'                               },
@@ -1617,7 +1619,8 @@ export default function PetDetailPage() {
         mode={editingControl ? 'edit' : 'new'}
       />
 
-      <HospitalizationModal isOpen={hospModal} onClose={() => { setHospModal(false); setEditingHosp(null); }} pet={pet} client={client} initialData={editingHosp} />
+      <HospitalizationModal isOpen={hospModal}     onClose={() => { setHospModal(false);     setEditingHosp(null); }} pet={pet} client={client} initialData={editingHosp} tipo="completa" />
+      <HospitalizationModal isOpen={semiHospModal} onClose={() => { setSemiHospModal(false);                       }} pet={pet} client={client} tipo="semi" />
 
       <ImagingModal isOpen={imagingModal} onClose={() => { setImagingModal(false); setEditingImaging(null); }} onSave={handleSaveImaging} onEdit={handleEditImaging} pet={pet} initialData={editingImaging} />
 
