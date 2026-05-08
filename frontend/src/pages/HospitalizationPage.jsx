@@ -220,9 +220,7 @@ export default function HospitalizationPage() {
       alta_time:    altaTime,
       duration_days: calcDuration(h.ingreso_date, altaDate),
     });
-    if (patients.find(p => p.id === h.patient_id)) {
-      editPatient(h.patient_id, { status: 'activo' });
-    }
+    editPatient(h.patient_id, { status: 'activo' });
     setAltaModal(false);
     setAltaHosp(null);
     if (selectedId === h.id) setSelectedId(null);
@@ -232,7 +230,7 @@ export default function HospitalizationPage() {
     if (!confirm(`⚠️ ¿Registrar fallecimiento de ${h.patient_name}? Esta acción no se puede deshacer.`)) return;
     const now = new Date();
     editHosp(h.id, { status: 'fallecido', alta_date: localDate(now), alta_time: now.toTimeString().slice(0, 5), duration_days: calcDuration(h.ingreso_date, localDate(now)) });
-    if (patients.find(p => p.id === h.patient_id)) editPatient(h.patient_id, { status: 'inactivo' });
+    editPatient(h.patient_id, { status: 'inactivo' });
     if (selectedId === h.id) setSelectedId(null);
   };
 
@@ -241,7 +239,7 @@ export default function HospitalizationPage() {
     const now = new Date();
     const altaDate = localDate(now);
     editHosp(h.id, { status: 'deslinde', alta_date: altaDate, alta_time: now.toTimeString().slice(0, 5), duration_days: calcDuration(h.ingreso_date, altaDate) });
-    if (patients.find(p => p.id === h.patient_id)) editPatient(h.patient_id, { status: 'activo' });
+    editPatient(h.patient_id, { status: 'activo' });
     if (selectedId === h.id) setSelectedId(null);
   };
 
