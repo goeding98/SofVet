@@ -17,6 +17,10 @@ const VIAS        = ['IV', 'IM', 'VO', 'SC', 'Tópica', 'Inhalada', 'Oftálmica'
 const EMPTY_MED   = { medicamento: '', dosis: '', unidad: 'ml', via: 'IV', frecuencia: 'Cada 8 horas', observaciones: '' };
 
 const INSUMOS_HOSPITAL = [
+  'Lactato Ringer',
+  'Cloruro',
+  'Dextrosa 50%',
+  'Manitol (Osmorín)',
   'Jeringas 1ml a 10ml',
   'Jeringas 20ml',
   'Catéter 20G (Rosado)',
