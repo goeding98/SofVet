@@ -35,14 +35,21 @@ export default function HospitalizationReportModal({ isOpen, onClose, onSave, on
   const [uploading,   setUploading]   = useState(false);
   const [error,       setError]       = useState('');
   const [confirmDel,  setConfirmDel]  = useState(false);
+  const [editFecha,   setEditFecha]   = useState('');
+  const [editHora,    setEditHora]    = useState('');
 
   useEffect(() => {
     if (isOpen) {
+      const now = new Date();
       if (initialData) {
         setContenido(initialData.contenido || '');
+        setEditFecha(initialData.fecha || now.toISOString().split('T')[0]);
+        setEditHora(initialData.hora  || now.toTimeString().slice(0, 5));
         setFiles([]);
       } else {
         setContenido('');
+        setEditFecha(now.toISOString().split('T')[0]);
+        setEditHora(now.toTimeString().slice(0, 5));
         setFiles([]);
       }
       setError('');
@@ -74,8 +81,8 @@ export default function HospitalizationReportModal({ isOpen, onClose, onSave, on
     const fotosFinales = isEditing
       ? [...(initialData.fotos || []), ...fotos]
       : fotos;
-    const now     = new Date();
-    const hoy     = now.toISOString().split('T')[0];
+    const now       = new Date();
+    const hoy       = now.toISOString().split('T')[0];
     const horaAhora = now.toTimeString().slice(0, 5);
     onSave({
       ...(isEditing ? { id: initialData.id } : {}),
@@ -83,8 +90,8 @@ export default function HospitalizationReportModal({ isOpen, onClose, onSave, on
       contenido,
       fotos: fotosFinales,
       veterinario:   isEditing ? (initialData.veterinario || session?.nombre || 'Desconocido') : (session?.nombre || 'Desconocido'),
-      fecha:         isEditing ? initialData.fecha : hoy,
-      hora:          isEditing ? initialData.hora  : horaAhora,
+      fecha:         editFecha || hoy,
+      hora:          editHora  || horaAhora,
       ...(isEditing ? {
         editado_por:   session?.nombre || 'Desconocido',
         fecha_edicion: hoy,
@@ -107,6 +114,21 @@ export default function HospitalizationReportModal({ isOpen, onClose, onSave, on
         </div>
 
         <div style={{ padding:'1.5rem' }}>
+
+          {/* Fecha y hora — editables siempre */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem', marginBottom:'1rem' }}>
+            <div>
+              <label style={lSt}>Fecha del reporte</label>
+              <input type="date" value={editFecha} onChange={e => setEditFecha(e.target.value)}
+                style={{ width:'100%', padding:'0.5rem 0.65rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.85rem', boxSizing:'border-box' }} />
+            </div>
+            <div>
+              <label style={lSt}>Hora del reporte</label>
+              <input type="time" value={editHora} onChange={e => setEditHora(e.target.value)}
+                style={{ width:'100%', padding:'0.5rem 0.65rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.85rem', boxSizing:'border-box' }} />
+            </div>
+          </div>
+
           <div style={{ marginBottom:'1rem' }}>
             <label style={{ ...lSt, color:'var(--color-primary)' }}>Contenido del reporte *</label>
             <textarea value={contenido} onChange={e=>setContenido(e.target.value)} rows={7}
