@@ -4,15 +4,16 @@ import { useAuth } from '../utils/useAuth';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { supabase } from '../utils/supabaseClient';
+import { nowDate, localDateStr } from '../utils/nowLocal';
 
 const MONTHLY_RATE = 69900;
-const today = () => new Date().toISOString().split('T')[0];
+const today = () => nowDate();
 const todayDate = () => new Date();
 
 function addMonths(dateStr, n) {
   const d = new Date(dateStr + 'T12:00:00');
   d.setMonth(d.getMonth() + n);
-  return d.toISOString().split('T')[0];
+  return localDateStr(d);
 }
 
 function formatCOP(n) {

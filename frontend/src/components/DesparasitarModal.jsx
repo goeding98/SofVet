@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { useSede, SEDES } from '../utils/useSede';
 import { useAuth } from '../utils/useAuth';
+import { nowDate, nowTime } from '../utils/nowLocal';
 
 const PRODUCTOS = {
   Perro: ['Drontal Plus', 'Milbemax', 'Nexgard Spectra', 'Bravecto', 'Panacur', 'Endogard'],
@@ -38,14 +39,14 @@ export default function DesparasitarModal({ isOpen, onClose, onSave, pet, initia
       if (initialData) {
         const productName = initialData.vaccine_name?.replace('Desparasitación - ', '') || null;
         setSelected(productName);
-        setFecha(initialData.date_applied || new Date().toISOString().split('T')[0]);
+        setFecha(initialData.date_applied || nowDate());
         setProxima(initialData.next_dose || '');
         setLote(initialData.batch || '');
         setVet(initialData.vet || '');
         setSedeId(initialData.sede_id || sedeActual || 1);
       } else {
         setSelected(null);
-        setFecha(new Date().toISOString().split('T')[0]);
+        setFecha(nowDate());
         setProxima('');
         setLote('');
         setVet('');
@@ -58,8 +59,8 @@ export default function DesparasitarModal({ isOpen, onClose, onSave, pet, initia
     if (!selected) return alert('Selecciona un producto.');
     if (!fecha)    return alert('La fecha es requerida.');
     const now = new Date();
-    const horaAhora = now.toTimeString().slice(0, 5);
-    const hoy = now.toISOString().split('T')[0];
+    const horaAhora = nowTime();
+    const hoy = nowDate();
     onSave({
       ...(isEditing ? { id: initialData.id } : {}),
       vaccine_name:  `Desparasitación - ${selected}`,

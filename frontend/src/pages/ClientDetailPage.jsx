@@ -8,6 +8,7 @@ import Modal from '../components/Modal';
 const EMPTY_PET = { name: '', species: 'Perro', breed: '', birth_date: '', weight: '', sex: 'Macho', esterilizado: 'No', caracter: 'Dócil', status: 'activo' };
 
 import { ageLabel } from '../utils/ageLabel';
+import { nowDate } from '../utils/nowLocal';
 
 const calcAge = (birthDate) => {
   if (!birthDate) return 0;
@@ -70,7 +71,7 @@ export default function ClientDetailPage() {
       birth_date: petForm.birth_date,
       age: calcAge(petForm.birth_date),
       weight: parseFloat(petForm.weight) || 0,
-      created_at: new Date().toISOString().split('T')[0],
+      created_at: nowDate(),
     };
     addPet(payload);
     setPetModal(false);
@@ -220,7 +221,7 @@ export default function ClientDetailPage() {
             <input
               type="date"
               value={petForm.birth_date || ''}
-              max={new Date().toISOString().split('T')[0]}
+              max={nowDate()}
               onChange={e => setPetForm(f => ({ ...f, birth_date: e.target.value }))}
               style={{ width: '100%', padding: '0.6rem 0.75rem', boxSizing: 'border-box' }}
             />

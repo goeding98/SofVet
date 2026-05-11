@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../utils/useAuth';
+import { nowDate, nowTime } from '../utils/nowLocal';
 
 // Redimensiona y convierte a base64 — evita depender de Storage/RLS
 function resizeToBase64(file, maxPx = 1024, quality = 0.78) {
@@ -43,13 +44,13 @@ export default function HospitalizationReportModal({ isOpen, onClose, onSave, on
       const now = new Date();
       if (initialData) {
         setContenido(initialData.contenido || '');
-        setEditFecha(initialData.fecha || now.toISOString().split('T')[0]);
-        setEditHora(initialData.hora  || now.toTimeString().slice(0, 5));
+        setEditFecha(initialData.fecha || nowDate());
+        setEditHora(initialData.hora  || nowTime());
         setFiles([]);
       } else {
         setContenido('');
-        setEditFecha(now.toISOString().split('T')[0]);
-        setEditHora(now.toTimeString().slice(0, 5));
+        setEditFecha(nowDate());
+        setEditHora(nowTime());
         setFiles([]);
       }
       setError('');
@@ -82,8 +83,8 @@ export default function HospitalizationReportModal({ isOpen, onClose, onSave, on
       ? [...(initialData.fotos || []), ...fotos]
       : fotos;
     const now       = new Date();
-    const hoy       = now.toISOString().split('T')[0];
-    const horaAhora = now.toTimeString().slice(0, 5);
+    const hoy       = nowDate();
+    const horaAhora = nowTime();
     onSave({
       ...(isEditing ? { id: initialData.id } : {}),
       hospitalization_id: hospitalizationId,

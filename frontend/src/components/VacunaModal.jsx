@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { useSede, SEDES } from '../utils/useSede';
 import { useAuth } from '../utils/useAuth';
+import { nowDate, nowTime } from '../utils/nowLocal';
 
 const VACUNAS = {
   Perro: ['Puppy Virbac', 'Quíntuple', 'Séxtuple', 'Anti-rabia', 'KC'],
@@ -38,14 +39,14 @@ export default function VacunaModal({ isOpen, onClose, onSave, pet, initialData 
     if (isOpen) {
       if (initialData) {
         setSelected(initialData.vaccine_name || null);
-        setFecha(initialData.date_applied || new Date().toISOString().split('T')[0]);
+        setFecha(initialData.date_applied || nowDate());
         setProxima(initialData.next_dose || '');
         setLote(initialData.batch || '');
         setVet(initialData.vet || '');
         setSedeId(initialData.sede_id || sedeActual || 1);
       } else {
         setSelected([]);
-        setFecha(new Date().toISOString().split('T')[0]);
+        setFecha(nowDate());
         setProxima('');
         setLote('');
         setVet('');
@@ -67,8 +68,8 @@ export default function VacunaModal({ isOpen, onClose, onSave, pet, initialData 
   const handleSave = () => {
     if (!fecha) return alert('La fecha es requerida.');
     const now = new Date();
-    const horaAhora = now.toTimeString().slice(0, 5);
-    const hoy = now.toISOString().split('T')[0];
+    const horaAhora = nowTime();
+    const hoy = nowDate();
     if (isEditing) {
       if (!selected) return alert('Selecciona una vacuna.');
       onSave({

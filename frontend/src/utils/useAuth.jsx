@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import { nowDate } from './nowLocal';
 
 // ── Sede IDs ───────────────────────────────────────────────────────────────
 // 1 = Santa Mónica | 2 = Colseguros | 3 = Ciudad Jardín
@@ -78,7 +79,7 @@ export function AuthProvider({ children }) {
         sede_id:              (rol === 'Administrador' || rol === 'Laboratorio') ? null : (sede_id || null),
         estado:               'activo',
         must_change_password: true,
-        fecha_creacion:       new Date().toISOString().split('T')[0],
+        fecha_creacion:       nowDate(),
       })
       .select()
       .single();

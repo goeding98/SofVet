@@ -4,6 +4,7 @@ import Button from './Button';
 import { useSede, SEDES } from '../utils/useSede';
 import { useAuth } from '../utils/useAuth';
 import { useStore } from '../utils/useStore';
+import { nowDate, nowTime } from '../utils/nowLocal';
 
 const EMPTY_MED  = { medicamento: '', dosis: '', via: 'VO' };
 const EMPTY_PROD = { producto: '', cantidad: '', instrucciones: '' };
@@ -11,8 +12,8 @@ const VIAS = ['VO','IM','IV','SC','Tópica','Inhalada','Oftálmica','Ótica'];
 const MUCOSAS_OPTS = ['Rosadas húmedas','Pálidas','Congestivas','Cianóticas','Ictéricas','Secas'];
 
 const makeEmpty = () => ({
-  date: new Date().toISOString().split('T')[0],
-  time: new Date().toTimeString().slice(0, 5),
+  date: nowDate(),
+  time: nowTime(),
   motivo_control: '',
   temperatura: '', frecuencia_cardiaca: '', frecuencia_respiratoria: '',
   peso: '', condicion_corporal: '', mucosas: '',
@@ -82,7 +83,7 @@ export default function ControlModal({ isOpen, onClose, onSave, onDelete, pet, i
     if (!form.motivo_control?.trim()) return alert('El motivo de control es requerido.');
     const now = new Date();
     const hoy = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-    const horaAhora = now.toTimeString().slice(0, 5);
+    const horaAhora = nowTime();
     if (mode === 'edit') {
       onSave({ ...form, sede_id: sedeId || null, editado_por: session?.nombre || null, hora_edicion: horaAhora, fecha_edicion: hoy });
     } else {

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../utils/useAuth';
 import { useSede, SEDES } from '../utils/useSede';
 import { TIPOS_IMAGEN } from '../utils/imagenTypes';
+import { nowDate, nowTime } from '../utils/nowLocal';
 
 const lSt = { display:'block', fontSize:'0.72rem', fontWeight:700, marginBottom:'0.3rem', textTransform:'uppercase', letterSpacing:'0.04em', color:'var(--color-text)' };
 const iSt = { width:'100%', padding:'0.55rem 0.75rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.875rem' };
@@ -31,8 +32,8 @@ export default function SolicitarImagenModal({ isOpen, onClose, onSave, pet }) {
       sede_id:          sedeId,
       patient_name:     pet.name,
       estado:           'Solicitado',
-      fecha_solicitado: new Date().toISOString().split('T')[0],
-      hora_solicitado:  new Date().toTimeString().slice(0, 5),
+      fecha_solicitado: nowDate(),
+      hora_solicitado:  nowTime(),
       solicitado_por:   session?.nombre || 'Desconocido',
     });
     reset(); onClose();

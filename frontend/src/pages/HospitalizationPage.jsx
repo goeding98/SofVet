@@ -7,9 +7,9 @@ import { ageLabel } from '../utils/ageLabel';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import VetName from '../components/VetName';
+import { nowDate, nowTime, localDateStr } from '../utils/nowLocal';
 
-const localDate = (d = new Date()) =>
-  `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const localDate = () => nowDate();
 
 const UNIDADES    = ['ml', 'tabletas', 'paquetes', 'mg', 'comprimidos', 'gotas', 'otro'];
 const FRECUENCIAS = ['Cada 2 horas', 'Cada 4 horas', 'Cada 6 horas', 'Cada 8 horas', 'Cada 12 horas', 'Cada 24 horas', 'Una sola vez'];
@@ -126,7 +126,7 @@ function buildNochesSummary(ingresoDate, endDate, liquidaciones_parciales) {
   const end = new Date((endDate || localDate()) + 'T12:00:00');
   let idx = 1;
   while (d <= end) {
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = localDateStr(d);
     nights.push({ fecha: dateStr, idx, liquidado: liquidatedNights.has(dateStr), liqDate: nightToLiqDate[dateStr] });
     d.setDate(d.getDate() + 1);
     idx++;
@@ -224,7 +224,7 @@ export default function HospitalizationPage() {
   const handleDischarge = (h, billingStatus) => {
     const now = new Date();
     const altaDate = localDate(now);
-    const altaTime = now.toTimeString().slice(0, 5);
+    const altaTime = nowTime();
     editHosp(h.id, {
       status:       billingStatus,
       alta_date:    altaDate,
@@ -240,7 +240,7 @@ export default function HospitalizationPage() {
   const handleFallecido = (h) => {
     if (!confirm(`⚠️ ¿Registrar fallecimiento de ${h.patient_name}? Esta acción no se puede deshacer.`)) return;
     const now = new Date();
-    editHosp(h.id, { status: 'fallecido', alta_date: localDate(now), alta_time: now.toTimeString().slice(0, 5), duration_days: calcDuration(h.ingreso_date, localDate(now)) });
+    editHosp(h.id, { status: 'fallecido', alta_date: localDate(now), alta_time: nowTime(), duration_days: calcDuration(h.ingreso_date, localDate(now)) });
     editPatient(h.patient_id, { status: 'inactivo' });
     if (selectedId === h.id) setSelectedId(null);
   };
@@ -249,7 +249,7 @@ export default function HospitalizationPage() {
     if (!confirm(`⚠️ ¿Registrar salida por deslinde informado de ${h.patient_name}?\n\nEl propietario se lleva al paciente bajo su responsabilidad.`)) return;
     const now = new Date();
     const altaDate = localDate(now);
-    editHosp(h.id, { status: 'deslinde', alta_date: altaDate, alta_time: now.toTimeString().slice(0, 5), duration_days: calcDuration(h.ingreso_date, altaDate) });
+    editHosp(h.id, { status: 'deslinde', alta_date: altaDate, alta_time: nowTime(), duration_days: calcDuration(h.ingreso_date, altaDate) });
     editPatient(h.patient_id, { status: 'activo' });
     if (selectedId === h.id) setSelectedId(null);
   };
@@ -296,7 +296,7 @@ export default function HospitalizationPage() {
       notas:        applyNotas,
       aplicado_por: session?.nombre || 'Desconocido',
       fecha:        localDate(now),
-      hora:         now.toTimeString().slice(0, 5),
+      hora:         nowTime(),
       sede_id:      applyHosp.sede_id,
     };
     const updates = { aplicaciones: [...(applyHosp.aplicaciones || []), newApp] };
@@ -343,7 +343,7 @@ export default function HospitalizationPage() {
       from_sede_id: hosp.sede_id,
       to_sede_id:   parseInt(trasladoSedeId),
       fecha:        localDate(now),
-      hora:         now.toTimeString().slice(0, 5),
+      hora:         nowTime(),
       realizado_por: session?.nombre || 'Administrador',
     };
     editHosp(trasladoHospId, {
@@ -437,7 +437,7 @@ export default function HospitalizationPage() {
       descripcion:    abonoDesc.trim(),
       valor:          parseFloat(String(abonoValor).replace(/\./g, '').replace(',', '.')) || 0,
       fecha:          localDate(now),
-      hora:           now.toTimeString().slice(0, 5),
+      hora:           nowTime(),
       registrado_por: session?.nombre || 'Desconocido',
     };
     editHosp(abonoHospId, { abonos: [...(abonoHosp.abonos || []), newAbono] });
@@ -467,7 +467,7 @@ export default function HospitalizationPage() {
       descripcion:    consumoNewDesc.trim(),
       cantidad:       consumoNewCant.trim() || '1',
       fecha:          localDate(now),
-      hora:           now.toTimeString().slice(0, 5),
+      hora:           nowTime(),
       registrado_por: session?.nombre || 'Desconocido',
     };
     editHosp(consumoHospId, { consumo: [...(consumoHosp.consumo || []), newItem] });

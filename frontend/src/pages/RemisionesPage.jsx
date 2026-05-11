@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
+import { nowDate } from '../utils/nowLocal';
 
 const fmtCOP = v => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v || 0);
 
@@ -16,7 +17,7 @@ const BONO_NUEVO     = 50_000;
 const UMBRAL_VOLUMEN = 5;
 const UMBRAL_NUEVO   = 3;
 
-function today() { return new Date().toISOString().split('T')[0]; }
+function today() { return nowDate(); }
 function currentMonth() { return today().slice(0, 7); }
 
 // ── Aliados Modal ─────────────────────────────────────────────────────────────

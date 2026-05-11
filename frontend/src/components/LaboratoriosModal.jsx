@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../utils/useAuth';
 import { supabase } from '../utils/supabaseClient';
+import { nowDate, nowTime } from '../utils/nowLocal';
 
 const lSt = { display:'block', fontSize:'0.72rem', fontWeight:700, marginBottom:'0.3rem', textTransform:'uppercase', letterSpacing:'0.04em', color:'var(--color-text)' };
 const iSt = { width:'100%', padding:'0.55rem 0.75rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.875rem' };
@@ -9,7 +10,7 @@ const taSt = { ...iSt, resize:'vertical' };
 // ── Shared file upload helper ─────────────────────────────────────────────────
 async function uploadFiles(files, petId, setError) {
   const archivos = [];
-  const date = new Date().toISOString().split('T')[0];
+  const date = nowDate();
   for (const file of files) {
     const safeName = file.name
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -98,8 +99,8 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, onEdit, pet
       archivos:      finalArchivos,
       file_url:      finalArchivos[0]?.url || null,
       editado_por:   session?.nombre || null,
-      hora_edicion:  now.toTimeString().slice(0, 5),
-      fecha_edicion: now.toISOString().split('T')[0],
+      hora_edicion:  nowTime(),
+      fecha_edicion: nowDate(),
     });
     reset(); onClose();
   };
@@ -123,8 +124,8 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, onEdit, pet
       archivos,
       pedido_id:  selectedPedido?.id || null,
       created_by:  session?.nombre || 'Desconocido',
-      fecha:       new Date().toISOString().split('T')[0],
-      hora_subida: new Date().toTimeString().slice(0, 5),
+      fecha:       nowDate(),
+      hora_subida: nowTime(),
     });
     reset(); onClose();
   };

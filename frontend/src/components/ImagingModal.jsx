@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../utils/useAuth';
 import { useSede, SEDES } from '../utils/useSede';
 import { supabase } from '../utils/supabaseClient';
+import { nowDate, nowTime } from '../utils/nowLocal';
 
 const TIPOS = ['Radiografía', 'Ecografía', 'Tomografía / Resonancia'];
 
@@ -17,7 +18,7 @@ export default function ImagingModal({ isOpen, onClose, onSave, onEdit, pet, ini
   const isEditing = !!initialData?.id;
 
   const [tipo,             setTipo]             = useState('Radiografía');
-  const [date,             setDate]             = useState(new Date().toISOString().split('T')[0]);
+  const [date,             setDate]             = useState(nowDate());
   const [resultado,        setResultado]        = useState('');
   const [files,            setFiles]            = useState([]);
   const [existingArchivos, setExistingArchivos] = useState([]);
@@ -30,13 +31,13 @@ export default function ImagingModal({ isOpen, onClose, onSave, onEdit, pet, ini
       setError(''); setUploading(false); setFiles([]);
       if (initialData) {
         setTipo(initialData.tipo || 'Radiografía');
-        setDate(initialData.date || new Date().toISOString().split('T')[0]);
+        setDate(initialData.date || nowDate());
         setResultado(initialData.resultado || '');
         setSedeId(initialData.sede_id || sedeActual || 1);
         setExistingArchivos(initialData.archivos || []);
       } else {
         setTipo('Radiografía');
-        setDate(new Date().toISOString().split('T')[0]);
+        setDate(nowDate());
         setResultado('');
         setSedeId(sedeActual || 1);
         setExistingArchivos([]);
@@ -47,7 +48,7 @@ export default function ImagingModal({ isOpen, onClose, onSave, onEdit, pet, ini
   if (!isOpen || !pet) return null;
 
   const reset = () => {
-    setTipo('Radiografía'); setDate(new Date().toISOString().split('T')[0]);
+    setTipo('Radiografía'); setDate(nowDate());
     setResultado(''); setFiles([]); setExistingArchivos([]); setError(''); setUploading(false);
   };
   const handleClose = () => { reset(); onClose(); };
@@ -79,7 +80,7 @@ export default function ImagingModal({ isOpen, onClose, onSave, onEdit, pet, ini
       archivos:      newArchivos,
       sede_id:       sedeId,
       created_by:    session?.nombre || 'Desconocido',
-      hora_creacion: now.toTimeString().slice(0, 5),
+      hora_creacion: nowTime(),
     });
     setUploading(false);
     reset(); onClose();
@@ -98,8 +99,8 @@ export default function ImagingModal({ isOpen, onClose, onSave, onEdit, pet, ini
       archivos:      finalArchivos,
       sede_id:       sedeId,
       editado_por:   session?.nombre || null,
-      hora_edicion:  now.toTimeString().slice(0, 5),
-      fecha_edicion: now.toISOString().split('T')[0],
+      hora_edicion:  nowTime(),
+      fecha_edicion: nowDate(),
     });
     setUploading(false);
     reset(); onClose();

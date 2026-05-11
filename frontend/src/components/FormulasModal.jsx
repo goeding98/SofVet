@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
+import { nowDate, nowTime } from '../utils/nowLocal';
 import { ageLabel } from '../utils/ageLabel';
 import { getTP } from '../utils/vetCards';
 
@@ -167,7 +168,7 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
 
   const openCreate = () => {
     setEditingFormula(null);
-    setCreateDate(new Date().toISOString().split('T')[0]);
+    setCreateDate(nowDate());
     setCreateObs('');
     setCreateProds([{ ...EMPTY_PROD }]);
     setShowCreate(true);
@@ -175,7 +176,7 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
 
   const openEdit = (f) => {
     setEditingFormula(f);
-    setCreateDate(f.fecha || new Date().toISOString().split('T')[0]);
+    setCreateDate(f.fecha || nowDate());
     setCreateObs(f.observaciones || '');
     setCreateProds(Array.isArray(f.productos) && f.productos.length ? f.productos.map(p => ({ ...p })) : [{ ...EMPTY_PROD }]);
     setShowCreate(true);
@@ -196,8 +197,8 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
     }
     setSaving(true);
     const now = new Date();
-    const horaAhora = now.toTimeString().slice(0, 5);
-    const hoy = now.toISOString().split('T')[0];
+    const horaAhora = nowTime();
+    const hoy = nowDate();
     if (editingFormula) {
       const editorName = session?.nombre || null;
       await editFormula(editingFormula.id, {

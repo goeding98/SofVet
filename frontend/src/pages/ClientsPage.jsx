@@ -6,6 +6,7 @@ import Card from '../components/Card';
 import Table from '../components/Table';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
+import { nowDate } from '../utils/nowLocal';
 
 const EMPTY_CLIENT = { name: '', document: '', phone: '', email: '', address: '', notes: '' };
 const EMPTY_PET    = { name: '', species: 'Perro', breed: '', age: '', weight: '', sex: 'Macho', esterilizado: 'No', caracter: 'Dócil', status: 'activo' };
@@ -66,8 +67,8 @@ export default function ClientsPage() {
       ...clientForm,
       cedula:     clientForm.document || null,
       created_at: editId
-        ? (clients.find(c => c.id === editId)?.created_at || new Date().toISOString().split('T')[0])
-        : new Date().toISOString().split('T')[0],
+        ? (clients.find(c => c.id === editId)?.created_at || nowDate())
+        : nowDate(),
     };
 
     if (editId) {
@@ -118,7 +119,7 @@ export default function ClientsPage() {
       owner_email: pendingClient.email,
       age,
       weight:      parseFloat(petForm.weight) || 0,
-      created_at:  new Date().toISOString().split('T')[0],
+      created_at:  nowDate(),
     }, { onError: (m) => { saveErr = m; } });
     if (!result) { alert('❌ Error al guardar mascota:\n\n' + saveErr); return; }
     setPetModal(false);

@@ -5,6 +5,7 @@ import { useSede, SEDES } from '../utils/useSede';
 import { useAuth } from '../utils/useAuth';
 import Card from '../components/Card';
 import ImagenesResultModal from '../components/ImagenesResultModal';
+import { nowDate } from '../utils/nowLocal';
 
 const sedeNombre = (id) => SEDES.find(s => s.id === id)?.nombre || `Sede ${id}`;
 
@@ -62,7 +63,7 @@ export default function ImagenesPage() {
     setSaving(p.id);
     await editPedido(p.id, {
       estado:          'Reportado',
-      fecha_reportado: new Date().toISOString().split('T')[0],
+      fecha_reportado: nowDate(),
       reportado_por:   session?.nombre || 'Desconocido',
       reporte_medico:  reportes[p.id] || '',
     });

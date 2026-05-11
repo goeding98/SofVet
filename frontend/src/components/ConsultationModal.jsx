@@ -9,10 +9,11 @@ const EMPTY_FORMULA = { producto: '', cantidad: '', instrucciones: '' };
 const VIAS = ['VO','IM','IV','SC','Tópica','Inhalada','Oftálmica','Ótica'];
 const MUCOSAS_OPTS = ['Rosadas húmedas','Pálidas','Congestivas','Cianóticas','Ictéricas','Secas'];
 import { TIPOS_LAB } from '../utils/labTypes';
+import { nowDate, nowTime } from '../utils/nowLocal';
 
 const makeEmpty = () => ({
-  date: new Date().toISOString().split('T')[0],
-  time: new Date().toTimeString().slice(0, 5),
+  date: nowDate(),
+  time: nowTime(),
   motivo_consulta: '',
   antecedentes: '',
   temperatura: '', frecuencia_cardiaca: '', frecuencia_respiratoria: '',
@@ -92,8 +93,8 @@ export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft
     if (!form.date) return alert('La fecha es requerida.');
     if (!form.diagnostico_final?.trim()) return alert('El diagnóstico final es requerido.');
     const now = new Date();
-    const hoy = now.toISOString().split('T')[0];
-    const horaAhora = now.toTimeString().slice(0, 5);
+    const hoy = nowDate();
+    const horaAhora = nowTime();
     if (mode === 'edit') {
       onSave({ ...form, sede_id: sedeId || null, editado_por: session?.nombre || null, hora_edicion: horaAhora, fecha_edicion: hoy });
     } else {

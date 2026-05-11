@@ -6,6 +6,7 @@ import Card from '../components/Card';
 import Table from '../components/Table';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
+import { nowDate } from '../utils/nowLocal';
 
 const EMPTY_PET = { name: '', species: 'Perro', breed: '', age: '', weight: '', sex: 'Macho', esterilizado: 'No', caracter: 'Dócil', status: 'activo', client_id: '', owner: '', owner_phone: '', owner_email: '' };
 
@@ -107,8 +108,8 @@ export default function PatientsPage() {
       weight:   parseFloat(form.weight) || 0,
       no_historia,
       created_at: editId
-        ? (patients.find(p => p.id === editId)?.created_at || new Date().toISOString().split('T')[0])
-        : new Date().toISOString().split('T')[0],
+        ? (patients.find(p => p.id === editId)?.created_at || nowDate())
+        : nowDate(),
     };
 
     if (editId) {

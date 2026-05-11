@@ -4,6 +4,7 @@ import { useAuth } from '../utils/useAuth';
 import { useSede, SEDES } from '../utils/useSede';
 import { supabase } from '../utils/supabaseClient';
 import Modal from '../components/Modal';
+import { nowDate, localDateStr } from '../utils/nowLocal';
 
 // ── Grid config ──────────────────────────────────────────────────────────────
 const START_HOUR = 0;
@@ -19,7 +20,7 @@ const DAYS_FULL    = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function toStr(y,m,d) { return `${y}-${pad2(m+1)}-${pad2(d)}`; }
-function addDays(ds,n) { const d=new Date(ds+'T12:00:00'); d.setDate(d.getDate()+n); return d.toISOString().split('T')[0]; }
+function addDays(ds,n) { const d=new Date(ds+'T12:00:00'); d.setDate(d.getDate()+n); return localDateStr(d); }
 function getMondayOf(ds) { const d=new Date(ds+'T12:00:00'); const wd=d.getDay(); return addDays(ds,wd===0?-6:1-wd); }
 function weekDays(mon) { return Array.from({length:7},(_,i)=>addDays(mon,i)); }
 function getDaysInMonth(y,m) { return new Date(y,m+1,0).getDate(); }
@@ -185,7 +186,7 @@ function DayTableView({ dayStr, dayItems, isAdmin, onAdd, onEdit, onDelete, onSt
   const d      = new Date(dayStr+'T12:00:00');
   const wd     = d.getDay();
   const dowIdx = wd===0?6:wd-1;
-  const isToday = dayStr === new Date().toISOString().split('T')[0];
+  const isToday = dayStr === nowDate();
 
   const thSt = { padding:'0.5rem 0.75rem', textAlign:'left', fontSize:'0.68rem', fontWeight:700, color:'white', textTransform:'uppercase', letterSpacing:'0.05em', whiteSpace:'nowrap', background:BLOCK_COLOR };
   const tdSt = { padding:'0.55rem 0.75rem', fontSize:'0.82rem', verticalAlign:'middle', borderBottom:'1px solid var(--color-border)' };
@@ -368,7 +369,7 @@ export default function GroomingPage() {
 
   const isAdminUser = session?.rol === 'Administrador';
   const today       = new Date();
-  const todayStr    = today.toISOString().split('T')[0];
+  const todayStr    = nowDate();
 
   const [viewMode,    setViewMode]    = useState('week');
   const [anchor,      setAnchor]      = useState(todayStr);

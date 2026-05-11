@@ -4,6 +4,7 @@ import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
 import { useSede, SEDES } from '../utils/useSede';
 import { ageLabel } from '../utils/ageLabel';
+import { nowDate, nowTime } from '../utils/nowLocal';
 
 const EMPTY_MED   = { medicamento: '', dosis: '', unidad: 'ml', via: 'IV', frecuencia: 'Cada 8 horas', observaciones: '' };
 const UNIDADES    = ['ml', 'tabletas', 'paquetes', 'mg', 'comprimidos', 'gotas', 'otro'];
@@ -62,8 +63,8 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
         tratamiento:   meds.filter(m => m.medicamento.trim()),
         sede_id:       sedeId,
         editado_por:   session?.nombre || null,
-        hora_edicion:  now.toTimeString().slice(0, 5),
-        fecha_edicion: now.toISOString().split('T')[0],
+        hora_edicion:  nowTime(),
+        fecha_edicion: nowDate(),
       });
       onClose();
       return;
@@ -84,8 +85,8 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
       motivo,
       diagnostico,
       tratamiento:     meds.filter(m => m.medicamento.trim()),
-      ingreso_date:    now.toISOString().split('T')[0],
-      ingreso_time:    now.toTimeString().slice(0, 5),
+      ingreso_date:    nowDate(),
+      ingreso_time:    nowTime(),
       responsible_vet: session?.nombre || 'Sin asignar',
       status:          'activo',
       aplicaciones:    [],

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { SEDES } from '../utils/useSede';
+import { nowDate } from '../utils/nowLocal';
 
 const sedeNombre = (id) => SEDES.find(s => s.id === id)?.nombre || `Sede ${id}`;
 
@@ -37,7 +38,7 @@ export default function LaboratoriosSinReportarModal({
   const handleReportar = async (p) => {
     await editPedido(p.id, {
       estado:          'Reportado',
-      fecha_reportado: new Date().toISOString().split('T')[0],
+      fecha_reportado: nowDate(),
       reportado_por:   session?.nombre || 'Desconocido',
     });
     setConfirming(null);
@@ -48,7 +49,7 @@ export default function LaboratoriosSinReportarModal({
     await editPedido(noReportarId, {
       estado:          'No reportado',
       razon_no_reporte: noReportarRazon.trim(),
-      fecha_reportado: new Date().toISOString().split('T')[0],
+      fecha_reportado: nowDate(),
       reportado_por:   session?.nombre || 'Desconocido',
     });
     setNoReportarId(null);

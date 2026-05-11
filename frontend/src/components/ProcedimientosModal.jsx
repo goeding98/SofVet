@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../utils/useAuth';
 import { useSede, SEDES } from '../utils/useSede';
+import { nowDate, nowTime } from '../utils/nowLocal';
 
 const TIPOS = ['Cirugía', 'Profilaxis', 'Procedimiento General'];
 
@@ -36,13 +37,13 @@ export default function ProcedimientosModal({ isOpen, onClose, onSave, pet, init
         setAnest(initialData.anestesia || '');
         setObs(initialData.observaciones || '');
         setSedeId(initialData.sede_id || sedeActual || 1);
-        setEditFecha(initialData.fecha || now.toISOString().split('T')[0]);
-        setEditHora(initialData.hora_creacion || now.toTimeString().slice(0, 5));
+        setEditFecha(initialData.fecha || nowDate());
+        setEditHora(initialData.hora_creacion || nowTime());
       } else {
         setTipo('Cirugía'); setMotivo(''); setDesc(''); setAnest(''); setObs('');
         setSedeId(sedeActual || 1);
-        setEditFecha(now.toISOString().split('T')[0]);
-        setEditHora(now.toTimeString().slice(0, 5));
+        setEditFecha(nowDate());
+        setEditHora(nowTime());
       }
       setError('');
     }
@@ -57,8 +58,8 @@ export default function ProcedimientosModal({ isOpen, onClose, onSave, pet, init
     if (!motivo.trim())      { setError('El motivo del procedimiento es requerido.'); return; }
     if (!descripcion.trim()) { setError('La descripción es requerida.'); return; }
     const now = new Date();
-    const horaAhora = now.toTimeString().slice(0, 5);
-    const hoy = now.toISOString().split('T')[0];
+    const horaAhora = nowTime();
+    const hoy = nowDate();
     onSave({
       ...(isEditing ? { id: initialData.id } : {}),
       tipo, motivo, descripcion, anestesia, observaciones,

@@ -3,6 +3,7 @@ import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
 import { SEDES } from '../utils/useSede';
 import { supabase } from '../utils/supabaseClient';
+import { nowDate, nowMonth, localDateStr } from '../utils/nowLocal';
 
 const GRUPOS = [
   { value: 'medico_hospitalizacion', label: 'Médico Hospitalización' },
@@ -44,7 +45,7 @@ const TIPOS_PERMISO = [
 const MAX_HORAS   = 180;
 const DIAS_SEMANA = ['D','L','M','W','J','V','S'];
 
-function currentMonth() { return new Date().toISOString().slice(0, 7); }
+function currentMonth() { return nowMonth(); }
 
 function calcHoras(tipo, hi, hf) {
   if (tipo === 'DESCANSO' || !hi || !hf) return 0;
@@ -521,7 +522,7 @@ function PermisoCalendario({ session, permisos, onSolicitar }) {
   const [detailOpen,   setDetailOpen]   = useState(false);
 
   const today    = useMemo(() => new Date(), []);
-  const todayStr = useMemo(() => today.toISOString().split('T')[0], [today]);
+  const todayStr = useMemo(() => nowDate(), []);
   const thisYear = today.getFullYear();
 
   const myPermisos = useMemo(() =>
@@ -534,7 +535,7 @@ function PermisoCalendario({ session, permisos, onSolicitar }) {
       const cur = new Date(p.fecha_inicio + 'T12:00:00');
       const end = new Date(p.fecha_fin   + 'T12:00:00');
       while (cur <= end) {
-        m[cur.toISOString().split('T')[0]] = p;
+        m[localDateStr(cur)] = p;
         cur.setDate(cur.getDate() + 1);
       }
     });
@@ -549,7 +550,7 @@ function PermisoCalendario({ session, permisos, onSolicitar }) {
     const cur = new Date(a + 'T12:00:00');
     const end = new Date(b + 'T12:00:00');
     while (cur <= end) {
-      const k = cur.toISOString().split('T')[0];
+      const k = localDateStr(cur);
       if (k >= todayStr) s.add(k);
       cur.setDate(cur.getDate() + 1);
     }
@@ -1088,7 +1089,7 @@ export default function PersonalPage() {
   };
 
   const handleSavePermiso = async (data) => {
-    await addPermiso({ ...data, estado: 'pendiente', fecha_solicitud: new Date().toISOString().split('T')[0] });
+    await addPermiso({ ...data, estado: 'pendiente', fecha_solicitud: nowDate() });
   };
 
   const handleSolicitarFromCalendar = async ({ days, tipo, motivo }) => {
@@ -1102,7 +1103,7 @@ export default function PersonalPage() {
       motivo:          motivo.trim() || null,
       solicitado_por:  session?.nombre || null,
       estado:          'pendiente',
-      fecha_solicitud: new Date().toISOString().split('T')[0],
+      fecha_solicitud: nowDate(),
     });
   };
 
@@ -1111,7 +1112,7 @@ export default function PersonalPage() {
       estado,
       aprobado_por:     session?.nombre || null,
       comentario_admin: comentario.trim() || null,
-      fecha_resolucion: new Date().toISOString().split('T')[0],
+      fecha_resolucion: nowDate(),
     });
     setResolving(null);
     setComentario('');

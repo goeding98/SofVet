@@ -26,6 +26,7 @@ import FormulasModal from '../components/FormulasModal';
 import VacunaModal from '../components/VacunaModal';
 import DesparasitarModal from '../components/DesparasitarModal';
 import documents from '../data/documents.js';
+import { nowDate, nowTime } from '../utils/nowLocal';
 
 const speciesIcon = s => ({ Perro: '🐶', Gato: '🐱', Conejo: '🐰', Ave: '🐦', Reptil: '🦎' }[s] || '🐾');
 
@@ -261,7 +262,7 @@ export default function PetDetailPage() {
     if (hasFormula) {
       let fxError = null;
       const fxResult = await addFormula(
-        { patient_id: petId, patient_name: pet.name, fecha: data.date || new Date().toISOString().split('T')[0], productos: formula_productos || [], estado: 'Pendiente', veterinario: session?.nombre || null, observaciones: data.observaciones || null },
+        { patient_id: petId, patient_name: pet.name, fecha: data.date || nowDate(), productos: formula_productos || [], estado: 'Pendiente', veterinario: session?.nombre || null, observaciones: data.observaciones || null },
         { onError: (msg) => { fxError = msg; } }
       );
       if (!fxResult) alert('⚠️ Error al guardar fórmula médica:\n\n' + fxError);
@@ -272,7 +273,7 @@ export default function PetDetailPage() {
         tipo_examen: lab.tipo_examen === 'Otro' ? (lab.otro_tipo?.trim() || 'Otro') : lab.tipo_examen,
         procesamiento: lab.procesamiento || 'Interno',
         estado: 'Solicitado',
-        fecha_solicitado: data.date || new Date().toISOString().split('T')[0],
+        fecha_solicitado: data.date || nowDate(),
       });
     }
   };
@@ -309,7 +310,7 @@ export default function PetDetailPage() {
       // New consultation
       let saveError = null;
       const result = await addConsultation(
-        { ...cleaned, patient_id: petId, patient_name: pet.name, estado: 'completada', created_at: new Date().toISOString().split('T')[0] },
+        { ...cleaned, patient_id: petId, patient_name: pet.name, estado: 'completada', created_at: nowDate() },
         { onError: (msg) => { saveError = msg; } }
       );
       if (!result) { alert('❌ Error al guardar consulta:\n\n' + saveError); return; }
@@ -352,7 +353,7 @@ export default function PetDetailPage() {
     } else {
       let saveError = null;
       const result = await addConsultation(
-        { ...cleaned, patient_id: petId, patient_name: pet.name, estado: 'incompleta', created_at: new Date().toISOString().split('T')[0] },
+        { ...cleaned, patient_id: petId, patient_name: pet.name, estado: 'incompleta', created_at: nowDate() },
         { onError: (msg) => { saveError = msg; } }
       );
       if (!result) { alert('❌ Error al guardar borrador:\n\n' + saveError); return; }
@@ -384,7 +385,7 @@ export default function PetDetailPage() {
       (p.estado === 'Solicitado' || p.estado === 'Subido SIN REPORTAR')
     );
     if (pedido) {
-      editImagenPedido(pedido.id, { estado: 'Subido SIN REPORTAR', fecha_subido: new Date().toISOString().split('T')[0] });
+      editImagenPedido(pedido.id, { estado: 'Subido SIN REPORTAR', fecha_subido: nowDate() });
     }
     setImgSubirModal(false);
   };
@@ -417,8 +418,8 @@ export default function PetDetailPage() {
     if (!notaForm.titulo.trim()) return alert('El título es requerido.');
     setNotaUploading(true);
     const now = new Date();
-    const hoy = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-    const horaAhora = now.toTimeString().slice(0, 5);
+    const hoy = nowDate();
+    const horaAhora = nowTime();
 
     if (editingNota) {
       const editPayload = {
@@ -495,7 +496,7 @@ export default function PetDetailPage() {
     if (pedido) {
       editLabPedido(pedido.id, {
         estado:        'Subido SIN REPORTAR',
-        fecha_subido:  new Date().toISOString().split('T')[0],
+        fecha_subido:  nowDate(),
       });
     }
     setLabModal(false);
@@ -519,7 +520,7 @@ export default function PetDetailPage() {
   };
 
   const handleSaveImaging = (data) => {
-    addImaging({ ...data, patient_id: petId, patient_name: pet.name, created_at: new Date().toISOString().split('T')[0] });
+    addImaging({ ...data, patient_id: petId, patient_name: pet.name, created_at: nowDate() });
   };
 
   const handleEditImaging = (id, changes) => {
