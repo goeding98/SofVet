@@ -833,43 +833,55 @@ function fmtFechaCorta(dateStr) {
   return `${d}/${m}/${y}`;
 }
 
-function VacacionesSection({ contratos, addContrato, editContrato, removeContrato }) {
-  const [editId,      setEditId]      = useState(null);
-  const [editData,    setEditData]    = useState({});
-  const [editDiasId,  setEditDiasId]  = useState(null);
-  const [editDiasVal, setEditDiasVal] = useState('');
-  const [addMode,     setAddMode]     = useState(false);
-  const [newRec,      setNewRec]      = useState({ nombre: '', fecha_inicio: nowDate(), tipo_contrato: 'Término Indefinido' });
+// usuarios = lista de empleados activos del sistema; contratos = datos de fecha_inicio y vacaciones por user_id
+function VacacionesSection({ usuarios, contratos, addContrato, editContrato }) {
+  const [editId,       setEditId]       = useState(null);  // contrato.id being edited
+  const [editData,     setEditData]     = useState({});
+  const [editDiasId,   setEditDiasId]   = useState(null);  // user.id whose días are being edited
+  const [editDiasVal,  setEditDiasVal]  = useState('');
+  const [registeringId, setRegisteringId] = useState(null); // user.id being registered
+  const [regFecha,     setRegFecha]     = useState('');
+  const [regTipo,      setRegTipo]      = useState('Término Indefinido');
 
-  const sorted = [...contratos].sort((a, b) => new Date(a.fecha_inicio) - new Date(b.fecha_inicio));
+  const contratoMap = Object.fromEntries(contratos.map(c => [c.user_id, c]));
+
+  const sorted = [...usuarios].sort((a, b) => {
+    const ca = contratoMap[a.id], cb = contratoMap[b.id];
+    if (!ca?.fecha_inicio && !cb?.fecha_inicio) return (a.nombre||'').localeCompare(b.nombre||'');
+    if (!ca?.fecha_inicio) return 1;
+    if (!cb?.fecha_inicio) return -1;
+    return new Date(ca.fecha_inicio) - new Date(cb.fecha_inicio);
+  });
 
   const startEdit = (c) => {
     setEditId(c.id);
-    setEditData({ nombre: c.nombre, fecha_inicio: c.fecha_inicio, tipo_contrato: c.tipo_contrato || 'Término Indefinido' });
-    setEditDiasId(null);
+    setEditData({ fecha_inicio: c.fecha_inicio, tipo_contrato: c.tipo_contrato || 'Término Indefinido' });
+    setEditDiasId(null); setRegisteringId(null);
   };
-  const saveEdit = (c) => { editContrato(c.id, editData); setEditId(null); };
+  const saveEdit = () => { editContrato(editId, editData); setEditId(null); };
 
-  const startDias = (c) => {
+  const startDias = (u) => {
+    const c = contratoMap[u.id];
     const { diasTomados } = calcVacaciones(c.fecha_inicio, c.vacaciones_tomadas);
-    setEditDiasId(c.id); setEditDiasVal(String(diasTomados)); setEditId(null);
+    setEditDiasId(u.id); setEditDiasVal(String(diasTomados)); setEditId(null); setRegisteringId(null);
   };
-  const saveDias = (c) => {
+  const saveDias = (u) => {
+    const c = contratoMap[u.id];
     const dias = parseFloat(editDiasVal) || 0;
     const { periodoStr } = calcVacaciones(c.fecha_inicio, c.vacaciones_tomadas);
     const rest = (c.vacaciones_tomadas || []).filter(v => v.periodo !== periodoStr);
     editContrato(c.id, { vacaciones_tomadas: [...rest, { periodo: periodoStr, dias }] });
     setEditDiasId(null);
   };
-  const handleAdd = () => {
-    if (!newRec.nombre.trim() || !newRec.fecha_inicio) return;
-    addContrato({ ...newRec, vacaciones_tomadas: [] });
-    setAddMode(false);
-    setNewRec({ nombre: '', fecha_inicio: nowDate(), tipo_contrato: 'Término Indefinido' });
+
+  const startRegister = (u) => {
+    setRegisteringId(u.id); setRegFecha(''); setRegTipo('Término Indefinido');
+    setEditId(null); setEditDiasId(null);
   };
-  const handleDelete = (c) => {
-    if (!confirm(`¿Eliminar a ${c.nombre} del registro de vacaciones?`)) return;
-    removeContrato(c.id);
+  const saveRegister = (u) => {
+    if (!regFecha) return;
+    addContrato({ user_id: u.id, fecha_inicio: regFecha, tipo_contrato: regTipo, vacaciones_tomadas: [] });
+    setRegisteringId(null);
   };
 
   const iSt = { padding:'0.4rem 0.6rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.82rem', width:'100%', boxSizing:'border-box' };
@@ -881,52 +893,62 @@ function VacacionesSection({ contratos, addContrato, editContrato, removeContrat
 
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem', flexWrap:'wrap', gap:'0.75rem' }}>
-        <p style={{ margin:0, fontSize:'0.8rem', color:'var(--color-text-muted)' }}>
-          Días se acumulan proporcionalmente (15 días/año · 1.25/mes). No acumulativas — se reinician en cada aniversario.
-        </p>
-        <button onClick={() => { setAddMode(true); setEditId(null); setEditDiasId(null); }}
-          style={{ padding:'0.45rem 1.1rem', background:'var(--color-primary)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.82rem', fontWeight:600, whiteSpace:'nowrap' }}>
-          + Agregar empleado
-        </button>
-      </div>
+      <p style={{ margin:'0 0 1rem', fontSize:'0.8rem', color:'var(--color-text-muted)' }}>
+        Días se acumulan proporcionalmente (15 días/año · 1.25/mes). No acumulativas — se reinician en cada aniversario.
+        Para registrar la fecha de contrato de un empleado, haz clic en <strong>📋 Registrar</strong>.
+      </p>
 
       <div style={{ overflowX:'auto', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)' }}>
         <table style={{ width:'100%', borderCollapse:'collapse', minWidth:950 }}>
           <thead>
             <tr>
-              {['Nombre','Inicio contrato','Tipo de contrato','Antigüedad','Período desde','Días ganados','Días tomados','Disponibles',''].map(h => (
+              {['Nombre','Rol','Inicio contrato','Tipo de contrato','Antigüedad','Período desde','Días ganados','Días tomados','Disponibles',''].map(h => (
                 <th key={h} style={{ ...thSt, textAlign: ['Antigüedad','Período desde','Días ganados','Días tomados','Disponibles'].includes(h) ? 'center' : 'left' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {addMode && (
-              <tr style={{ background:'#f0fdf4' }}>
-                <td style={tdSt}><input value={newRec.nombre} onChange={e => setNewRec(r => ({...r, nombre: e.target.value}))} placeholder="Nombre completo" style={iSt} /></td>
-                <td style={tdSt}><input type="date" value={newRec.fecha_inicio} onChange={e => setNewRec(r => ({...r, fecha_inicio: e.target.value}))} style={iSt} /></td>
-                <td style={tdSt}><input value={newRec.tipo_contrato} onChange={e => setNewRec(r => ({...r, tipo_contrato: e.target.value}))} style={iSt} /></td>
-                <td colSpan={5} style={tdSt} />
-                <td style={tdSt}>
-                  <div style={{ display:'flex', gap:'0.4rem' }}>
-                    <button onClick={handleAdd} style={{ padding:'0.3rem 0.75rem', background:'#2e7d50', color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.78rem', fontWeight:600 }}>✓</button>
-                    <button onClick={() => setAddMode(false)} style={{ padding:'0.3rem 0.6rem', background:'none', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.78rem' }}>✕</button>
-                  </div>
-                </td>
-              </tr>
-            )}
+            {sorted.map(u => {
+              const c      = contratoMap[u.id];
+              const isEdit = editId       === c?.id;
+              const isDias = editDiasId   === u.id;
+              const isReg  = registeringId === u.id;
 
-            {sorted.map(c => {
-              const vac    = calcVacaciones(c.fecha_inicio, c.vacaciones_tomadas);
-              const isEdit = editId    === c.id;
-              const isDias = editDiasId === c.id;
+              if (!c) {
+                // No contrato yet — show registration row
+                return (
+                  <tr key={u.id} style={{ background: isReg ? '#fffbeb' : 'white' }}>
+                    <td style={tdSt}><strong>{u.nombre}</strong></td>
+                    <td style={{ ...tdSt }}><span style={{ fontSize:'0.75rem', color:'var(--color-text-muted)' }}>{u.rol}</span></td>
+                    {isReg ? (
+                      <>
+                        <td style={tdSt}><input type="date" value={regFecha} onChange={e => setRegFecha(e.target.value)} style={iSt} /></td>
+                        <td style={tdSt}><input value={regTipo} onChange={e => setRegTipo(e.target.value)} style={iSt} /></td>
+                        <td colSpan={5} style={tdSt} />
+                        <td style={tdSt}>
+                          <div style={{ display:'flex', gap:'0.4rem' }}>
+                            <button onClick={() => saveRegister(u)} style={{ padding:'0.3rem 0.75rem', background:'#2e7d50', color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.78rem', fontWeight:600 }}>✓ Guardar</button>
+                            <button onClick={() => setRegisteringId(null)} style={{ padding:'0.3rem 0.6rem', background:'none', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.78rem' }}>✕</button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td colSpan={7} style={{ ...tdSt, color:'var(--color-text-muted)', fontSize:'0.78rem', fontStyle:'italic' }}>Sin fecha de contrato registrada</td>
+                        <td style={tdSt}>
+                          <button onClick={() => startRegister(u)} style={{ padding:'0.3rem 0.75rem', background:'var(--color-bg)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.78rem', color:'var(--color-primary)', fontWeight:600 }}>📋 Registrar</button>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                );
+              }
+
+              const vac = calcVacaciones(c.fecha_inicio, c.vacaciones_tomadas);
               return (
-                <tr key={c.id} style={{ background: isEdit ? '#eff6ff' : 'white' }}>
-                  <td style={tdSt}>
-                    {isEdit
-                      ? <input value={editData.nombre} onChange={e => setEditData(d => ({...d, nombre: e.target.value}))} style={iSt} />
-                      : <strong style={{ fontSize:'0.85rem' }}>{c.nombre}</strong>}
-                  </td>
+                <tr key={u.id} style={{ background: isEdit ? '#eff6ff' : 'white' }}>
+                  <td style={tdSt}><strong style={{ fontSize:'0.85rem' }}>{u.nombre}</strong></td>
+                  <td style={tdSt}><span style={{ fontSize:'0.75rem', color:'var(--color-text-muted)' }}>{u.rol}</span></td>
                   <td style={tdSt}>
                     {isEdit
                       ? <input type="date" value={editData.fecha_inicio} onChange={e => setEditData(d => ({...d, fecha_inicio: e.target.value}))} style={iSt} />
@@ -934,7 +956,7 @@ function VacacionesSection({ contratos, addContrato, editContrato, removeContrat
                   </td>
                   <td style={tdSt}>
                     {isEdit
-                      ? <input value={editData.tipo_contrato} onChange={e => setEditData(d => ({...d, tipo_contrato: e.target.value}))} style={{ ...iSt, minWidth:160 }} />
+                      ? <input value={editData.tipo_contrato} onChange={e => setEditData(d => ({...d, tipo_contrato: e.target.value}))} style={{ ...iSt, minWidth:150 }} />
                       : <span style={{ fontSize:'0.78rem', color:'var(--color-text-muted)' }}>{c.tipo_contrato || 'T. Indefinido'}</span>}
                   </td>
                   <td style={{ ...tdSt, textAlign:'center' }}>
@@ -952,11 +974,11 @@ function VacacionesSection({ contratos, addContrato, editContrato, removeContrat
                         <input type="number" value={editDiasVal} onChange={e => setEditDiasVal(e.target.value)}
                           min="0" max="15" step="0.5"
                           style={{ ...iSt, width:60, textAlign:'center', padding:'0.3rem' }} />
-                        <button onClick={() => saveDias(c)} style={{ padding:'0.25rem 0.5rem', background:'#2e7d50', color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.75rem' }}>✓</button>
+                        <button onClick={() => saveDias(u)} style={{ padding:'0.25rem 0.5rem', background:'#2e7d50', color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.75rem' }}>✓</button>
                         <button onClick={() => setEditDiasId(null)} style={{ padding:'0.25rem 0.4rem', background:'none', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.75rem' }}>✕</button>
                       </div>
                     ) : (
-                      <button onClick={() => startDias(c)} title="Clic para editar días tomados"
+                      <button onClick={() => startDias(u)} title="Clic para editar días tomados"
                         style={{ background:'none', border:'1px solid transparent', borderRadius:'var(--radius-sm)', cursor:'pointer', color:'var(--color-text)', fontSize:'0.82rem', padding:'0.2rem 0.6rem' }}>
                         {vac.diasTomados} <span style={{ color:'var(--color-text-muted)', fontSize:'0.68rem' }}>✏</span>
                       </button>
@@ -967,30 +989,19 @@ function VacacionesSection({ contratos, addContrato, editContrato, removeContrat
                       {vac.diasRestantes}
                     </span>
                   </td>
-                  <td style={{ ...tdSt }}>
+                  <td style={tdSt}>
                     {isEdit ? (
                       <div style={{ display:'flex', gap:'0.4rem' }}>
-                        <button onClick={() => saveEdit(c)} style={{ padding:'0.3rem 0.75rem', background:'#2e7d50', color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.78rem', fontWeight:600 }}>Guardar</button>
+                        <button onClick={saveEdit} style={{ padding:'0.3rem 0.75rem', background:'#2e7d50', color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.78rem', fontWeight:600 }}>Guardar</button>
                         <button onClick={() => setEditId(null)} style={{ padding:'0.3rem 0.6rem', background:'none', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.78rem' }}>✕</button>
                       </div>
                     ) : (
-                      <div style={{ display:'flex', gap:'0.35rem' }}>
-                        <button onClick={() => startEdit(c)} style={{ padding:'0.25rem 0.55rem', background:'var(--color-bg)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.75rem', color:'var(--color-text-muted)' }} title="Editar empleado">✏️</button>
-                        <button onClick={() => handleDelete(c)} style={{ padding:'0.25rem 0.55rem', background:'var(--color-danger-bg)', border:'1px solid var(--color-danger)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.75rem', color:'var(--color-danger)' }} title="Eliminar">🗑️</button>
-                      </div>
+                      <button onClick={() => startEdit(c)} style={{ padding:'0.25rem 0.55rem', background:'var(--color-bg)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.75rem', color:'var(--color-text-muted)' }} title="Editar contrato">✏️</button>
                     )}
                   </td>
                 </tr>
               );
             })}
-
-            {sorted.length === 0 && !addMode && (
-              <tr>
-                <td colSpan={9} style={{ ...tdSt, textAlign:'center', color:'var(--color-text-muted)', padding:'2.5rem' }}>
-                  No hay empleados registrados. Haz clic en "+ Agregar empleado".
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
       </div>
@@ -1738,10 +1749,10 @@ export default function PersonalPage() {
       {tab === 'vacaciones' && isAdmin && (
         <Card title="🏖️ Vacaciones del Personal">
           <VacacionesSection
+            usuarios={usuariosRHH}
             contratos={contratos}
             addContrato={addContrato}
             editContrato={editContrato}
-            removeContrato={removeContrato}
           />
         </Card>
       )}
