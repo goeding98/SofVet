@@ -190,6 +190,11 @@ export default function HospitalizationPage() {
   const [editAppHostId,    setEditAppHostId]    = useState(null); // hosp id whose apps are in edit mode
   const [pendingDeleteApp, setPendingDeleteApp] = useState(null); // { hospId, appIdx }
 
+  // ── edit insumos (admin) ─────────────────────────────────────────────────
+  const [editInsumosId,   setEditInsumosId]   = useState(null); // hosp id in insumos edit mode
+  const [newInsumoEdit,   setNewInsumoEdit]   = useState('');
+  const [newInsumoCantEdit, setNewInsumoCantEdit] = useState(1);
+
   // ── traslado modal (admin) ───────────────────────────────────────────────
   const [trasladoModal,   setTrasladoModal]   = useState(false);
   const [trasladoHospId,  setTrasladoHospId]  = useState(null);
@@ -389,6 +394,31 @@ export default function HospitalizationPage() {
   const handleSaveEditTx = () => {
     editHosp(editTxHospId, { tratamiento: editTxMeds.filter(m => m.medicamento.trim()) });
     setEditTxModal(false);
+  };
+
+  const handleInsumoQtyChange = (hospId, idx, newCant) => {
+    const hosp = hosps.find(h => h.id === hospId);
+    if (!hosp) return;
+    const updated = (hosp.insumos || []).map((item, i) =>
+      i === idx ? { ...item, cantidad: Math.max(1, parseInt(newCant) || 1) } : item
+    );
+    editHosp(hospId, { insumos: updated });
+  };
+
+  const handleInsumoDelete = (hospId, idx) => {
+    const hosp = hosps.find(h => h.id === hospId);
+    if (!hosp) return;
+    editHosp(hospId, { insumos: (hosp.insumos || []).filter((_, i) => i !== idx) });
+  };
+
+  const handleInsumoAdd = (hospId) => {
+    if (!newInsumoEdit.trim()) return;
+    const hosp = hosps.find(h => h.id === hospId);
+    if (!hosp) return;
+    editHosp(hospId, {
+      insumos: [...(hosp.insumos || []), { insumo: newInsumoEdit.trim(), cantidad: Math.max(1, parseInt(newInsumoCantEdit) || 1) }],
+    });
+    setNewInsumoEdit(''); setNewInsumoCantEdit(1);
   };
 
   // ── abonos ──────────────────────────────────────────────────────────────
@@ -834,6 +864,75 @@ export default function HospitalizationPage() {
                       );
                     })}
                   </div>
+                </div>
+              )}
+
+              {/* Insumos de Hospital */}
+              {((selected.insumos?.length > 0) || isAdmin) && (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
+                      🧴 Insumos de Hospital ({selected.insumos?.length || 0})
+                    </div>
+                    {isAdmin && (
+                      <button
+                        onClick={() => { setEditInsumosId(editInsumosId === selected.id ? null : selected.id); setNewInsumoEdit(''); setNewInsumoCantEdit(1); }}
+                        style={{ padding: '0.25rem 0.65rem', background: editInsumosId === selected.id ? '#fdecea' : 'var(--color-white)', border: `1px solid ${editInsumosId === selected.id ? 'var(--color-danger)' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', color: editInsumosId === selected.id ? 'var(--color-danger)' : 'var(--color-text-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.72rem', fontWeight: 600 }}
+                      >
+                        {editInsumosId === selected.id ? '✕ Salir de edición' : '✏️ Editar'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Agregar nuevo insumo (solo admin en modo edición) */}
+                  {isAdmin && editInsumosId === selected.id && (
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', marginBottom: '0.6rem', flexWrap: 'wrap' }}>
+                      <input
+                        list="insumos-edit-list"
+                        value={newInsumoEdit}
+                        onChange={e => setNewInsumoEdit(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleInsumoAdd(selected.id)}
+                        placeholder="Buscar insumo..."
+                        style={{ flex: 1, minWidth: 150, padding: '0.38rem 0.6rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)' }}
+                      />
+                      <datalist id="insumos-edit-list">
+                        {INSUMOS_HOSPITAL.map(item => <option key={item} value={item} />)}
+                      </datalist>
+                      <input
+                        type="number" min="1" value={newInsumoCantEdit}
+                        onChange={e => setNewInsumoCantEdit(e.target.value)}
+                        style={{ width: 58, padding: '0.38rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)' }}
+                      />
+                      <button onClick={() => handleInsumoAdd(selected.id)} style={{ padding: '0.38rem 0.75rem', background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.8rem', fontWeight: 700 }}>+</button>
+                    </div>
+                  )}
+
+                  {!selected.insumos?.length ? (
+                    <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', padding: '0.75rem', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>Sin insumos registrados.</p>
+                  ) : (
+                    <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                      {selected.insumos.map((item, i) => {
+                        const inEdit = isAdmin && editInsumosId === selected.id;
+                        return (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0.7rem', borderBottom: i < selected.insumos.length - 1 ? '1px solid var(--color-border)' : 'none', background: inEdit ? '#fff8f8' : (i % 2 === 0 ? 'var(--color-bg)' : 'var(--color-white)'), fontSize: '0.82rem' }}>
+                            <span style={{ flex: 1 }}>{item.insumo}</span>
+                            {inEdit ? (
+                              <input
+                                type="number" min="1" value={item.cantidad}
+                                onChange={e => handleInsumoQtyChange(selected.id, i, e.target.value)}
+                                style={{ width: 58, padding: '0.25rem 0.4rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', textAlign: 'center' }}
+                              />
+                            ) : (
+                              <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>x{item.cantidad}</span>
+                            )}
+                            {inEdit && (
+                              <button onClick={() => handleInsumoDelete(selected.id, i)} style={{ padding: '0.1rem 0.45rem', background: 'var(--color-danger)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.3 }}>✕</button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
