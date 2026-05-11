@@ -4,6 +4,7 @@ import { useAuth } from '../utils/useAuth';
 import { SEDES } from '../utils/useSede';
 import { supabase } from '../utils/supabaseClient';
 import { nowDate, nowMonth, localDateStr } from '../utils/nowLocal';
+import Card from '../components/Card';
 
 const GRUPOS = [
   { value: 'medico_hospitalizacion', label: 'Médico Hospitalización' },
@@ -793,11 +794,216 @@ function RotativosModal({ isOpen, onClose, onGenerate, cjEmps, mesActual }) {
   );
 }
 
+// ── Vacation helpers ──────────────────────────────────────────────────────────
+function calcVacaciones(fecha_inicio, vacaciones_tomadas = []) {
+  const today  = nowDate();
+  const inicio = new Date(fecha_inicio + 'T12:00:00');
+  const now    = new Date(today        + 'T12:00:00');
+  // Walk forward to find the current anniversary period start
+  let periodoInicio = new Date(inicio);
+  for (;;) {
+    const next = new Date(periodoInicio);
+    next.setFullYear(next.getFullYear() + 1);
+    if (next > now) break;
+    periodoInicio = next;
+  }
+  const periodoStr  = periodoInicio.toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+  const diffMs      = now - periodoInicio;
+  const meses       = Math.floor(diffMs / (1000 * 60 * 60 * 24 * 30.44));
+  const diasGanados = parseFloat(Math.min(15, meses * 15 / 12).toFixed(1));
+  const entry       = (vacaciones_tomadas || []).find(v => v.periodo === periodoStr);
+  const diasTomados = entry?.dias || 0;
+  const diasRestantes = parseFloat(Math.max(0, diasGanados - diasTomados).toFixed(1));
+  return { diasGanados, diasTomados, diasRestantes, periodoStr, meses };
+}
+
+function fmtAntig(fecha_inicio) {
+  const today = nowDate();
+  const diffMs = new Date(today + 'T12:00:00') - new Date(fecha_inicio + 'T12:00:00');
+  const m = Math.floor(diffMs / (1000 * 60 * 60 * 24 * 30.44));
+  const años = Math.floor(m / 12), meses = m % 12;
+  if (años > 0 && meses > 0) return `${años}a ${meses}m`;
+  if (años > 0) return `${años} año${años > 1 ? 's' : ''}`;
+  return `${meses} mes${meses !== 1 ? 'es' : ''}`;
+}
+
+function fmtFechaCorta(dateStr) {
+  if (!dateStr) return '—';
+  const [y, m, d] = dateStr.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function VacacionesSection({ contratos, addContrato, editContrato, removeContrato }) {
+  const [editId,      setEditId]      = useState(null);
+  const [editData,    setEditData]    = useState({});
+  const [editDiasId,  setEditDiasId]  = useState(null);
+  const [editDiasVal, setEditDiasVal] = useState('');
+  const [addMode,     setAddMode]     = useState(false);
+  const [newRec,      setNewRec]      = useState({ nombre: '', fecha_inicio: nowDate(), tipo_contrato: 'Término Indefinido' });
+
+  const sorted = [...contratos].sort((a, b) => new Date(a.fecha_inicio) - new Date(b.fecha_inicio));
+
+  const startEdit = (c) => {
+    setEditId(c.id);
+    setEditData({ nombre: c.nombre, fecha_inicio: c.fecha_inicio, tipo_contrato: c.tipo_contrato || 'Término Indefinido' });
+    setEditDiasId(null);
+  };
+  const saveEdit = (c) => { editContrato(c.id, editData); setEditId(null); };
+
+  const startDias = (c) => {
+    const { diasTomados } = calcVacaciones(c.fecha_inicio, c.vacaciones_tomadas);
+    setEditDiasId(c.id); setEditDiasVal(String(diasTomados)); setEditId(null);
+  };
+  const saveDias = (c) => {
+    const dias = parseFloat(editDiasVal) || 0;
+    const { periodoStr } = calcVacaciones(c.fecha_inicio, c.vacaciones_tomadas);
+    const rest = (c.vacaciones_tomadas || []).filter(v => v.periodo !== periodoStr);
+    editContrato(c.id, { vacaciones_tomadas: [...rest, { periodo: periodoStr, dias }] });
+    setEditDiasId(null);
+  };
+  const handleAdd = () => {
+    if (!newRec.nombre.trim() || !newRec.fecha_inicio) return;
+    addContrato({ ...newRec, vacaciones_tomadas: [] });
+    setAddMode(false);
+    setNewRec({ nombre: '', fecha_inicio: nowDate(), tipo_contrato: 'Término Indefinido' });
+  };
+  const handleDelete = (c) => {
+    if (!confirm(`¿Eliminar a ${c.nombre} del registro de vacaciones?`)) return;
+    removeContrato(c.id);
+  };
+
+  const iSt = { padding:'0.4rem 0.6rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.82rem', width:'100%', boxSizing:'border-box' };
+  const thSt = { padding:'0.5rem 0.75rem', textAlign:'left', fontSize:'0.68rem', fontWeight:700, color:'var(--color-text-muted)', textTransform:'uppercase', letterSpacing:'0.04em', whiteSpace:'nowrap', background:'var(--color-bg)', borderBottom:'1px solid var(--color-border)' };
+  const tdSt = { padding:'0.55rem 0.75rem', fontSize:'0.82rem', verticalAlign:'middle', borderBottom:'1px solid var(--color-border)' };
+
+  const chipColor = (r) => r >= 5 ? '#2e7d50' : r >= 2 ? '#b8860b' : '#c0392b';
+  const chipBg    = (r) => r >= 5 ? '#f0fdf4' : r >= 2 ? '#fffbeb' : '#fef2f2';
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem', flexWrap:'wrap', gap:'0.75rem' }}>
+        <p style={{ margin:0, fontSize:'0.8rem', color:'var(--color-text-muted)' }}>
+          Días se acumulan proporcionalmente (15 días/año · 1.25/mes). No acumulativas — se reinician en cada aniversario.
+        </p>
+        <button onClick={() => { setAddMode(true); setEditId(null); setEditDiasId(null); }}
+          style={{ padding:'0.45rem 1.1rem', background:'var(--color-primary)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.82rem', fontWeight:600, whiteSpace:'nowrap' }}>
+          + Agregar empleado
+        </button>
+      </div>
+
+      <div style={{ overflowX:'auto', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', minWidth:950 }}>
+          <thead>
+            <tr>
+              {['Nombre','Inicio contrato','Tipo de contrato','Antigüedad','Período desde','Días ganados','Días tomados','Disponibles',''].map(h => (
+                <th key={h} style={{ ...thSt, textAlign: ['Antigüedad','Período desde','Días ganados','Días tomados','Disponibles'].includes(h) ? 'center' : 'left' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {addMode && (
+              <tr style={{ background:'#f0fdf4' }}>
+                <td style={tdSt}><input value={newRec.nombre} onChange={e => setNewRec(r => ({...r, nombre: e.target.value}))} placeholder="Nombre completo" style={iSt} /></td>
+                <td style={tdSt}><input type="date" value={newRec.fecha_inicio} onChange={e => setNewRec(r => ({...r, fecha_inicio: e.target.value}))} style={iSt} /></td>
+                <td style={tdSt}><input value={newRec.tipo_contrato} onChange={e => setNewRec(r => ({...r, tipo_contrato: e.target.value}))} style={iSt} /></td>
+                <td colSpan={5} style={tdSt} />
+                <td style={tdSt}>
+                  <div style={{ display:'flex', gap:'0.4rem' }}>
+                    <button onClick={handleAdd} style={{ padding:'0.3rem 0.75rem', background:'#2e7d50', color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.78rem', fontWeight:600 }}>✓</button>
+                    <button onClick={() => setAddMode(false)} style={{ padding:'0.3rem 0.6rem', background:'none', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.78rem' }}>✕</button>
+                  </div>
+                </td>
+              </tr>
+            )}
+
+            {sorted.map(c => {
+              const vac    = calcVacaciones(c.fecha_inicio, c.vacaciones_tomadas);
+              const isEdit = editId    === c.id;
+              const isDias = editDiasId === c.id;
+              return (
+                <tr key={c.id} style={{ background: isEdit ? '#eff6ff' : 'white' }}>
+                  <td style={tdSt}>
+                    {isEdit
+                      ? <input value={editData.nombre} onChange={e => setEditData(d => ({...d, nombre: e.target.value}))} style={iSt} />
+                      : <strong style={{ fontSize:'0.85rem' }}>{c.nombre}</strong>}
+                  </td>
+                  <td style={tdSt}>
+                    {isEdit
+                      ? <input type="date" value={editData.fecha_inicio} onChange={e => setEditData(d => ({...d, fecha_inicio: e.target.value}))} style={iSt} />
+                      : fmtFechaCorta(c.fecha_inicio)}
+                  </td>
+                  <td style={tdSt}>
+                    {isEdit
+                      ? <input value={editData.tipo_contrato} onChange={e => setEditData(d => ({...d, tipo_contrato: e.target.value}))} style={{ ...iSt, minWidth:160 }} />
+                      : <span style={{ fontSize:'0.78rem', color:'var(--color-text-muted)' }}>{c.tipo_contrato || 'T. Indefinido'}</span>}
+                  </td>
+                  <td style={{ ...tdSt, textAlign:'center' }}>
+                    <span style={{ fontSize:'0.78rem', color:'var(--color-text-muted)' }}>{fmtAntig(c.fecha_inicio)}</span>
+                  </td>
+                  <td style={{ ...tdSt, textAlign:'center' }}>
+                    <span style={{ fontSize:'0.75rem', color:'var(--color-text-muted)' }}>{fmtFechaCorta(vac.periodoStr)}</span>
+                  </td>
+                  <td style={{ ...tdSt, textAlign:'center' }}>
+                    <strong style={{ color:'#2e5cbf', fontSize:'0.9rem' }}>{vac.diasGanados}</strong>
+                  </td>
+                  <td style={{ ...tdSt, textAlign:'center' }}>
+                    {isDias ? (
+                      <div style={{ display:'flex', gap:'0.3rem', alignItems:'center', justifyContent:'center' }}>
+                        <input type="number" value={editDiasVal} onChange={e => setEditDiasVal(e.target.value)}
+                          min="0" max="15" step="0.5"
+                          style={{ ...iSt, width:60, textAlign:'center', padding:'0.3rem' }} />
+                        <button onClick={() => saveDias(c)} style={{ padding:'0.25rem 0.5rem', background:'#2e7d50', color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.75rem' }}>✓</button>
+                        <button onClick={() => setEditDiasId(null)} style={{ padding:'0.25rem 0.4rem', background:'none', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.75rem' }}>✕</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => startDias(c)} title="Clic para editar días tomados"
+                        style={{ background:'none', border:'1px solid transparent', borderRadius:'var(--radius-sm)', cursor:'pointer', color:'var(--color-text)', fontSize:'0.82rem', padding:'0.2rem 0.6rem' }}>
+                        {vac.diasTomados} <span style={{ color:'var(--color-text-muted)', fontSize:'0.68rem' }}>✏</span>
+                      </button>
+                    )}
+                  </td>
+                  <td style={{ ...tdSt, textAlign:'center' }}>
+                    <span style={{ background:chipBg(vac.diasRestantes), color:chipColor(vac.diasRestantes), padding:'0.2rem 0.65rem', borderRadius:999, fontWeight:700, fontSize:'0.82rem', display:'inline-block' }}>
+                      {vac.diasRestantes}
+                    </span>
+                  </td>
+                  <td style={{ ...tdSt }}>
+                    {isEdit ? (
+                      <div style={{ display:'flex', gap:'0.4rem' }}>
+                        <button onClick={() => saveEdit(c)} style={{ padding:'0.3rem 0.75rem', background:'#2e7d50', color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.78rem', fontWeight:600 }}>Guardar</button>
+                        <button onClick={() => setEditId(null)} style={{ padding:'0.3rem 0.6rem', background:'none', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.78rem' }}>✕</button>
+                      </div>
+                    ) : (
+                      <div style={{ display:'flex', gap:'0.35rem' }}>
+                        <button onClick={() => startEdit(c)} style={{ padding:'0.25rem 0.55rem', background:'var(--color-bg)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.75rem', color:'var(--color-text-muted)' }} title="Editar empleado">✏️</button>
+                        <button onClick={() => handleDelete(c)} style={{ padding:'0.25rem 0.55rem', background:'var(--color-danger-bg)', border:'1px solid var(--color-danger)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.75rem', color:'var(--color-danger)' }} title="Eliminar">🗑️</button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+
+            {sorted.length === 0 && !addMode && (
+              <tr>
+                <td colSpan={9} style={{ ...tdSt, textAlign:'center', color:'var(--color-text-muted)', padding:'2.5rem' }}>
+                  No hay empleados registrados. Haz clic en "+ Agregar empleado".
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────────
 export default function PersonalPage() {
   const { session, users, editPersonalMeta } = useAuth();
   const { items: turnos, add: addTurno, edit: editTurno, refresh: refreshTurnos } = useStore('turnos');
   const { items: permisos, add: addPermiso, edit: editPermiso } = useStore('permisos_empleados');
+  const { items: contratos, add: addContrato, edit: editContrato, remove: removeContrato } = useStore('contratos');
 
   const isAdmin = session?.rol === 'Administrador';
 
@@ -1160,6 +1366,7 @@ export default function PersonalPage() {
         {isAdmin && <button style={tabSt('calendario')} onClick={() => setTab('calendario')}>📅 Calendario</button>}
         {isAdmin && <button style={tabSt('empleados')}  onClick={() => setTab('empleados')}>👤 Empleados</button>}
         <button style={tabSt('permisos')} onClick={() => setTab('permisos')}>📋 Permisos</button>
+        {isAdmin && <button style={tabSt('vacaciones')} onClick={() => setTab('vacaciones')}>🏖️ Vacaciones</button>}
       </div>
 
       {/* ── TAB: CALENDARIO ── */}
@@ -1525,6 +1732,18 @@ export default function PersonalPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ── TAB: VACACIONES ── */}
+      {tab === 'vacaciones' && isAdmin && (
+        <Card title="🏖️ Vacaciones del Personal">
+          <VacacionesSection
+            contratos={contratos}
+            addContrato={addContrato}
+            editContrato={editContrato}
+            removeContrato={removeContrato}
+          />
+        </Card>
       )}
 
       {/* ── Modals ── */}
