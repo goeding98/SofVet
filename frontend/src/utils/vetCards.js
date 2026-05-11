@@ -10,7 +10,8 @@ const MAP = [
   { nombre: 'juliana ricci murillo',     tp: 'TP 57714'  },
   { nombre: 'karen zapata',              tp: 'Rpp 81'    },
   { nombre: 'juan bejarano',             tp: 'TP 31019'  },
-  { nombre: 'giovanny pasos',            tp: 'MP 16097'  },
+  { nombre: 'giovanny pasos',            tp: 'TP 16097'  },
+  { nombre: 'giovanny passos',           tp: 'TP 16097'  },
 ];
 
 export function getTP(nombre) {
