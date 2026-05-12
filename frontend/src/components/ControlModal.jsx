@@ -201,7 +201,7 @@ export default function ControlModal({ isOpen, onClose, onSave, onDelete, pet, i
         {NF('Temperatura (°C)', 'temperatura', '38.5')}
         {NF('F. Cardíaca (bpm)', 'frecuencia_cardiaca', '100')}
         {NF('F. Respiratoria (rpm)', 'frecuencia_respiratoria', '24')}
-        {NF('Pulso (ppm)', 'pulso', '100')}
+        {NF('Pulso', 'pulso', 'ej: 80, fuerte, moderado')}
         {NF('Peso (kg)', 'peso', '6.50')}
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:'0.6rem', marginBottom:'1rem' }}>

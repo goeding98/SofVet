@@ -834,19 +834,19 @@ function fmtFechaCorta(dateStr) {
 }
 
 // Lista independiente de empleados con contrato indefinido (del Excel), no ligada a usuarios del sistema
-function VacacionesSection({ contratos, addContrato, editContrato, removeContrato }) {
+function VacacionesSection({ contratos, addContrato, editContrato, removeContrato, usuarios }) {
   const [editId,      setEditId]      = useState(null);
   const [editData,    setEditData]    = useState({});
   const [editDiasId,  setEditDiasId]  = useState(null);
   const [editDiasVal, setEditDiasVal] = useState('');
   const [addMode,     setAddMode]     = useState(false);
-  const [newRec,      setNewRec]      = useState({ nombre: '', fecha_inicio: '', tipo_contrato: 'Término Indefinido' });
+  const [newRec,      setNewRec]      = useState({ nombre: '', fecha_inicio: '', tipo_contrato: 'Término Indefinido', user_id: null });
 
   const sorted = [...contratos].sort((a, b) => new Date(a.fecha_inicio) - new Date(b.fecha_inicio));
 
   const startEdit = (c) => {
     setEditId(c.id);
-    setEditData({ nombre: c.nombre, fecha_inicio: c.fecha_inicio, tipo_contrato: c.tipo_contrato || 'Término Indefinido' });
+    setEditData({ nombre: c.nombre, fecha_inicio: c.fecha_inicio, tipo_contrato: c.tipo_contrato || 'Término Indefinido', user_id: c.user_id || null });
     setEditDiasId(null);
   };
   const saveEdit = () => { editContrato(editId, editData); setEditId(null); };
@@ -866,7 +866,7 @@ function VacacionesSection({ contratos, addContrato, editContrato, removeContrat
     if (!newRec.nombre.trim() || !newRec.fecha_inicio) return alert('Nombre y fecha de inicio son requeridos.');
     addContrato({ ...newRec, vacaciones_tomadas: [] });
     setAddMode(false);
-    setNewRec({ nombre: '', fecha_inicio: '', tipo_contrato: 'Término Indefinido' });
+    setNewRec({ nombre: '', fecha_inicio: '', tipo_contrato: 'Término Indefinido', user_id: null });
   };
   const handleDelete = (c) => {
     if (!confirm(`¿Eliminar a ${c.nombre} del registro de vacaciones?`)) return;
@@ -895,7 +895,7 @@ function VacacionesSection({ contratos, addContrato, editContrato, removeContrat
         <table style={{ width:'100%', borderCollapse:'collapse', minWidth:900 }}>
           <thead>
             <tr>
-              {['Nombre','Inicio contrato','Tipo de contrato','Antigüedad','Período desde','Días ganados','Días tomados','Disponibles',''].map(h => (
+              {['Nombre','Inicio contrato','Tipo de contrato','Usuario vinculado','Antigüedad','Período desde','Días ganados','Días tomados','Disponibles',''].map(h => (
                 <th key={h} style={{ ...thSt, textAlign: ['Antigüedad','Período desde','Días ganados','Días tomados','Disponibles'].includes(h) ? 'center' : 'left' }}>{h}</th>
               ))}
             </tr>
@@ -906,6 +906,12 @@ function VacacionesSection({ contratos, addContrato, editContrato, removeContrat
                 <td style={tdSt}><input value={newRec.nombre} onChange={e => setNewRec(r => ({...r, nombre: e.target.value}))} placeholder="Nombre completo" style={iSt} /></td>
                 <td style={tdSt}><input type="date" value={newRec.fecha_inicio} onChange={e => setNewRec(r => ({...r, fecha_inicio: e.target.value}))} style={iSt} /></td>
                 <td style={tdSt}><input value={newRec.tipo_contrato} onChange={e => setNewRec(r => ({...r, tipo_contrato: e.target.value}))} style={iSt} /></td>
+                <td style={tdSt}>
+                  <select value={newRec.user_id || ''} onChange={e => setNewRec(r => ({...r, user_id: e.target.value ? parseInt(e.target.value) : null}))} style={{ ...iSt, minWidth:120 }}>
+                    <option value="">— Sin vincular —</option>
+                    {(usuarios || []).map(u => <option key={u.id} value={u.id}>{u.nombre}</option>)}
+                  </select>
+                </td>
                 <td colSpan={5} style={tdSt} />
                 <td style={tdSt}>
                   <div style={{ display:'flex', gap:'0.4rem' }}>
@@ -936,6 +942,18 @@ function VacacionesSection({ contratos, addContrato, editContrato, removeContrat
                     {isEdit
                       ? <input value={editData.tipo_contrato} onChange={e => setEditData(d => ({...d, tipo_contrato: e.target.value}))} style={{ ...iSt, minWidth:150 }} />
                       : <span style={{ fontSize:'0.78rem', color:'var(--color-text-muted)' }}>{c.tipo_contrato || 'T. Indefinido'}</span>}
+                  </td>
+                  <td style={tdSt}>
+                    {isEdit ? (
+                      <select value={editData.user_id || ''} onChange={e => setEditData(d => ({...d, user_id: e.target.value ? parseInt(e.target.value) : null}))} style={{ ...iSt, minWidth:120 }}>
+                        <option value="">— Sin vincular —</option>
+                        {(usuarios || []).map(u => <option key={u.id} value={u.id}>{u.nombre}</option>)}
+                      </select>
+                    ) : (
+                      <span style={{ fontSize:'0.78rem', color: c.user_id ? '#2e5cbf' : 'var(--color-text-muted)', fontWeight: c.user_id ? 600 : 400 }}>
+                        {c.user_id ? ((usuarios || []).find(u => u.id === c.user_id)?.nombre || `ID ${c.user_id}`) : '—'}
+                      </span>
+                    )}
                   </td>
                   <td style={{ ...tdSt, textAlign:'center' }}>
                     <span style={{ fontSize:'0.78rem', color:'var(--color-text-muted)' }}>{fmtAntig(c.fecha_inicio)}</span>
@@ -985,7 +1003,7 @@ function VacacionesSection({ contratos, addContrato, editContrato, removeContrat
             })}
 
             {sorted.length === 0 && !addMode && (
-              <tr><td colSpan={9} style={{ ...tdSt, textAlign:'center', color:'var(--color-text-muted)', padding:'2.5rem' }}>
+              <tr><td colSpan={10} style={{ ...tdSt, textAlign:'center', color:'var(--color-text-muted)', padding:'2.5rem' }}>
                 No hay empleados registrados todavía.
               </td></tr>
             )}
@@ -1318,6 +1336,15 @@ export default function PersonalPage() {
       comentario_admin: comentario.trim() || null,
       fecha_resolucion: nowDate(),
     });
+    if (estado === 'aprobado' && permiso.tipo === 'vacaciones' && permiso.dias > 0) {
+      const contrato = contratos.find(c => c.user_id === permiso.user_id);
+      if (contrato) {
+        const { periodoStr, diasTomados } = calcVacaciones(contrato.fecha_inicio, contrato.vacaciones_tomadas);
+        const newDias = parseFloat((diasTomados + permiso.dias).toFixed(1));
+        const rest = (contrato.vacaciones_tomadas || []).filter(v => v.periodo !== periodoStr);
+        await editContrato(contrato.id, { vacaciones_tomadas: [...rest, { periodo: periodoStr, dias: newDias }] });
+      }
+    }
     setResolving(null);
     setComentario('');
   };
@@ -1740,6 +1767,7 @@ export default function PersonalPage() {
             addContrato={addContrato}
             editContrato={editContrato}
             removeContrato={removeContrato}
+            usuarios={users}
           />
         </Card>
       )}

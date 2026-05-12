@@ -34,12 +34,13 @@ const statusColors = {
   activo:        { bg: 'var(--color-success-bg)', color: 'var(--color-success)' },
   hospitalizado: { bg: 'var(--color-danger-bg)',  color: 'var(--color-danger)'  },
   inactivo:      { bg: '#f5f5f5',                 color: '#666'                 },
+  fallecido:     { bg: '#f3f4f6',                 color: '#374151'              },
 };
 
 export default function PetDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { items: patients, loading: loadingPatients } = useStore('patients');
+  const { items: patients, loading: loadingPatients, edit: editPatient } = useStore('patients');
   const { items: clients }     = useStore('clients');
   const { items: prepagada }   = useStore('prepagada');
   const { add: addConsultation, edit: editConsultation, remove: removeConsultation } = useStore('consultations');
@@ -102,6 +103,8 @@ export default function PetDetailPage() {
   const [controlModal,   setControlModal]   = useState(false);
   const [editingControl, setEditingControl] = useState(null);
   const [remitirModal,   setRemitirModal]   = useState(null); // { recordType, recordId, servicio }
+  const [fallModal,      setFallModal]      = useState(false);
+  const [fallMotivo,     setFallMotivo]     = useState('');
 
   const canRemit = isAdminUser || session?.sede_id === 4;
 
@@ -221,6 +224,17 @@ export default function PetDetailPage() {
     { label: 'Citas',            icon: '📅', action: () => navigate('/appointments', { state: { patient_name: pet.name, owner: client?.name || '' } }), color: '#316d74' },
     { label: 'Peluquería',       icon: '✂️', action: () => navigate('/grooming'),    color: '#7c5cbf'  },
   ];
+
+  const handleFallecimiento = async () => {
+    if (!confirm(`¿Está seguro de que desea registrar a ${pet.name} como fallecido?\n\nEsta acción cambiará el estado del paciente de forma permanente.`)) return;
+    await editPatient(pet.id, {
+      status:                 'fallecido',
+      motivo_fallecimiento:   fallMotivo.trim() || null,
+      fecha_fallecimiento:    nowDate(),
+    });
+    setFallModal(false);
+    setFallMotivo('');
+  };
 
   const handleSaveVacuna = async (data) => {
     if (Array.isArray(data)) {
@@ -752,6 +766,11 @@ export default function PetDetailPage() {
                 <span style={{ background:sc.bg, color:sc.color, padding:'3px 10px', borderRadius:999, fontSize:'0.7rem', fontWeight:500 }}>{effectiveStatus}</span>
                 {prepagadaStatus === 'activo' && <span style={{ background:'#e8f0ff', color:'#2e5cbf', padding:'3px 10px', borderRadius:999, fontSize:'0.7rem', fontWeight:600 }}>💳 Afiliado</span>}
                 {prepagadaStatus === 'mora'   && <span style={{ background:'#fff8e1', color:'#b8860b', padding:'3px 10px', borderRadius:999, fontSize:'0.7rem', fontWeight:600 }}>⚠️ En Mora</span>}
+                {pet.status !== 'fallecido' && (
+                  <button onClick={() => setFallModal(true)} style={{ marginLeft:'auto', padding:'0.25rem 0.75rem', background:'#fef2f2', border:'1px solid #c0392b', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.7rem', fontWeight:700, color:'#c0392b', whiteSpace:'nowrap', flexShrink:0 }}>
+                    ✕ Fallecido
+                  </button>
+                )}
               </div>
               <p style={{ fontSize:'0.875rem', color:'var(--color-text-muted)', marginBottom:'1rem' }}>
                 {pet.species}{pet.breed ? ` · ${pet.breed}` : ''}
@@ -1756,6 +1775,44 @@ export default function PetDetailPage() {
         session={session}
         sedeActual={sedeActual}
       />
+
+      {/* Fallecimiento modal */}
+      {fallModal && (
+        <div onClick={() => { setFallModal(false); setFallMotivo(''); }} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1200, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem', backdropFilter:'blur(2px)' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background:'var(--color-white)', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-lg)', width:'100%', maxWidth:440, overflow:'hidden' }}>
+            <div style={{ padding:'1.1rem 1.5rem', borderBottom:'1px solid var(--color-border)', background:'#fef2f2', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div>
+                <h3 style={{ fontFamily:'var(--font-title)', color:'#c0392b', fontSize:'1rem', margin:0 }}>☠ Registrar Fallecimiento</h3>
+                <p style={{ margin:'0.2rem 0 0', fontSize:'0.78rem', color:'var(--color-text-muted)' }}>{pet.name}</p>
+              </div>
+              <button onClick={() => { setFallModal(false); setFallMotivo(''); }} style={{ width:30, height:30, background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'50%', cursor:'pointer', fontSize:'1rem' }}>×</button>
+            </div>
+            <div style={{ padding:'1.5rem' }}>
+              <label style={{ display:'block', fontSize:'0.72rem', fontWeight:700, marginBottom:'0.4rem', textTransform:'uppercase', letterSpacing:'0.04em', color:'var(--color-text)' }}>
+                Motivo de fallecimiento
+              </label>
+              <textarea
+                value={fallMotivo}
+                onChange={e => setFallMotivo(e.target.value)}
+                rows={4}
+                placeholder="Describe la causa del fallecimiento..."
+                style={{ width:'100%', padding:'0.55rem 0.75rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.875rem', resize:'vertical', boxSizing:'border-box' }}
+              />
+              <p style={{ fontSize:'0.75rem', color:'var(--color-text-muted)', margin:'0.5rem 0 1.25rem' }}>
+                El campo es opcional. Se registrará la fecha de hoy como fecha de fallecimiento.
+              </p>
+              <div style={{ display:'flex', gap:'0.75rem', justifyContent:'flex-end' }}>
+                <button onClick={() => { setFallModal(false); setFallMotivo(''); }} style={{ padding:'0.55rem 1.25rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', color:'var(--color-text-muted)' }}>
+                  Cancelar
+                </button>
+                <button onClick={handleFallecimiento} style={{ padding:'0.55rem 1.5rem', background:'#c0392b', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', fontWeight:700 }}>
+                  Guardar fallecimiento
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Editar HC confirmation */}
       {editHCConfirm && (
