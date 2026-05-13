@@ -457,7 +457,8 @@ export default function PetDetailPage() {
     } else {
       const archivos = [];
       for (const file of notaFiles) {
-        const path = `notas/${petId}/${Date.now()}_${file.name}`;
+        const safeName = file.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+        const path = `notas/${petId}/${Date.now()}_${safeName}`;
         const { error: upErr } = await supabase.storage.from('laboratorios-reports').upload(path, file, { upsert: true });
         if (upErr) { setNotaUploading(false); return alert('❌ Error subiendo archivo:\n\n' + upErr.message); }
         const { data: urlData } = supabase.storage.from('laboratorios-reports').getPublicUrl(path);
