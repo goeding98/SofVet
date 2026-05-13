@@ -354,6 +354,10 @@ export default function PetDetailPage() {
       }, { onError: () => {} });
     }
 
+    if (data.peso && !isNaN(parseFloat(data.peso))) {
+      editPatient(petId, { weight: parseFloat(data.peso) });
+    }
+
     closeConsultModal();
   };
 
@@ -423,6 +427,9 @@ export default function PetDetailPage() {
         { onError: (msg) => { saveError = msg; } }
       );
       if (!result) { alert('❌ Error al guardar control:\n\n' + saveError); return; }
+    }
+    if (data.peso && !isNaN(parseFloat(data.peso))) {
+      editPatient(petId, { weight: parseFloat(data.peso) });
     }
     setControlModal(false);
     setEditingControl(null);
