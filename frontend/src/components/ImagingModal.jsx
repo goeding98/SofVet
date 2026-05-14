@@ -56,14 +56,15 @@ export default function ImagingModal({ isOpen, onClose, onSave, onEdit, pet, ini
   const uploadNewFiles = async () => {
     const archivos = [];
     for (const file of files) {
-      const path = `${pet.id}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from('imaging').upload(path, file, { upsert: true });
+      const safeName = file.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `imagenologia/${pet.id}/${Date.now()}_${safeName}`;
+      const { error: uploadError } = await supabase.storage.from('laboratorios-reports').upload(path, file, { upsert: true });
       if (uploadError) {
-        archivos.push({ name: file.name, url: null, type: file.type });
-      } else {
-        const { data: urlData } = supabase.storage.from('imaging').getPublicUrl(path);
-        archivos.push({ name: file.name, url: urlData.publicUrl, type: file.type });
+        alert(`❌ Error subiendo "${file.name}": ${uploadError.message}`);
+        return null;
       }
+      const { data: urlData } = supabase.storage.from('laboratorios-reports').getPublicUrl(path);
+      archivos.push({ name: file.name, url: urlData.publicUrl, type: file.type });
     }
     return archivos;
   };
@@ -74,7 +75,7 @@ export default function ImagingModal({ isOpen, onClose, onSave, onEdit, pet, ini
     if (!resultado.trim()) return setError('El resultado es requerido.');
     setUploading(true);
     const newArchivos = await uploadNewFiles();
-    const now = new Date();
+    if (newArchivos === null) { setUploading(false); return; }
     onSave({
       tipo, date, resultado,
       archivos:      newArchivos,
@@ -92,6 +93,7 @@ export default function ImagingModal({ isOpen, onClose, onSave, onEdit, pet, ini
     if (!resultado.trim()) return setError('El resultado es requerido.');
     setUploading(true);
     const newArchivos = files.length > 0 ? await uploadNewFiles() : [];
+    if (newArchivos === null) { setUploading(false); return; }
     const finalArchivos = [...existingArchivos, ...newArchivos];
     const now = new Date();
     onEdit(initialData.id, {

@@ -15,9 +15,9 @@ async function uploadFiles(files, petId, setError) {
       .normalize('NFD').replace(/[̀-ͯ]/g, '')
       .replace(/[^a-zA-Z0-9._-]/g, '_');
     const path = `imagenes/${petId}/${date}/${Date.now()}_${safeName}`;
-    const { error: upErr } = await supabase.storage.from('imaging').upload(path, file, { upsert: true });
+    const { error: upErr } = await supabase.storage.from('laboratorios-reports').upload(path, file, { upsert: true });
     if (upErr) { setError(`Error subiendo ${file.name}: ${upErr.message}`); return null; }
-    const { data } = supabase.storage.from('imaging').getPublicUrl(path);
+    const { data } = supabase.storage.from('laboratorios-reports').getPublicUrl(path);
     archivos.push({ name: file.name, url: data.publicUrl });
   }
   return archivos;
