@@ -161,6 +161,10 @@ export default function PetDetailPage() {
 
   const petImagenesPedidos = imagenesPedidosList.filter(p => p.patient_id === petId);
 
+  const petImagenesResult = imagenesResult
+    .filter(r => r.patient_id === petId)
+    .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+
   const petNotas = notasClincias
     .filter(n => n.patient_id === petId)
     .sort((a, b) => b.created_at?.localeCompare(a.created_at));
@@ -566,6 +570,9 @@ export default function PetDetailPage() {
     petImaging.forEach(r => {
       allEvents.push({ sortKey: `${r.date || '0000'}T00:00`, type: 'imagen', r });
     });
+    petImagenesResult.forEach(r => {
+      allEvents.push({ sortKey: `${r.fecha || '0000'}T00:00`, type: 'imagen_result', r });
+    });
     petProcedimientos.forEach(p => {
       allEvents.push({ sortKey: `${p.fecha || '0000'}T00:00`, type: 'proced', p });
     });
@@ -615,6 +622,16 @@ export default function PetDetailPage() {
       if (ev.type === 'imagen') {
         const { r } = ev;
         return `<div style="margin-bottom:20px;border-left:4px solid #1565c0"><div style="background:#e8f0ff;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#1565c0;font-size:12px">🔬 IMAGENOLOGÍA — ${r.date || '—'}</div><div style="font-size:10px;color:#555">${sn(r.sede_id)}${r.created_by ? ' · ' + r.created_by : ''}</div></div><div style="padding:10px 14px">${fld('Tipo', r.tipo)}${fld('Resultado / Interpretación', r.resultado)}${r.archivos?.length > 0 ? fld('Archivos', r.archivos.map(a => a.name).join(', ')) : ''}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+      }
+      if (ev.type === 'imagen_result') {
+        const { r } = ev;
+        const archivosHtml = r.archivos?.length > 0
+          ? r.archivos.map(a => a.url
+              ? `<a href="${a.url}" target="_blank" rel="noopener noreferrer" style="color:#1565c0;text-decoration:underline;font-size:10px">${a.name}</a>`
+              : `<span style="font-size:10px;color:#666">${a.name}</span>`
+            ).join(' &nbsp;·&nbsp; ')
+          : '';
+        return `<div style="margin-bottom:20px;border-left:4px solid #1565c0"><div style="background:#e8f0ff;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#1565c0;font-size:12px">🔬 IMAGENOLOGÍA — ${r.fecha || '—'}</div><div style="font-size:10px;color:#555">${r.tipo || ''}</div></div><div style="padding:10px 14px">${fld('Tipo', r.tipo)}${fld('Resultados / Interpretación', r.resultados)}${archivosHtml ? `<div style="margin-top:6px;font-size:10px;color:#444"><strong>Archivos:</strong> ${archivosHtml}</div>` : ''}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
       }
       if (ev.type === 'proced') {
         const { p } = ev;
@@ -670,6 +687,9 @@ export default function PetDetailPage() {
     petImaging.forEach(r => {
       allEvents.push({ sortKey: `${r.date || '0000'}T00:00`, type: 'imagen', r });
     });
+    petImagenesResult.forEach(r => {
+      allEvents.push({ sortKey: `${r.fecha || '0000'}T00:00`, type: 'imagen_result', r });
+    });
     petProcedimientos.forEach(p => {
       allEvents.push({ sortKey: `${p.fecha || '0000'}T00:00`, type: 'proced', p });
     });
@@ -714,6 +734,16 @@ export default function PetDetailPage() {
       if (ev.type === 'imagen') {
         const { r } = ev;
         return `<div style="margin-bottom:20px;border-left:4px solid #1565c0"><div contenteditable="true" style="background:#e8f0ff;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#1565c0;font-size:12px">🔬 IMAGENOLOGÍA — ${r.date || '—'}</div><div style="font-size:10px;color:#555">${sn(r.sede_id)}${r.created_by ? ' · ' + r.created_by : ''}</div></div><div style="padding:10px 14px">${fld('Tipo', r.tipo)}${fld('Resultado / Interpretación', r.resultado)}${r.archivos?.length > 0 ? fld('Archivos', r.archivos.map(a => a.name).join(', ')) : ''}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+      }
+      if (ev.type === 'imagen_result') {
+        const { r } = ev;
+        const archivosHtml = r.archivos?.length > 0
+          ? r.archivos.map(a => a.url
+              ? `<a href="${a.url}" target="_blank" rel="noopener noreferrer" style="color:#1565c0;text-decoration:underline;font-size:10px">${a.name}</a>`
+              : `<span style="font-size:10px;color:#666">${a.name}</span>`
+            ).join(' &nbsp;·&nbsp; ')
+          : '';
+        return `<div style="margin-bottom:20px;border-left:4px solid #1565c0"><div contenteditable="true" style="background:#e8f0ff;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#1565c0;font-size:12px">🔬 IMAGENOLOGÍA — ${r.fecha || '—'}</div><div style="font-size:10px;color:#555">${r.tipo || ''}</div></div><div style="padding:10px 14px">${fld('Tipo', r.tipo)}${fld('Resultados / Interpretación', r.resultados)}${archivosHtml ? `<div style="margin-top:6px;font-size:10px;color:#444"><strong>Archivos:</strong> ${archivosHtml}</div>` : ''}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
       }
       if (ev.type === 'proced') {
         const { p } = ev;
@@ -831,7 +861,7 @@ export default function PetDetailPage() {
 
       {/* Historia Clínica */}
       <Card
-        title={`Historia Clínica (${petConsults.length} consultas · ${petControles.length} controles · ${petImaging.length} imág · ${petProcedimientos.length} proced · ${petLabPedidos.length} labs · ${petNotas.length} notas)`}
+        title={`Historia Clínica (${petConsults.length} consultas · ${petControles.length} controles · ${petImaging.length + petImagenesResult.length} imág · ${petProcedimientos.length} proced · ${petLabPedidos.length} labs · ${petNotas.length} notas)`}
         action={
           <div style={{ display:'flex', gap:'0.5rem' }}>
             <button onClick={handleDownloadPDF} style={{ padding:'0.4rem 0.85rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600, color:'var(--color-text-muted)', display:'flex', alignItems:'center', gap:'0.35rem' }}>
@@ -1248,6 +1278,53 @@ export default function PetDetailPage() {
                           ? <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
                               download={isWord ? a.name : undefined}
                               onClick={e => e.stopPropagation()}
+                              style={{ background:'#d0e4ff', color:'#1565c0', padding:'3px 10px', borderRadius:999, fontSize:'0.72rem', fontWeight:500, textDecoration:'none', display:'inline-flex', alignItems:'center', gap:'0.25rem', cursor:'pointer' }}>
+                              {icon} {a.name}
+                            </a>
+                          : <span key={i} style={{ background:'#e8e8e8', color:'#666', padding:'3px 10px', borderRadius:999, fontSize:'0.72rem', fontWeight:500 }}>{icon} {a.name}</span>;
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Imagenología — resultados subidos (nuevo sistema) */}
+        {petImagenesResult.length > 0 && (
+          <div style={{ marginTop:'1rem', borderTop:'2px solid #e8f0ff', paddingTop:'1.25rem' }}>
+            <div style={{ fontSize:'0.8rem', fontWeight:700, color:'#1565c0', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:'0.85rem' }}>
+              🔬 Resultados de Imagenología ({petImagenesResult.length})
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+              {petImagenesResult.map(r => (
+                <div key={r.id} style={{ border:'1px solid #d0deff', borderRadius:'var(--radius-md)', padding:'0.85rem 1rem', background:'#f5f8ff' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:'0.5rem', marginBottom:'0.5rem' }}>
+                    <div style={{ display:'flex', gap:'0.6rem', alignItems:'center' }}>
+                      <span style={{ fontSize:'1rem' }}>{r.tipo === 'Radiografía' ? '🩻' : r.tipo === 'Ecografía' ? '📡' : '🧠'}</span>
+                      <span style={{ fontWeight:700, fontSize:'0.875rem', color:'#1565c0' }}>{r.tipo || 'Imagen'}</span>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+                      <span style={{ fontSize:'0.72rem', color:'var(--color-text-muted)' }}>{r.fecha}</span>
+                      <button
+                        onClick={() => { setEditingImagen(r); setImgSubirModal(true); }}
+                        style={{ padding:'2px 8px', background:'white', border:'1px solid #1565c0', color:'#1565c0', borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)' }}
+                      >✏️ Editar</button>
+                    </div>
+                  </div>
+                  {r.resultados && <p style={{ fontSize:'0.82rem', color:'var(--color-text)', margin:'0 0 0.4rem', lineHeight:1.5, whiteSpace:'pre-wrap' }}>{r.resultados}</p>}
+                  {r.archivos?.length > 0 && (
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:'0.35rem', marginTop:'0.3rem' }}>
+                      {r.archivos.map((a, i) => {
+                        const name = a.name?.toLowerCase() || '';
+                        const isImg  = a.type?.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp)$/.test(name);
+                        const isPdf  = a.type === 'application/pdf' || name.endsWith('.pdf');
+                        const isWord = /\.(docx?)$/.test(name);
+                        const icon   = isImg ? '🖼️' : isPdf ? '📄' : isWord ? '📝' : '📎';
+                        return a.url
+                          ? <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
+                              download={isWord ? a.name : undefined}
                               style={{ background:'#d0e4ff', color:'#1565c0', padding:'3px 10px', borderRadius:999, fontSize:'0.72rem', fontWeight:500, textDecoration:'none', display:'inline-flex', alignItems:'center', gap:'0.25rem', cursor:'pointer' }}>
                               {icon} {a.name}
                             </a>
