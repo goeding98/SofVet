@@ -577,7 +577,8 @@ export default function PetDetailPage() {
       allEvents.push({ sortKey: `${p.fecha || '0000'}T00:00`, type: 'proced', p });
     });
     petLabPedidos.forEach(l => {
-      allEvents.push({ sortKey: `${l.fecha_subido || l.fecha_solicitado || '0000'}T00:00`, type: 'lab', l });
+      const labResult = laboratorios.find(lr => String(lr.pedido_id) === String(l.id));
+      allEvents.push({ sortKey: `${l.fecha_subido || l.fecha_solicitado || '0000'}T00:00`, type: 'lab', l, labResult });
     });
     hospitalization.filter(h => h.patient_id === petId).forEach(h => {
       const meds = Array.isArray(h.tratamiento) ? h.tratamiento.filter(m => m.medicamento) : [];
@@ -598,6 +599,20 @@ export default function PetDetailPage() {
     const fld = (label, value) => {
       if (!value || value.toString().trim() === '') return '';
       return `<div style="display:flex;gap:8px;margin-bottom:5px;font-size:11px;line-height:1.5"><span style="font-weight:700;color:#444;min-width:170px;flex-shrink:0">${label}:</span><span style="color:#222;white-space:pre-wrap">${value.toString().replace(/\n/g,'<br>')}</span></div>`;
+    };
+
+    const archivosHtml = (archivos) => {
+      if (!archivos?.length) return '';
+      const items = archivos.filter(a => a.url).map(a => {
+        const name = a.name?.toLowerCase() || '';
+        const isImg = a.type?.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp)$/.test(name);
+        const isPdf = a.type === 'application/pdf' || name.endsWith('.pdf');
+        const isWord = /\.(docx?)$/.test(name);
+        const icon = isImg ? '🖼️' : isPdf ? '📄' : isWord ? '📝' : '📎';
+        if (isImg) return `<img src="${a.url}" alt="${a.name}" style="display:block;max-width:100%;max-height:150px;object-fit:contain;border-radius:4px;border:1px solid #ddd;margin:4px 0" />`;
+        return `<a href="${a.url}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#e8f0ff;border:1px solid #93c5fd;border-radius:12px;color:#1565c0;font-size:10px;font-weight:600;text-decoration:none;margin:2px 2px">${icon} ${a.name}</a>`;
+      }).join('');
+      return items ? `<div style="margin-top:6px">${items}</div>` : '';
     };
 
     const renderEvent = (ev) => {
@@ -621,7 +636,7 @@ export default function PetDetailPage() {
       }
       if (ev.type === 'imagen') {
         const { r } = ev;
-        return `<div style="margin-bottom:20px;border-left:4px solid #1565c0"><div style="background:#e8f0ff;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#1565c0;font-size:12px">🔬 IMAGENOLOGÍA — ${r.date || '—'}</div><div style="font-size:10px;color:#555">${sn(r.sede_id)}${r.created_by ? ' · ' + r.created_by : ''}</div></div><div style="padding:10px 14px">${fld('Tipo', r.tipo)}${fld('Resultado / Interpretación', r.resultado)}${r.archivos?.length > 0 ? fld('Archivos', r.archivos.map(a => a.name).join(', ')) : ''}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+        return `<div style="margin-bottom:20px;border-left:4px solid #1565c0"><div style="background:#e8f0ff;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#1565c0;font-size:12px">🔬 IMAGENOLOGÍA — ${r.date || '—'}</div><div style="font-size:10px;color:#555">${sn(r.sede_id)}${r.created_by ? ' · ' + r.created_by : ''}</div></div><div style="padding:10px 14px">${fld('Tipo', r.tipo)}${fld('Resultado / Interpretación', r.resultado)}${archivosHtml(r.archivos)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
       }
       if (ev.type === 'imagen_result') {
         const { r } = ev;
@@ -638,8 +653,8 @@ export default function PetDetailPage() {
         return `<div style="margin-bottom:20px;border-left:4px solid #b91c1c"><div style="background:#fee2e2;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#b91c1c;font-size:12px">⚕️ PROCEDIMIENTO — ${p.fecha || '—'}${p.hora_creacion ? ' ' + p.hora_creacion : ''}</div><div style="font-size:10px;color:#555">${sn(p.sede_id)}${p.veterinario ? ' · Vet: ' + p.veterinario : ''}</div></div><div style="padding:10px 14px">${p.motivo ? `<div style="font-size:13px;font-weight:700;color:#b91c1c;margin-bottom:6px">${p.motivo}</div>` : ''}${fld('Tipo', p.tipo)}${fld('Descripción', p.descripcion)}${fld('Anestesia', p.anestesia)}${fld('Observaciones', p.observaciones)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
       }
       if (ev.type === 'lab') {
-        const { l } = ev;
-        return `<div style="margin-bottom:20px;border-left:4px solid #065f46"><div style="background:#d1fae5;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#065f46;font-size:12px">🧪 LABORATORIO — ${l.fecha_solicitado || '—'}</div><div style="font-size:10px;color:#555">${sn(l.sede_id)}</div></div><div style="padding:10px 14px">${fld('Tipo de examen', l.tipo_examen)}${fld('Procesamiento', l.procesamiento)}${fld('Estado', l.estado)}${l.fecha_subido ? fld('Fecha subido PDF', l.fecha_subido) : ''}${l.fecha_reportado ? fld('Fecha reportado', l.fecha_reportado) : ''}${l.reportado_por ? fld('Reportado por', l.reportado_por) : ''}${l.razon_no_reporte ? fld('Razón no reporte', l.razon_no_reporte) : ''}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+        const { l, labResult } = ev;
+        return `<div style="margin-bottom:20px;border-left:4px solid #065f46"><div style="background:#d1fae5;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#065f46;font-size:12px">🧪 LABORATORIO — ${l.fecha_solicitado || '—'}</div><div style="font-size:10px;color:#555">${sn(l.sede_id)}</div></div><div style="padding:10px 14px">${fld('Tipo de examen', l.tipo_examen)}${fld('Procesamiento', l.procesamiento)}${fld('Estado', l.estado)}${l.fecha_subido ? fld('Fecha subido PDF', l.fecha_subido) : ''}${l.fecha_reportado ? fld('Fecha reportado', l.fecha_reportado) : ''}${l.reportado_por ? fld('Reportado por', l.reportado_por) : ''}${l.razon_no_reporte ? fld('Razón no reporte', l.razon_no_reporte) : ''}${labResult ? `${fld('Interpretación', labResult.resultados)}${archivosHtml(labResult.archivos?.length > 0 ? labResult.archivos : labResult.file_url ? [{ name: 'Ver resultado', url: labResult.file_url }] : [])}` : ''}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
       }
       if (ev.type === 'hosp') {
         const { h, meds, reps } = ev;
@@ -654,7 +669,7 @@ export default function PetDetailPage() {
       if (ev.type === 'nota') {
         const { n } = ev;
         const d = n.created_at ? n.created_at.split('T')[0] : '—';
-        return `<div style="margin-bottom:20px;border-left:4px solid #b8860b"><div style="background:#fff8e1;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#b8860b;font-size:12px">📝 NOTA CLÍNICA — ${d}</div><div style="font-size:10px;color:#555">${n.created_by || ''}</div></div><div style="padding:10px 14px">${n.titulo ? `<div style="font-size:12px;font-weight:700;color:#b8860b;margin-bottom:6px">${n.titulo}</div>` : ''}${fld('Observaciones', n.observaciones)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+        return `<div style="margin-bottom:20px;border-left:4px solid #b8860b"><div style="background:#fff8e1;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#b8860b;font-size:12px">📝 NOTA CLÍNICA — ${d}</div><div style="font-size:10px;color:#555">${n.autor || n.created_by || ''}</div></div><div style="padding:10px 14px">${n.titulo ? `<div style="font-size:12px;font-weight:700;color:#b8860b;margin-bottom:6px">${n.titulo}</div>` : ''}${fld('Observaciones', n.observaciones)}${archivosHtml(n.archivos)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
       }
       return '';
     };
@@ -694,7 +709,8 @@ export default function PetDetailPage() {
       allEvents.push({ sortKey: `${p.fecha || '0000'}T00:00`, type: 'proced', p });
     });
     petLabPedidos.forEach(l => {
-      allEvents.push({ sortKey: `${l.fecha_subido || l.fecha_solicitado || '0000'}T00:00`, type: 'lab', l });
+      const labResult = laboratorios.find(lr => String(lr.pedido_id) === String(l.id));
+      allEvents.push({ sortKey: `${l.fecha_subido || l.fecha_solicitado || '0000'}T00:00`, type: 'lab', l, labResult });
     });
     hospitalization.filter(h => h.patient_id === petId).forEach(h => {
       const meds = Array.isArray(h.tratamiento) ? h.tratamiento.filter(m => m.medicamento) : [];
@@ -717,6 +733,20 @@ export default function PetDetailPage() {
       return `<div style="display:flex;gap:8px;margin-bottom:5px;font-size:11px;line-height:1.5"><span style="font-weight:700;color:#444;min-width:170px;flex-shrink:0">${label}:</span><span contenteditable="true" style="color:#222;flex:1">${value}</span></div>`;
     };
 
+    const archivosHtml = (archivos) => {
+      if (!archivos?.length) return '';
+      const items = archivos.filter(a => a.url).map(a => {
+        const name = a.name?.toLowerCase() || '';
+        const isImg = a.type?.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp)$/.test(name);
+        const isPdf = a.type === 'application/pdf' || name.endsWith('.pdf');
+        const isWord = /\.(docx?)$/.test(name);
+        const icon = isImg ? '🖼️' : isPdf ? '📄' : isWord ? '📝' : '📎';
+        if (isImg) return `<img src="${a.url}" alt="${a.name}" style="display:block;max-width:100%;max-height:150px;object-fit:contain;border-radius:4px;border:1px solid #ddd;margin:4px 0" />`;
+        return `<a href="${a.url}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#e8f0ff;border:1px solid #93c5fd;border-radius:12px;color:#1565c0;font-size:10px;font-weight:600;text-decoration:none;margin:2px 2px">${icon} ${a.name}</a>`;
+      }).join('');
+      return items ? `<div style="margin-top:6px">${items}</div>` : '';
+    };
+
     const renderEvent = (ev) => {
       if (ev.type === 'consulta') {
         const { c, meds, fxProds } = ev;
@@ -733,7 +763,7 @@ export default function PetDetailPage() {
       }
       if (ev.type === 'imagen') {
         const { r } = ev;
-        return `<div style="margin-bottom:20px;border-left:4px solid #1565c0"><div contenteditable="true" style="background:#e8f0ff;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#1565c0;font-size:12px">🔬 IMAGENOLOGÍA — ${r.date || '—'}</div><div style="font-size:10px;color:#555">${sn(r.sede_id)}${r.created_by ? ' · ' + r.created_by : ''}</div></div><div style="padding:10px 14px">${fld('Tipo', r.tipo)}${fld('Resultado / Interpretación', r.resultado)}${r.archivos?.length > 0 ? fld('Archivos', r.archivos.map(a => a.name).join(', ')) : ''}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+        return `<div style="margin-bottom:20px;border-left:4px solid #1565c0"><div contenteditable="true" style="background:#e8f0ff;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#1565c0;font-size:12px">🔬 IMAGENOLOGÍA — ${r.date || '—'}</div><div style="font-size:10px;color:#555">${sn(r.sede_id)}${r.created_by ? ' · ' + r.created_by : ''}</div></div><div style="padding:10px 14px">${fld('Tipo', r.tipo)}${fld('Resultado / Interpretación', r.resultado)}${archivosHtml(r.archivos)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
       }
       if (ev.type === 'imagen_result') {
         const { r } = ev;
@@ -750,8 +780,8 @@ export default function PetDetailPage() {
         return `<div style="margin-bottom:20px;border-left:4px solid #b91c1c"><div contenteditable="true" style="background:#fee2e2;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#b91c1c;font-size:12px">⚕️ PROCEDIMIENTO — ${p.fecha || '—'}${p.hora_creacion ? ' ' + p.hora_creacion : ''}</div><div style="font-size:10px;color:#555">${sn(p.sede_id)}${p.veterinario ? ' · Vet: ' + p.veterinario : ''}</div></div><div style="padding:10px 14px">${p.motivo ? `<div contenteditable="true" style="font-size:13px;font-weight:700;color:#b91c1c;margin-bottom:6px">${p.motivo}</div>` : ''}${fld('Tipo', p.tipo)}${fld('Descripción', p.descripcion)}${fld('Anestesia', p.anestesia)}${fld('Observaciones', p.observaciones)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
       }
       if (ev.type === 'lab') {
-        const { l } = ev;
-        return `<div style="margin-bottom:20px;border-left:4px solid #065f46"><div contenteditable="true" style="background:#d1fae5;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#065f46;font-size:12px">🧪 LABORATORIO — ${l.fecha_solicitado || '—'}</div><div style="font-size:10px;color:#555">${sn(l.sede_id)}</div></div><div style="padding:10px 14px">${fld('Tipo de examen', l.tipo_examen)}${fld('Procesamiento', l.procesamiento)}${fld('Estado', l.estado)}${l.fecha_subido ? fld('Fecha subido PDF', l.fecha_subido) : ''}${l.fecha_reportado ? fld('Fecha reportado', l.fecha_reportado) : ''}${l.reportado_por ? fld('Reportado por', l.reportado_por) : ''}${l.razon_no_reporte ? fld('Razón no reporte', l.razon_no_reporte) : ''}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+        const { l, labResult } = ev;
+        return `<div style="margin-bottom:20px;border-left:4px solid #065f46"><div contenteditable="true" style="background:#d1fae5;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#065f46;font-size:12px">🧪 LABORATORIO — ${l.fecha_solicitado || '—'}</div><div style="font-size:10px;color:#555">${sn(l.sede_id)}</div></div><div style="padding:10px 14px">${fld('Tipo de examen', l.tipo_examen)}${fld('Procesamiento', l.procesamiento)}${fld('Estado', l.estado)}${l.fecha_subido ? fld('Fecha subido PDF', l.fecha_subido) : ''}${l.fecha_reportado ? fld('Fecha reportado', l.fecha_reportado) : ''}${l.reportado_por ? fld('Reportado por', l.reportado_por) : ''}${l.razon_no_reporte ? fld('Razón no reporte', l.razon_no_reporte) : ''}${labResult ? `${fld('Interpretación', labResult.resultados)}${archivosHtml(labResult.archivos?.length > 0 ? labResult.archivos : labResult.file_url ? [{ name: 'Ver resultado', url: labResult.file_url }] : [])}` : ''}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
       }
       if (ev.type === 'hosp') {
         const { h, meds, reps } = ev;
@@ -766,7 +796,7 @@ export default function PetDetailPage() {
       if (ev.type === 'nota') {
         const { n } = ev;
         const d = n.created_at ? n.created_at.split('T')[0] : '—';
-        return `<div style="margin-bottom:20px;border-left:4px solid #b8860b"><div contenteditable="true" style="background:#fff8e1;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#b8860b;font-size:12px">📝 NOTA CLÍNICA — ${d}</div><div style="font-size:10px;color:#555">${n.created_by || ''}</div></div><div style="padding:10px 14px">${n.titulo ? `<div contenteditable="true" style="font-size:12px;font-weight:700;color:#b8860b;margin-bottom:6px">${n.titulo}</div>` : ''}${fld('Observaciones', n.observaciones)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+        return `<div style="margin-bottom:20px;border-left:4px solid #b8860b"><div contenteditable="true" style="background:#fff8e1;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#b8860b;font-size:12px">📝 NOTA CLÍNICA — ${d}</div><div style="font-size:10px;color:#555">${n.autor || n.created_by || ''}</div></div><div style="padding:10px 14px">${n.titulo ? `<div contenteditable="true" style="font-size:12px;font-weight:700;color:#b8860b;margin-bottom:6px">${n.titulo}</div>` : ''}${fld('Observaciones', n.observaciones)}${archivosHtml(n.archivos)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
       }
       return '';
     };
