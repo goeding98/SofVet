@@ -96,8 +96,9 @@ export default function PetDetailPage() {
   const [sedeFilter,     setSedeFilter]     = useState(null);
   const [notaModal,      setNotaModal]      = useState(false);
   const [notaForm,       setNotaForm]       = useState({ titulo: '', observaciones: '' });
-  const [notaFiles,      setNotaFiles]      = useState([]);
-  const [notaUploading,  setNotaUploading]  = useState(false);
+  const [notaFiles,        setNotaFiles]        = useState([]);
+  const [notaEditArchivos, setNotaEditArchivos] = useState([]);
+  const [notaUploading,    setNotaUploading]    = useState(false);
   const [notaImageView,  setNotaImageView]  = useState(null);
   const [editingNota,    setEditingNota]    = useState(null);
   const [controlModal,   setControlModal]   = useState(false);
@@ -447,9 +448,21 @@ export default function PetDetailPage() {
     const horaAhora = nowTime();
 
     if (editingNota) {
+      let archivosActualizados = [...notaEditArchivos];
+      if (notaFiles.length > 0) {
+        for (const file of notaFiles) {
+          const safeName = file.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+          const path = `notas/${petId}/${Date.now()}_${safeName}`;
+          const { error: upErr } = await supabase.storage.from('laboratorios-reports').upload(path, file, { upsert: true });
+          if (upErr) { setNotaUploading(false); return alert('❌ Error subiendo archivo:\n\n' + upErr.message); }
+          const { data: urlData } = supabase.storage.from('laboratorios-reports').getPublicUrl(path);
+          archivosActualizados.push({ name: file.name, url: urlData.publicUrl, type: file.type });
+        }
+      }
       const editPayload = {
         titulo:        notaForm.titulo.trim(),
         observaciones: notaForm.observaciones.trim() || null,
+        archivos:      archivosActualizados.length > 0 ? archivosActualizados : null,
         editado_por:   session?.nombre || null,
         fecha_edicion: hoy,
         hora_edicion:  horaAhora,
@@ -1091,7 +1104,7 @@ export default function PetDetailPage() {
                         )}
                       </span>
                       <button
-                        onClick={() => { setEditingNota(n); setNotaForm({ titulo: n.titulo, observaciones: n.observaciones || '', fecha_creacion: n.created_at || '', hora_creacion: n.hora_creacion || '' }); setNotaModal(true); }}
+                        onClick={() => { setEditingNota(n); setNotaForm({ titulo: n.titulo, observaciones: n.observaciones || '', fecha_creacion: n.created_at || '', hora_creacion: n.hora_creacion || '' }); setNotaEditArchivos(n.archivos || []); setNotaFiles([]); setNotaModal(true); }}
                         style={{ padding:'2px 7px', background:'#fffbe6', border:'1px solid #f5c842', borderRadius:4, cursor:'pointer', fontSize:'0.72rem', color:'#8a6200', fontWeight:600 }}
                       >✏️</button>
                     </div>
@@ -1634,11 +1647,11 @@ export default function PetDetailPage() {
 
       {/* ── Modal: Agregar / Editar nota clínica ── */}
       {notaModal && (
-        <div onClick={() => { setNotaModal(false); setEditingNota(null); setNotaForm({ titulo: '', observaciones: '' }); setNotaFiles([]); }} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem', backdropFilter:'blur(2px)' }}>
+        <div onClick={() => { setNotaModal(false); setEditingNota(null); setNotaForm({ titulo: '', observaciones: '' }); setNotaFiles([]); setNotaEditArchivos([]); }} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem', backdropFilter:'blur(2px)' }}>
           <div onClick={e => e.stopPropagation()} style={{ background:'var(--color-white)', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-lg)', width:'100%', maxWidth:500, overflow:'hidden' }}>
             <div style={{ padding:'1.1rem 1.5rem', borderBottom:'1px solid var(--color-border)', background:'#fffdf0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <h3 style={{ margin:0, fontFamily:'var(--font-title)', color:'#8a6200', fontSize:'1rem' }}>{editingNota ? '✏️ Editar nota clínica' : '📝 Agregar nota clínica'}</h3>
-              <button onClick={() => { setNotaModal(false); setEditingNota(null); setNotaForm({ titulo: '', observaciones: '' }); setNotaFiles([]); }} style={{ background:'none', border:'none', fontSize:'1.1rem', cursor:'pointer', color:'var(--color-text-muted)' }}>×</button>
+              <button onClick={() => { setNotaModal(false); setEditingNota(null); setNotaForm({ titulo: '', observaciones: '' }); setNotaFiles([]); setNotaEditArchivos([]); }} style={{ background:'none', border:'none', fontSize:'1.1rem', cursor:'pointer', color:'var(--color-text-muted)' }}>×</button>
             </div>
             <div style={{ padding:'1.25rem 1.5rem', display:'flex', flexDirection:'column', gap:'0.9rem' }}>
               <div>
@@ -1678,9 +1691,37 @@ export default function PetDetailPage() {
                   </div>
                 </div>
               )}
-              {!editingNota && (
+              {/* Archivos existentes al editar */}
+              {editingNota && notaEditArchivos.length > 0 && (
+                <div>
+                  <label style={{ display:'block', fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', marginBottom:'0.3rem', color:'var(--color-text)' }}>Archivos actuales</label>
+                  <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem' }}>
+                    {notaEditArchivos.map((a, i) => {
+                      const isPdf = a.type === 'application/pdf' || a.name?.toLowerCase().endsWith('.pdf');
+                      const isDoc = a.name?.toLowerCase().endsWith('.doc') || a.name?.toLowerCase().endsWith('.docx');
+                      const isImg = a.type?.startsWith('image/') || /\.(png|jpe?g|gif|webp)$/i.test(a.name || '');
+                      return (
+                        <div key={i} style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.5rem 0.75rem', background:'#fffbea', border:'1px solid #f5c842', borderRadius:'var(--radius-sm)' }}>
+                          <a href={a.url} target="_blank" rel="noopener noreferrer" style={{ flex:1, fontSize:'0.82rem', color:'#8a6200', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textDecoration:'none' }}>
+                            {isImg ? '🖼️' : isPdf ? '📄' : isDoc ? '📝' : '📎'} {a.name}
+                          </a>
+                          {isAdminUser && (
+                            <button onClick={() => setNotaEditArchivos(prev => prev.filter((_, idx) => idx !== i))}
+                              style={{ background:'var(--color-danger-bg)', border:'1px solid var(--color-danger)', color:'var(--color-danger)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.72rem', padding:'2px 8px', flexShrink:0, fontFamily:'var(--font-body)' }}>
+                              🗑 Eliminar
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {/* Agregar archivos (creación y edición) */}
               <div>
-                <label style={{ display:'block', fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', marginBottom:'0.3rem', color:'var(--color-text)' }}>Archivos adjuntos — imágenes, PDF o Word (opcional)</label>
+                <label style={{ display:'block', fontSize:'0.72rem', fontWeight:700, textTransform:'uppercase', marginBottom:'0.3rem', color:'var(--color-text)' }}>
+                  {editingNota ? 'Agregar archivos nuevos' : 'Archivos adjuntos — imágenes, PDF o Word (opcional)'}
+                </label>
                 <input
                   type="file"
                   multiple
@@ -1704,9 +1745,8 @@ export default function PetDetailPage() {
                   </div>
                 )}
               </div>
-              )}
               <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem', paddingTop:'0.25rem' }}>
-                <button onClick={() => { setNotaModal(false); setEditingNota(null); setNotaForm({ titulo: '', observaciones: '' }); setNotaFiles([]); }} style={{ padding:'0.55rem 1.1rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', color:'var(--color-text-muted)' }}>Cancelar</button>
+                <button onClick={() => { setNotaModal(false); setEditingNota(null); setNotaForm({ titulo: '', observaciones: '' }); setNotaFiles([]); setNotaEditArchivos([]); }} style={{ padding:'0.55rem 1.1rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', color:'var(--color-text-muted)' }}>Cancelar</button>
                 <button
                   onClick={handleSaveNota}
                   disabled={notaUploading}
