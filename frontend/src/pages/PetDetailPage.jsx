@@ -54,7 +54,7 @@ export default function PetDetailPage() {
   const { items: hospitalization }                     = useStore('hospitalization');
   const { items: signedDocs }  = useStore('signedDocuments');
   const { items: labPedidos, edit: editLabPedido, add: addLabPedido } = useStore('laboratorios_pedidos');
-  const { items: notasClincias, add: addNota, edit: editNota } = useStore('notas_clinicas');
+  const { items: notasClincias, add: addNota, edit: editNota, remove: removeNota } = useStore('notas_clinicas');
   const { items: controles, add: addControl, edit: editControl, remove: removeControl } = useStore('controles');
   const { items: aliados }                  = useStore('aliados');
   const { items: remisionesVis, add: addRemision } = useStore('remisionesVis');
@@ -1107,6 +1107,12 @@ export default function PetDetailPage() {
                         onClick={() => { setEditingNota(n); setNotaForm({ titulo: n.titulo, observaciones: n.observaciones || '', fecha_creacion: n.created_at || '', hora_creacion: n.hora_creacion || '' }); setNotaEditArchivos(n.archivos || []); setNotaFiles([]); setNotaModal(true); }}
                         style={{ padding:'2px 7px', background:'#fffbe6', border:'1px solid #f5c842', borderRadius:4, cursor:'pointer', fontSize:'0.72rem', color:'#8a6200', fontWeight:600 }}
                       >✏️</button>
+                      {isAdminUser && (
+                        <button
+                          onClick={() => { if (confirm(`¿Eliminar la nota "${n.titulo}"? Esta acción no se puede deshacer.`)) removeNota(n.id); }}
+                          style={{ padding:'2px 7px', background:'var(--color-danger-bg)', border:'1px solid var(--color-danger)', borderRadius:4, cursor:'pointer', fontSize:'0.72rem', color:'var(--color-danger)', fontWeight:600 }}
+                        >🗑️</button>
+                      )}
                     </div>
                   </div>
                   {n.observaciones && (
