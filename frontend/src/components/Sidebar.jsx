@@ -111,6 +111,7 @@ export default function Sidebar() {
               <MenuItem item={{ path: '/import',              label: 'Importar datos',     icon: '⬇️' }} />
               <MenuItem item={{ path: '/hc-requests',         label: 'Hist. Clínicas',     icon: '📄' }} badge={hcPending} />
               <MenuItem item={{ path: '/certificados-viaje',  label: 'Cert. de Viaje',     icon: '✈️' }} badge={certPending} />
+              <MenuItem item={{ path: '/pedidos-compra',      label: 'Pedidos de Compra',  icon: '🛒' }} />
             </>
           )}
         </>
