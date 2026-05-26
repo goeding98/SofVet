@@ -67,10 +67,9 @@ export default function PedidosCompraPage() {
   const [showForm,  setShowForm]  = useState(false);
   const [saving,    setSaving]    = useState(false);
 
-  // Create form
-  const [formItem,     setFormItem]     = useState('');
-  const [formCantidad, setFormCantidad] = useState('');
-  const [formNotas,    setFormNotas]    = useState('');
+  // Create form — multiple rows
+  const emptyRow = () => ({ item: '', cantidad: '', notas: '' });
+  const [formRows, setFormRows] = useState([emptyRow()]);
 
   // Rechazar modal
   const [rechazarId,    setRechazarId]    = useState(null);
@@ -100,21 +99,32 @@ export default function PedidosCompraPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  const updateRow = (idx, field, value) =>
+    setFormRows(rows => rows.map((r, i) => i === idx ? { ...r, [field]: value } : r));
+
+  const addRow = () => setFormRows(rows => [...rows, emptyRow()]);
+
+  const removeRow = (idx) => setFormRows(rows => rows.filter((_, i) => i !== idx));
+
   const handleCreate = async () => {
-    if (!formItem.trim()) return alert('Escribe el nombre del ítem.');
-    if (!formCantidad.trim()) return alert('Escribe la cantidad.');
+    const valid = formRows.filter(r => r.item.trim() && r.cantidad.trim());
+    if (valid.length === 0) return alert('Agrega al menos un ítem con nombre y cantidad.');
+    const incomplete = formRows.find(r => (r.item.trim() && !r.cantidad.trim()) || (!r.item.trim() && r.cantidad.trim()));
+    if (incomplete) return alert('Cada fila debe tener ítem y cantidad.');
     setSaving(true);
-    const { error } = await supabase.from('pedidos_compra').insert({
-      item:           formItem.trim(),
-      cantidad:       formCantidad.trim(),
-      notas:          formNotas.trim() || null,
+    const now = nowISO();
+    const rows = valid.map(r => ({
+      item:           r.item.trim(),
+      cantidad:       r.cantidad.trim(),
+      notas:          r.notas.trim() || null,
       estado:         'solicitado',
       solicitado_por: userName,
-      solicitado_at:  nowISO(),
-    });
+      solicitado_at:  now,
+    }));
+    const { error } = await supabase.from('pedidos_compra').insert(rows);
     setSaving(false);
     if (error) return alert('Error al crear: ' + error.message);
-    setFormItem(''); setFormCantidad(''); setFormNotas('');
+    setFormRows([emptyRow()]);
     setShowForm(false);
     if (tab === 'solicitado') load();
     else setTab('solicitado');
@@ -287,41 +297,84 @@ export default function PedidosCompraPage() {
           marginBottom: '1.5rem',
           boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
         }}>
-          <h3 style={{ margin: '0 0 1rem', fontSize: '0.95rem', fontWeight: 700 }}>Nuevo ítem solicitado</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px', gap: '0.75rem', marginBottom: '0.75rem' }}>
-            <div>
-              <label style={labelStyle}>Ítem / Descripción</label>
-              <input
-                value={formItem}
-                onChange={e => setFormItem(e.target.value)}
-                placeholder="Ej: Amoxicilina 500mg, Jeringas 5cc..."
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label style={labelStyle}>Cantidad</label>
-              <input
-                value={formCantidad}
-                onChange={e => setFormCantidad(e.target.value)}
-                placeholder="Ej: 2 cajas, 50 und..."
-                style={inputStyle}
-              />
-            </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.9rem' }}>
+            <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700 }}>Nueva solicitud</h3>
+            <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{formRows.length} ítem{formRows.length !== 1 ? 's' : ''}</span>
           </div>
-          <div style={{ marginBottom: '0.75rem' }}>
-            <label style={labelStyle}>Notas (opcional)</label>
-            <textarea
-              value={formNotas}
-              onChange={e => setFormNotas(e.target.value)}
-              placeholder="Observaciones, proveedor preferido, urgencia..."
-              rows={2}
-              style={{ ...inputStyle, resize: 'vertical' }}
-            />
+
+          {/* Column headers */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 24px', gap: '0.5rem', marginBottom: '0.3rem', paddingRight: 2 }}>
+            <label style={{ ...labelStyle, margin: 0 }}>Ítem / Descripción</label>
+            <label style={{ ...labelStyle, margin: 0 }}>Cantidad</label>
+            <span />
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-            <button onClick={() => setShowForm(false)} style={btnSecondary}>Cancelar</button>
+
+          {/* Rows */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+            {formRows.map((row, idx) => (
+              <div key={idx}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 24px', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    value={row.item}
+                    onChange={e => updateRow(idx, 'item', e.target.value)}
+                    placeholder="Ej: Amoxicilina 500mg, Jeringas 5cc..."
+                    style={inputStyle}
+                    autoFocus={idx === formRows.length - 1 && idx > 0}
+                  />
+                  <input
+                    value={row.cantidad}
+                    onChange={e => updateRow(idx, 'cantidad', e.target.value)}
+                    placeholder="Ej: 2 cajas, 50 und..."
+                    style={inputStyle}
+                  />
+                  <button
+                    onClick={() => removeRow(idx)}
+                    disabled={formRows.length === 1}
+                    title="Eliminar fila"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: formRows.length === 1 ? '#d1d5db' : '#ef4444',
+                      fontSize: '1rem',
+                      cursor: formRows.length === 1 ? 'default' : 'pointer',
+                      padding: 0,
+                      lineHeight: 1,
+                    }}
+                  >×</button>
+                </div>
+                <input
+                  value={row.notas}
+                  onChange={e => updateRow(idx, 'notas', e.target.value)}
+                  placeholder="Notas (opcional): proveedor, urgencia..."
+                  style={{ ...inputStyle, marginTop: 4, fontSize: '0.78rem', color: '#6b7280' }}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Add row */}
+          <button
+            onClick={addRow}
+            style={{
+              marginTop: '0.65rem',
+              background: 'none',
+              border: '1px dashed #d1d5db',
+              borderRadius: 7,
+              width: '100%',
+              padding: '0.38rem',
+              color: '#6b7280',
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+          >
+            + Agregar ítem
+          </button>
+
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.9rem' }}>
+            <button onClick={() => { setShowForm(false); setFormRows([emptyRow()]); }} style={btnSecondary}>Cancelar</button>
             <button onClick={handleCreate} disabled={saving} style={btnPrimary}>
-              {saving ? 'Guardando...' : 'Solicitar'}
+              {saving ? 'Guardando...' : `Solicitar${formRows.filter(r => r.item.trim()).length > 1 ? ` (${formRows.filter(r => r.item.trim()).length})` : ''}`}
             </button>
           </div>
         </div>
