@@ -11,6 +11,14 @@ const TABS = [
   { key: 'eliminado',  label: 'Eliminado',   color: '#6b7280' },
 ];
 
+const SEDE_COLOR = {
+  'Todas':         { bg: '#f0f4ff', border: '#c7d7fa', text: '#2563eb' },
+  'Santa Mónica':  { bg: '#e8f0ff', border: '#93b4f5', text: '#2e5cbf' },
+  'Colseguros':    { bg: '#e8f5ee', border: '#86c9a0', text: '#2e7d50' },
+  'Ciudad Jardín': { bg: '#fdf8e1', border: '#d4b96a', text: '#7a5a00' },
+  'Domicilio':     { bg: '#f3eff9', border: '#bda9e8', text: '#7c5cbf' },
+};
+
 const ESTADO_COLOR = {
   solicitado: '#2563eb',
   pedido:     '#7c3aed',
@@ -68,7 +76,7 @@ export default function PedidosCompraPage() {
   const [saving,    setSaving]    = useState(false);
 
   // Create form — multiple rows
-  const emptyRow = () => ({ item: '', cantidad: '', notas: '' });
+  const emptyRow = () => ({ item: '', cantidad: '', sede: '', notas: '' });
   const [formRows, setFormRows] = useState([emptyRow()]);
 
   // Rechazar modal
@@ -116,6 +124,7 @@ export default function PedidosCompraPage() {
     const rows = valid.map(r => ({
       item:           r.item.trim(),
       cantidad:       r.cantidad.trim(),
+      sede:           r.sede || 'Todas',
       notas:          r.notas.trim() || null,
       estado:         'solicitado',
       solicitado_por: userName,
@@ -202,6 +211,17 @@ export default function PedidosCompraPage() {
             color: '#374151',
             fontWeight: 600,
           }}>x{item.cantidad}</span>
+          {item.sede && (
+            <span style={{
+              background: SEDE_COLOR[item.sede]?.bg || '#f3f4f6',
+              border: `1px solid ${SEDE_COLOR[item.sede]?.border || '#e5e7eb'}`,
+              borderRadius: 6,
+              padding: '1px 8px',
+              fontSize: '0.72rem',
+              color: SEDE_COLOR[item.sede]?.text || '#374151',
+              fontWeight: 600,
+            }}>📍 {item.sede}</span>
+          )}
         </div>
 
         {item.notas && (
@@ -303,9 +323,10 @@ export default function PedidosCompraPage() {
           </div>
 
           {/* Column headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 24px', gap: '0.5rem', marginBottom: '0.3rem', paddingRight: 2 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 140px 24px', gap: '0.5rem', marginBottom: '0.3rem', paddingRight: 2 }}>
             <label style={{ ...labelStyle, margin: 0 }}>Ítem / Descripción</label>
             <label style={{ ...labelStyle, margin: 0 }}>Cantidad</label>
+            <label style={{ ...labelStyle, margin: 0 }}>Sede</label>
             <span />
           </div>
 
@@ -313,7 +334,7 @@ export default function PedidosCompraPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
             {formRows.map((row, idx) => (
               <div key={idx}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 24px', gap: '0.5rem', alignItems: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 140px 24px', gap: '0.5rem', alignItems: 'center' }}>
                   <input
                     value={row.item}
                     onChange={e => updateRow(idx, 'item', e.target.value)}
@@ -327,6 +348,18 @@ export default function PedidosCompraPage() {
                     placeholder="Ej: 2 cajas, 50 und..."
                     style={inputStyle}
                   />
+                  <select
+                    value={row.sede}
+                    onChange={e => updateRow(idx, 'sede', e.target.value)}
+                    style={{ ...inputStyle, color: row.sede ? '#111' : '#9ca3af' }}
+                  >
+                    <option value="">Seleccionar...</option>
+                    <option value="Todas">Todas las sedes</option>
+                    <option value="Santa Mónica">Santa Mónica</option>
+                    <option value="Colseguros">Colseguros</option>
+                    <option value="Ciudad Jardín">Ciudad Jardín</option>
+                    <option value="Domicilio">Domicilio</option>
+                  </select>
                   <button
                     onClick={() => removeRow(idx)}
                     disabled={formRows.length === 1}
