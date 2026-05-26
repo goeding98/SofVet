@@ -59,7 +59,7 @@ export default function PetDetailPage() {
   const { items: aliados }                  = useStore('aliados');
   const { items: remisionesVis, add: addRemision } = useStore('remisionesVis');
   const { items: imagenesPedidosList, add: addImagenPedido, edit: editImagenPedido } = useStore('imagenesPedidos');
-  const { items: imagenesResult, add: addImagenResult, edit: editImagenResult } = useStore('imagenes');
+  const { items: imagenesResult, add: addImagenResult, edit: editImagenResult, remove: removeImagenResult } = useStore('imagenes');
 
   const { sedeActual, isAdmin: isAdminUser } = useSede();
   const { session } = useAuth();
@@ -1360,6 +1360,12 @@ export default function PetDetailPage() {
                         onClick={() => { setEditingImagen(r); setImgSubirModal(true); }}
                         style={{ padding:'2px 8px', background:'white', border:'1px solid #1565c0', color:'#1565c0', borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)' }}
                       >✏️ Editar</button>
+                      {isAdminUser && (
+                        <button
+                          onClick={() => { if (confirm(`¿Eliminar este resultado de imagenología (${r.tipo || 'imagen'} · ${r.fecha})? Esta acción no se puede deshacer.`)) removeImagenResult(r.id); }}
+                          style={{ padding:'2px 8px', background:'var(--color-danger-bg)', border:'1px solid var(--color-danger)', color:'var(--color-danger)', borderRadius:6, cursor:'pointer', fontSize:'0.7rem', fontWeight:600, fontFamily:'var(--font-body)' }}
+                        >🗑️ Eliminar</button>
+                      )}
                     </div>
                   </div>
                   {r.resultados && <p style={{ fontSize:'0.82rem', color:'var(--color-text)', margin:'0 0 0.4rem', lineHeight:1.5, whiteSpace:'pre-wrap' }}>{r.resultados}</p>}
