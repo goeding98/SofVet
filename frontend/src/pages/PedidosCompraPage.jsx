@@ -6,12 +6,11 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 const TABS = [
-  { key: 'solicitado', label: 'Solicitado',  color: '#2563eb' },
-  { key: 'pedido',     label: 'Pedido',      color: '#7c3aed' },
-  { key: 'pagado',     label: 'Pagado',      color: '#0891b2' },
-  { key: 'recibido',   label: 'Recibido',    color: '#16a34a' },
-  { key: 'rechazado',  label: 'Rechazado',   color: '#dc2626' },
-  { key: 'eliminado',  label: 'Eliminado',   color: '#6b7280' },
+  { key: 'solicitado', label: 'Solicitado', color: '#2563eb' },
+  { key: 'pedido',     label: 'Pedido',     color: '#7c3aed' },
+  { key: 'recibido',   label: 'Recibido',   color: '#16a34a' },
+  { key: 'rechazado',  label: 'Rechazado',  color: '#dc2626' },
+  { key: 'eliminado',  label: 'Eliminado',  color: '#6b7280' },
 ];
 
 const SEDE_COLOR = {
@@ -25,7 +24,6 @@ const SEDE_COLOR = {
 const ESTADO_COLOR = {
   solicitado: '#2563eb',
   pedido:     '#7c3aed',
-  pagado:     '#0891b2',
   recibido:   '#16a34a',
   rechazado:  '#dc2626',
   eliminado:  '#6b7280',
@@ -154,11 +152,6 @@ export default function PedidosCompraPage() {
     pedido_at:  nowISO(),
   });
 
-  const handlePagado = (item) => transition(item.id, 'pagado', {
-    pagado_por: userName,
-    pagado_at:  nowISO(),
-  });
-
   const handleRecibido = (item) => transition(item.id, 'recibido', {
     recibido_por: userName,
     recibido_at:  nowISO(),
@@ -258,8 +251,6 @@ export default function PedidosCompraPage() {
       'Fecha solicitud': it.solicitado_at ? fmt(it.solicitado_at) : '—',
       'Pedido por':      it.pedido_por || '',
       'Fecha pedido':    it.pedido_at ? fmt(it.pedido_at) : '',
-      'Pagado por':      it.pagado_por || '',
-      'Fecha pago':      it.pagado_at ? fmt(it.pagado_at) : '',
       'Recibido por':    it.recibido_por || '',
       'Fecha recibo':    it.recibido_at ? fmt(it.recibido_at) : '',
     }));
@@ -268,7 +259,6 @@ export default function PedidosCompraPage() {
     // Column widths
     ws['!cols'] = [
       { wch: 4 }, { wch: 32 }, { wch: 14 }, { wch: 16 }, { wch: 24 },
-      { wch: 18 }, { wch: 20 }, { wch: 18 }, { wch: 20 },
       { wch: 18 }, { wch: 20 }, { wch: 18 }, { wch: 20 },
     ];
 
@@ -327,7 +317,6 @@ export default function PedidosCompraPage() {
         <div style={{ marginTop: 4 }}>
           <AuditLine label="Solicitado" quien={item.solicitado_por} cuando={item.solicitado_at} />
           <AuditLine label="Pedido"     quien={item.pedido_por}     cuando={item.pedido_at} />
-          <AuditLine label="Pagado"     quien={item.pagado_por}     cuando={item.pagado_at} />
           <AuditLine label="Recibido"   quien={item.recibido_por}   cuando={item.recibido_at} />
           {item.rechazado_por && (
             <>
@@ -352,14 +341,8 @@ export default function PedidosCompraPage() {
         )}
         {tab === 'pedido' && (
           <>
-            <ActionBtn color="#0891b2" onClick={() => handlePagado(item)}>💳 Pagado</ActionBtn>
-            <ActionBtn color="#dc2626" onClick={() => { setRechazarId(item.id); setRechazarRazon(''); }}>❌ Rechazar</ActionBtn>
-            <ActionBtn color="#6b7280" onClick={() => handleEliminar(item)}>🗑 Eliminar</ActionBtn>
-          </>
-        )}
-        {tab === 'pagado' && (
-          <>
             <ActionBtn color="#16a34a" onClick={() => handleRecibido(item)}>📦 Recibido</ActionBtn>
+            <ActionBtn color="#dc2626" onClick={() => { setRechazarId(item.id); setRechazarRazon(''); }}>❌ Rechazar</ActionBtn>
             <ActionBtn color="#6b7280" onClick={() => handleEliminar(item)}>🗑 Eliminar</ActionBtn>
           </>
         )}
