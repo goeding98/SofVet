@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { useAuth } from '../utils/useAuth';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const TABS = [
   { key: 'solicitado', label: 'Solicitado',  color: '#2563eb' },
@@ -182,7 +184,66 @@ export default function PedidosCompraPage() {
     });
   };
 
-  const tabCounts = {};
+  const handleGenerarPDF = () => {
+    const tabLabel = TABS.find(t => t.key === tab)?.label || tab;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    // Header
+    doc.setFontSize(16);
+    doc.setTextColor(46, 92, 191);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Pets & Pets — Pedidos de Compra', 14, 18);
+
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'normal');
+    const fecha = new Date().toLocaleString('es-CO', {
+      timeZone: 'America/Bogota',
+      day: '2-digit', month: 'long', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+    doc.text(`Estado: ${tabLabel}   |   Generado: ${fecha}`, 14, 26);
+
+    // Table
+    autoTable(doc, {
+      startY: 32,
+      head: [['#', 'Ítem / Descripción', 'Cantidad', 'Sede', 'Solicitado por']],
+      body: items.map((it, i) => [
+        i + 1,
+        it.item + (it.notas ? `\n${it.notas}` : ''),
+        it.cantidad,
+        it.sede || '—',
+        it.solicitado_por ? `${it.solicitado_por}\n${fmt(it.solicitado_at)}` : '—',
+      ]),
+      headStyles: {
+        fillColor: [46, 92, 191],
+        textColor: 255,
+        fontStyle: 'bold',
+        fontSize: 9,
+      },
+      bodyStyles: { fontSize: 9, cellPadding: 3 },
+      alternateRowStyles: { fillColor: [245, 247, 255] },
+      columnStyles: {
+        0: { cellWidth: 8, halign: 'center' },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 28 },
+        3: { cellWidth: 32 },
+        4: { cellWidth: 38 },
+      },
+      margin: { left: 14, right: 14 },
+    });
+
+    // Footer
+    const pageCount = doc.getNumberOfPages();
+    for (let p = 1; p <= pageCount; p++) {
+      doc.setPage(p);
+      doc.setFontSize(8);
+      doc.setTextColor(160, 160, 160);
+      doc.text(`Página ${p} de ${pageCount}`, 14, doc.internal.pageSize.height - 8);
+    }
+
+    doc.save(`pedidos_${tab}_${new Date().toISOString().slice(0,10)}.pdf`);
+  };
 
   const tabItems = items;
 
@@ -413,27 +474,49 @@ export default function PedidosCompraPage() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0.3rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-        {TABS.map(t => (
+      {/* Tabs + PDF button */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+          {TABS.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              style={{
+                padding: '0.42rem 1rem',
+                border: tab === t.key ? `2px solid ${t.color}` : '2px solid #e5e7eb',
+                borderRadius: 8,
+                background: tab === t.key ? t.color + '15' : '#fff',
+                color: tab === t.key ? t.color : '#6b7280',
+                fontWeight: tab === t.key ? 700 : 500,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {!loading && items.length > 0 && (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
+            onClick={handleGenerarPDF}
             style={{
               padding: '0.42rem 1rem',
-              border: tab === t.key ? `2px solid ${t.color}` : '2px solid #e5e7eb',
+              background: '#fff',
+              border: '1.5px solid #d1d5db',
               borderRadius: 8,
-              background: tab === t.key ? t.color + '15' : '#fff',
-              color: tab === t.key ? t.color : '#6b7280',
-              fontWeight: tab === t.key ? 700 : 500,
+              color: '#374151',
+              fontWeight: 600,
               fontSize: '0.82rem',
               cursor: 'pointer',
-              transition: 'all 0.15s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
             }}
           >
-            {t.label}
+            📄 Generar PDF
           </button>
-        ))}
+        )}
       </div>
 
       {/* Content */}
