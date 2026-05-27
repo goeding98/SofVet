@@ -13,6 +13,18 @@ const TABS = [
   { key: 'eliminado',  label: 'Eliminado',  color: '#6b7280' },
 ];
 
+const TIPOS_COMPRA = [
+  'Insumos Laboratorio',
+  'Insumos Quirofano',
+  'Insumos Hospitalización',
+  'Cafetería',
+  'Aseo',
+  'Peluquería',
+  'PetShop',
+  'Farmacia',
+  'Otros',
+];
+
 const SEDE_COLOR = {
   'Todas':         { bg: '#f0f4ff', border: '#c7d7fa', text: '#2563eb' },
   'Santa Mónica':  { bg: '#e8f0ff', border: '#93b4f5', text: '#2e5cbf' },
@@ -76,8 +88,12 @@ export default function PedidosCompraPage() {
   const [showForm,  setShowForm]  = useState(false);
   const [saving,    setSaving]    = useState(false);
 
+  // Export modal
+  const [exportModal, setExportModal] = useState(null); // null | 'pdf' | 'excel'
+  const [exportTipo,  setExportTipo]  = useState('');   // '' = todos
+
   // Create form — multiple rows
-  const emptyRow = () => ({ item: '', cantidad: '', sede: '', notas: '' });
+  const emptyRow = () => ({ item: '', cantidad: '', sede: '', tipo: '', notas: '' });
   const [formRows, setFormRows] = useState([emptyRow()]);
 
   // Rechazar modal
@@ -126,6 +142,7 @@ export default function PedidosCompraPage() {
       item:           r.item.trim(),
       cantidad:       r.cantidad.trim(),
       sede:           r.sede || 'Todas',
+      tipo:           r.tipo || 'Otros',
       notas:          r.notas.trim() || null,
       estado:         'solicitado',
       solicitado_por: userName,
@@ -178,8 +195,9 @@ export default function PedidosCompraPage() {
     });
   };
 
-  const handleGenerarPDF = () => {
+  const handleGenerarPDF = (tipoFilter) => {
     const tabLabel = TABS.find(t => t.key === tab)?.label || tab;
+    const filtered = tipoFilter ? items.filter(it => it.tipo === tipoFilter) : items;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
     // Header
@@ -196,15 +214,17 @@ export default function PedidosCompraPage() {
       day: '2-digit', month: 'long', year: 'numeric',
       hour: '2-digit', minute: '2-digit', hour12: false,
     });
-    doc.text(`Estado: ${tabLabel}   |   Generado: ${fecha}`, 14, 26);
+    const tipoLabel = tipoFilter || 'Todos los tipos';
+    doc.text(`Estado: ${tabLabel}   |   Tipo: ${tipoLabel}   |   Generado: ${fecha}`, 14, 26);
 
     // Table
     autoTable(doc, {
       startY: 32,
-      head: [['#', 'Ítem / Descripción', 'Cantidad', 'Sede', 'Solicitado por']],
-      body: items.map((it, i) => [
+      head: [['#', 'Ítem / Descripción', 'Tipo', 'Cantidad', 'Sede', 'Solicitado por']],
+      body: filtered.map((it, i) => [
         i + 1,
         it.item + (it.notas ? `\n${it.notas}` : ''),
+        it.tipo || '—',
         it.cantidad,
         it.sede || '—',
         it.solicitado_por ? `${it.solicitado_por}\n${fmt(it.solicitado_at)}` : '—',
@@ -218,11 +238,12 @@ export default function PedidosCompraPage() {
       bodyStyles: { fontSize: 9, cellPadding: 3 },
       alternateRowStyles: { fillColor: [245, 247, 255] },
       columnStyles: {
-        0: { cellWidth: 8, halign: 'center' },
+        0: { cellWidth: 8,  halign: 'center' },
         1: { cellWidth: 'auto' },
-        2: { cellWidth: 28 },
-        3: { cellWidth: 32 },
-        4: { cellWidth: 38 },
+        2: { cellWidth: 34 },
+        3: { cellWidth: 24 },
+        4: { cellWidth: 28 },
+        5: { cellWidth: 36 },
       },
       margin: { left: 14, right: 14 },
     });
@@ -236,14 +257,17 @@ export default function PedidosCompraPage() {
       doc.text(`Página ${p} de ${pageCount}`, 14, doc.internal.pageSize.height - 8);
     }
 
-    doc.save(`pedidos_${tab}_${new Date().toISOString().slice(0,10)}.pdf`);
+    const tipoSlug = tipoFilter ? `_${tipoFilter.replace(/\s+/g,'_')}` : '';
+    doc.save(`pedidos_${tab}${tipoSlug}_${new Date().toISOString().slice(0,10)}.pdf`);
   };
 
-  const handleGenerarExcel = () => {
+  const handleGenerarExcel = (tipoFilter) => {
     const tabLabel = TABS.find(t => t.key === tab)?.label || tab;
-    const rows = items.map((it, i) => ({
+    const filtered = tipoFilter ? items.filter(it => it.tipo === tipoFilter) : items;
+    const rows = filtered.map((it, i) => ({
       '#':               i + 1,
       'Ítem':            it.item,
+      'Tipo':            it.tipo || '—',
       'Cantidad':        it.cantidad,
       'Sede':            it.sede || '—',
       'Notas':           it.notas || '',
@@ -256,15 +280,16 @@ export default function PedidosCompraPage() {
     }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
-    // Column widths
     ws['!cols'] = [
-      { wch: 4 }, { wch: 32 }, { wch: 14 }, { wch: 16 }, { wch: 24 },
-      { wch: 18 }, { wch: 20 }, { wch: 18 }, { wch: 20 },
+      { wch: 4 }, { wch: 30 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 24 },
+      { wch: 18 }, { wch: 20 }, { wch: 18 }, { wch: 20 }, { wch: 18 }, { wch: 20 },
     ];
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, tabLabel);
-    XLSX.writeFile(wb, `pedidos_${tab}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    const sheetName = tipoFilter ? tipoFilter.slice(0, 31) : tabLabel;
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    const tipoSlug = tipoFilter ? `_${tipoFilter.replace(/\s+/g,'_')}` : '';
+    XLSX.writeFile(wb, `pedidos_${tab}${tipoSlug}_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   const tabItems = items;
@@ -304,6 +329,17 @@ export default function PedidosCompraPage() {
               color: SEDE_COLOR[item.sede]?.text || '#374151',
               fontWeight: 600,
             }}>📍 {item.sede}</span>
+          )}
+          {item.tipo && (
+            <span style={{
+              background: '#f5f3ff',
+              border: '1px solid #c4b5fd',
+              borderRadius: 6,
+              padding: '1px 8px',
+              fontSize: '0.72rem',
+              color: '#7c3aed',
+              fontWeight: 600,
+            }}>🏷 {item.tipo}</span>
           )}
         </div>
 
@@ -451,12 +487,22 @@ export default function PedidosCompraPage() {
                     }}
                   >×</button>
                 </div>
-                <input
-                  value={row.notas}
-                  onChange={e => updateRow(idx, 'notas', e.target.value)}
-                  placeholder="Notas (opcional): proveedor, urgencia..."
-                  style={{ ...inputStyle, marginTop: 4, fontSize: '0.78rem', color: '#6b7280' }}
-                />
+                <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '0.5rem', marginTop: 4 }}>
+                  <select
+                    value={row.tipo}
+                    onChange={e => updateRow(idx, 'tipo', e.target.value)}
+                    style={{ ...inputStyle, fontSize: '0.78rem', color: row.tipo ? '#111' : '#9ca3af' }}
+                  >
+                    <option value="">Tipo de compra...</option>
+                    {TIPOS_COMPRA.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  <input
+                    value={row.notas}
+                    onChange={e => updateRow(idx, 'notas', e.target.value)}
+                    placeholder="Notas (opcional): proveedor, urgencia..."
+                    style={{ ...inputStyle, fontSize: '0.78rem', color: '#6b7280' }}
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -515,7 +561,7 @@ export default function PedidosCompraPage() {
         {!loading && items.length > 0 && (
           <div style={{ display: 'flex', gap: '0.4rem' }}>
             <button
-              onClick={handleGenerarPDF}
+              onClick={() => { setExportTipo(''); setExportModal('pdf'); }}
               style={{
                 padding: '0.42rem 0.9rem',
                 background: '#fff',
@@ -533,7 +579,7 @@ export default function PedidosCompraPage() {
               📄 PDF
             </button>
             <button
-              onClick={handleGenerarExcel}
+              onClick={() => { setExportTipo(''); setExportModal('excel'); }}
               style={{
                 padding: '0.42rem 0.9rem',
                 background: '#fff',
@@ -569,6 +615,55 @@ export default function PedidosCompraPage() {
               Mostrando los últimos {tab === 'recibido' ? 30 : 10} registros
             </div>
           )}
+        </div>
+      )}
+
+      {/* Export tipo modal */}
+      {exportModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', width: 380, maxWidth: '95vw', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+            <h3 style={{ margin: '0 0 0.25rem', fontSize: '1rem' }}>
+              {exportModal === 'pdf' ? '📄 Generar PDF' : '📊 Generar Excel'}
+            </h3>
+            <p style={{ margin: '0 0 1rem', fontSize: '0.8rem', color: '#6b7280' }}>¿Qué tipo de pedidos incluir?</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginBottom: '1.1rem', maxHeight: '55vh', overflowY: 'auto' }}>
+              {['', ...TIPOS_COMPRA].map(t => (
+                <button
+                  key={t || '__todos__'}
+                  onClick={() => setExportTipo(t)}
+                  style={{
+                    padding: '0.45rem 0.85rem',
+                    borderRadius: 7,
+                    border: exportTipo === t ? '2px solid #4f46e5' : '1.5px solid #e5e7eb',
+                    background: exportTipo === t ? '#ede9fe' : '#f9fafb',
+                    color: exportTipo === t ? '#4f46e5' : '#374151',
+                    fontWeight: exportTipo === t ? 700 : 500,
+                    fontSize: '0.83rem',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.1s',
+                  }}
+                >
+                  {t === '' ? '📋 Todos los tipos' : t}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button onClick={() => { setExportModal(null); setExportTipo(''); }} style={btnSecondary}>Cancelar</button>
+              <button
+                onClick={() => {
+                  const filter = exportTipo || null;
+                  if (exportModal === 'pdf') handleGenerarPDF(filter);
+                  else handleGenerarExcel(filter);
+                  setExportModal(null);
+                  setExportTipo('');
+                }}
+                style={btnPrimary}
+              >
+                {exportModal === 'pdf' ? '📄 Generar PDF' : '📊 Generar Excel'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
