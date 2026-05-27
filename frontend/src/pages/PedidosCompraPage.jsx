@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabaseClient';
 import { useAuth } from '../utils/useAuth';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 const TABS = [
   { key: 'solicitado', label: 'Solicitado',  color: '#2563eb' },
@@ -243,6 +244,37 @@ export default function PedidosCompraPage() {
     }
 
     doc.save(`pedidos_${tab}_${new Date().toISOString().slice(0,10)}.pdf`);
+  };
+
+  const handleGenerarExcel = () => {
+    const tabLabel = TABS.find(t => t.key === tab)?.label || tab;
+    const rows = items.map((it, i) => ({
+      '#':               i + 1,
+      'Ítem':            it.item,
+      'Cantidad':        it.cantidad,
+      'Sede':            it.sede || '—',
+      'Notas':           it.notas || '',
+      'Solicitado por':  it.solicitado_por || '—',
+      'Fecha solicitud': it.solicitado_at ? fmt(it.solicitado_at) : '—',
+      'Pedido por':      it.pedido_por || '',
+      'Fecha pedido':    it.pedido_at ? fmt(it.pedido_at) : '',
+      'Pagado por':      it.pagado_por || '',
+      'Fecha pago':      it.pagado_at ? fmt(it.pagado_at) : '',
+      'Recibido por':    it.recibido_por || '',
+      'Fecha recibo':    it.recibido_at ? fmt(it.recibido_at) : '',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    // Column widths
+    ws['!cols'] = [
+      { wch: 4 }, { wch: 32 }, { wch: 14 }, { wch: 16 }, { wch: 24 },
+      { wch: 18 }, { wch: 20 }, { wch: 18 }, { wch: 20 },
+      { wch: 18 }, { wch: 20 }, { wch: 18 }, { wch: 20 },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, tabLabel);
+    XLSX.writeFile(wb, `pedidos_${tab}_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   const tabItems = items;
@@ -498,24 +530,44 @@ export default function PedidosCompraPage() {
           ))}
         </div>
         {!loading && items.length > 0 && (
-          <button
-            onClick={handleGenerarPDF}
-            style={{
-              padding: '0.42rem 1rem',
-              background: '#fff',
-              border: '1.5px solid #d1d5db',
-              borderRadius: 8,
-              color: '#374151',
-              fontWeight: 600,
-              fontSize: '0.82rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-            }}
-          >
-            📄 Generar PDF
-          </button>
+          <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <button
+              onClick={handleGenerarPDF}
+              style={{
+                padding: '0.42rem 0.9rem',
+                background: '#fff',
+                border: '1.5px solid #d1d5db',
+                borderRadius: 8,
+                color: '#374151',
+                fontWeight: 600,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+              }}
+            >
+              📄 PDF
+            </button>
+            <button
+              onClick={handleGenerarExcel}
+              style={{
+                padding: '0.42rem 0.9rem',
+                background: '#fff',
+                border: '1.5px solid #d1d5db',
+                borderRadius: 8,
+                color: '#16a34a',
+                fontWeight: 600,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+              }}
+            >
+              📊 Excel
+            </button>
+          </div>
         )}
       </div>
 
