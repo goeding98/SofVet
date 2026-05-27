@@ -1824,7 +1824,7 @@ export default function PetDetailPage() {
         labId={editingLab?.id || null}
       />
 
-      <SolicitarLabModal isOpen={labSolModal} onClose={() => setLabSolModal(false)} onSave={handleSolicitarLab} pet={pet} />
+      <SolicitarLabModal isOpen={labSolModal} onClose={() => setLabSolModal(false)} onSave={handleSolicitarLab} pet={pet} defaultSedeId={activeHosp?.sede_id} />
 
       {/* Lab choice mini-modal */}
       {labChoiceOpen && (
@@ -1865,7 +1865,7 @@ export default function PetDetailPage() {
         isAdmin={isAdminUser}
       />
 
-      <SolicitarImagenModal isOpen={imgSolModal} onClose={() => setImgSolModal(false)} onSave={handleSolicitarImagen} pet={pet} />
+      <SolicitarImagenModal isOpen={imgSolModal} onClose={() => setImgSolModal(false)} onSave={handleSolicitarImagen} pet={pet} defaultSedeId={activeHosp?.sede_id} />
 
       <ImagenesResultModal
         isOpen={imgSubirModal}

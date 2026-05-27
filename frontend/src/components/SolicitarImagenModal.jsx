@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../utils/useAuth';
 import { useSede, SEDES } from '../utils/useSede';
 import { TIPOS_IMAGEN } from '../utils/imagenTypes';
@@ -7,7 +7,7 @@ import { nowDate, nowTime } from '../utils/nowLocal';
 const lSt = { display:'block', fontSize:'0.72rem', fontWeight:700, marginBottom:'0.3rem', textTransform:'uppercase', letterSpacing:'0.04em', color:'var(--color-text)' };
 const iSt = { width:'100%', padding:'0.55rem 0.75rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.875rem' };
 
-export default function SolicitarImagenModal({ isOpen, onClose, onSave, pet }) {
+export default function SolicitarImagenModal({ isOpen, onClose, onSave, pet, defaultSedeId }) {
   const { session } = useAuth();
   const { sedeActual, isAdmin } = useSede();
   const isDomicilio = session?.sede_id === 4;
@@ -15,11 +15,16 @@ export default function SolicitarImagenModal({ isOpen, onClose, onSave, pet }) {
   const [tipo,   setTipo]   = useState('Radiografía');
   const [otroTipo, setOtroTipo] = useState('');
   const [procesamiento, setProcesamiento] = useState('Interno');
-  const [sedeId, setSedeId] = useState(sedeActual || 1);
+  const [sedeId, setSedeId] = useState(defaultSedeId || sedeActual || 1);
+
+  // Re-sync sede when modal opens (hospitalization may load after component mount)
+  useEffect(() => {
+    if (isOpen) setSedeId(defaultSedeId || sedeActual || 1);
+  }, [isOpen, defaultSedeId]);
 
   if (!isOpen || !pet) return null;
 
-  const reset = () => { setTipo('Radiografía'); setOtroTipo(''); setProcesamiento('Interno'); setSedeId(sedeActual || 1); };
+  const reset = () => { setTipo('Radiografía'); setOtroTipo(''); setProcesamiento('Interno'); setSedeId(defaultSedeId || sedeActual || 1); };
   const handleClose = () => { reset(); onClose(); };
 
   const tipoFinal = tipo === 'Otro' ? (otroTipo.trim() || 'Otro') : tipo;
