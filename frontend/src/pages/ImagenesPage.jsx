@@ -362,6 +362,7 @@ export default function ImagenesPage() {
                     <th style={thSt}>Mascota</th>
                     <th style={thSt}>Tutor</th>
                     <th style={thSt}>Examen</th>
+                    <th style={thSt}>Solicitado por</th>
                     <th style={thSt}>Fecha reportado</th>
                     <th style={thSt}>Reportado por</th>
                     <th style={thSt}>Reporte</th>
@@ -378,6 +379,7 @@ export default function ImagenesPage() {
                         </td>
                         <td style={{ ...tdSt, fontSize:'0.8rem', color:'var(--color-text-muted)' }}>{getTutor(p.patient_id)}</td>
                         <td style={tdSt}>{p.tipo_examen}</td>
+                        <td style={{ ...tdSt, fontSize:'0.8rem', color:'var(--color-text-muted)' }}>{p.solicitado_por || <span style={{ fontStyle:'italic', fontSize:'0.72rem' }}>—</span>}</td>
                         <td style={{ ...tdSt, color:'#2e7d50', fontWeight:600 }}>{p.fecha_reportado || '—'}</td>
                         <td style={{ ...tdSt, color:'var(--color-text-muted)' }}>{p.reportado_por || '—'}</td>
                         <td style={{ ...tdSt, color:'var(--color-text-muted)', maxWidth:220 }}>
