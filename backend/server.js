@@ -26,6 +26,9 @@ app.use('/api/hospitalization', require('./routes/hospitalization'));
 app.use('/api/remissions', require('./routes/remissions'));
 app.use('/api/eps', require('./routes/eps'));
 
+// Siigo billing integration
+app.use('/api/siigo', require('./routes/siigo'));
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'SofVet API running', timestamp: new Date() });

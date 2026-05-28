@@ -30,6 +30,7 @@ import RemisionesPage from './pages/RemisionesPage';
 import PersonalPage from './pages/PersonalPage';
 import ImagenesPage from './pages/ImagenesPage';
 import PedidosCompraPage from './pages/PedidosCompraPage';
+import FacturacionPage   from './pages/FacturacionPage';
 
 function ProtectedLayout({ children }) {
   const { session } = useAuth();
@@ -100,6 +101,7 @@ function AppRoutes() {
           <Route path="/hc-requests"          element={<ProtectedLayout><HCRequestsPage /></ProtectedLayout>} />
           <Route path="/certificados-viaje"   element={<ProtectedLayout><CertificadosViajePage /></ProtectedLayout>} />
           <Route path="/pedidos-compra"        element={<ProtectedLayout><PedidosCompraPage /></ProtectedLayout>} />
+          <Route path="/facturacion"           element={<ProtectedLayout><FacturacionPage /></ProtectedLayout>} />
         </>
       )}
 
