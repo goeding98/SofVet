@@ -321,8 +321,8 @@ export default function PetDetailPage() {
           await _createFormulaAndLabs({ ...data, formula_productos, labs_pedidos: [] }, petId, pet);
         }
       }
-      // If completing an incomplete consult, also create labs
-      if (editingConsult.estado === 'incompleta') {
+      // Create any labs added during this edit
+      if (labs_pedidos && labs_pedidos.length > 0) {
         await _createFormulaAndLabs({ ...data, formula_productos: [], labs_pedidos }, petId, pet);
       }
     } else {
