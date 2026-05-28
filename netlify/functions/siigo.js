@@ -93,7 +93,12 @@ exports.handler = async (event) => {
   const method = event.httpMethod;
   const qs = event.queryStringParameters || {};
   let body = null;
-  if (event.body) { try { body = JSON.parse(event.body); } catch (_) {} }
+  if (event.body) {
+    try {
+      const raw = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body;
+      body = JSON.parse(raw);
+    } catch (_) {}
+  }
 
   try {
     let result;
@@ -121,7 +126,9 @@ exports.handler = async (event) => {
       result = await siigoFetch('GET', '/v1/payment-types');
 
     } else if (method === 'POST' && subPath === '/invoices') {
+      console.log('[siigo/invoices] body:', JSON.stringify(body));
       result = await siigoFetch('POST', '/v1/invoices', body);
+      console.log('[siigo/invoices] result:', JSON.stringify(result));
 
     } else {
       return json(404, { error: 'Ruta no encontrada' });
