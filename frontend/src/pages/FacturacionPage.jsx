@@ -154,6 +154,11 @@ function FacturacionFlow({ session }) {
     const updateItem = (i, field, val) => setItems(prev => prev.map((it, idx) => idx === i ? { ...it, [field]: val } : it));
 
     const handleEmitir = async () => {
+      if (!sellerId) {
+        setErrorMsg('Tu usuario no tiene vendedor asignado en Siigo. Contacta a administración.');
+        setStep('error');
+        return;
+      }
       setStep('confirming');
       try {
         let customer;
@@ -189,7 +194,7 @@ function FacturacionFlow({ session }) {
           date:         today(),
           customer,
           cost_center:  costCenter,
-          ...(sellerId ? { seller: { id: sellerId } } : {}),
+          seller:       { id: sellerId },
           observations: customerMode === 'final' ? 'Consumidor final' : `Cliente: ${sofvetClient?.name || cedula}`,
           items: items.map(it => ({
             code:        it.code,
