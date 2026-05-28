@@ -35,7 +35,7 @@ async function siigoFetch(method, path, body) {
   });
   const data = await res.json();
   if (!res.ok) {
-    const msg = data?.Errors?.[0]?.Message || data?.error || JSON.stringify(data);
+    const msg = JSON.stringify(data?.Errors || data?.error || data);
     return { status: res.status, data: { error: msg } };
   }
   return { status: res.status, data };
