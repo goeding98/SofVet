@@ -1,4 +1,5 @@
 const SIIGO_API = 'https://api.siigo.com';
+const PARTNER_ID = 'ClaudeAgent';
 
 let _token = null;
 let _expiry = 0;
@@ -9,7 +10,7 @@ async function getToken() {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Partner-ID': process.env.SIIGO_PARTNER_ID || 'SofVet',
+      'Partner-ID': PARTNER_ID,
     },
     body: JSON.stringify({
       username: process.env.SIIGO_USER,
@@ -33,7 +34,7 @@ async function siigoFetch(method, path, body) {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
-      'Partner-ID': process.env.SIIGO_PARTNER_ID || 'SofVet',
+      'Partner-ID': PARTNER_ID,
     },
     body: body ? JSON.stringify(body) : undefined,
   });
