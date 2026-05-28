@@ -8,8 +8,24 @@ const ALLOWED = ['goeding'];
 const DOC_FACTURA      = 26273;
 const CONSUMIDOR_FINAL = { identification: '222222222222', branch_office: 0 };
 
-// Pendiente confirmar con contadora — mapeo sede_id → cost_center_id Siigo
-const COST_CENTER = { 1: 917, 2: 863, 3: 865, 4: 863 };
+// sede_id → cost_center_id Siigo (863=CJ, 865=Colseguros, 917=SM no activo)
+const COST_CENTER = { 1: 917, 2: 865, 3: 863, 4: 865 };
+
+// username SofVet → seller id Siigo
+const SELLER_MAP = {
+  elabrada:      969,
+  emartinez:     971,
+  mpabon:        970,
+  mturnos:       949,
+  jjhernandez:   961,
+  mnader:        952,
+  msalazar:      948,
+  goeding:       947,
+  mgaviria:      968,
+  sruiz:         964,
+  ccolseguros:   972,
+  cciudadjardin: 966,
+};
 
 const PAYMENT_METHODS = [
   { id: 10962, label: 'Efectivo' },
@@ -49,7 +65,8 @@ function FacturacionFlow({ session }) {
   const [catalogError,   setCatalogError]   = useState('');
 
   const sedeId     = session?.sede_id || 2;
-  const costCenter = COST_CENTER[sedeId] || 863;
+  const costCenter = COST_CENTER[sedeId] || 865;
+  const sellerId   = SELLER_MAP[session?.username] || null;
 
   const loadCatalog = async () => {
     if (catalog || catalogLoading) return;
@@ -172,6 +189,7 @@ function FacturacionFlow({ session }) {
           date:         today(),
           customer,
           cost_center:  costCenter,
+          ...(sellerId ? { seller: { id: sellerId } } : {}),
           observations: customerMode === 'final' ? 'Consumidor final' : `Cliente: ${sofvetClient?.name || cedula}`,
           items: items.map(it => ({
             code:        it.code,
