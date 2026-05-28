@@ -1,0 +1,18 @@
+[build]
+  command = "cd frontend && npm run build"
+  publish = "frontend/dist"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from   = "/api/siigo/*"
+  to     = "/.netlify/functions/siigo/:splat"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
