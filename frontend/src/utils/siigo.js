@@ -15,6 +15,7 @@ export const siigo = {
   searchCustomer:  (id)    => req('GET',  `/customers/${encodeURIComponent(id)}`),
   createCustomer:  (body)  => req('POST', '/customers', body),
   getProducts:     (params = {}) => req('GET', `/products?${new URLSearchParams(params)}`),
+  getAllProducts:   ()           => req('GET', '/products?all=true'),
   getDocumentTypes:()      => req('GET',  '/document-types'),
   getPaymentTypes: ()      => req('GET',  '/payment-types'),
   createInvoice:   (body)  => req('POST', '/invoices', body),
