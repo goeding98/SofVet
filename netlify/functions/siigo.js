@@ -35,7 +35,7 @@ async function siigoFetch(method, path, body) {
   });
   const data = await res.json();
   if (!res.ok) {
-    const msg = JSON.stringify(data?.Errors || data?.error || data);
+    const msg = data?.Errors?.[0]?.Message || data?.error || JSON.stringify(data);
     return { status: res.status, data: { error: msg } };
   }
   return { status: res.status, data };
@@ -126,8 +126,6 @@ exports.handler = async (event) => {
       result = await siigoFetch('GET', '/v1/payment-types');
 
     } else if (method === 'POST' && subPath === '/invoices') {
-      return json(200, { DEBUG: true, body_received: body });
-      // eslint-disable-next-line no-unreachable
       result = await siigoFetch('POST', '/v1/invoices', body);
 
     } else {

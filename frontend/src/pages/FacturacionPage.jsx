@@ -194,7 +194,7 @@ function FacturacionFlow({ session }) {
           date:         today(),
           customer,
           cost_center:  costCenter,
-          seller:       { id: sellerId },
+          seller:       sellerId,
           observations: customerMode === 'final' ? 'Consumidor final' : `Cliente: ${sofvetClient?.name || cedula}`,
           items: items.map(it => ({
             code:        it.code,
