@@ -126,12 +126,9 @@ exports.handler = async (event) => {
       result = await siigoFetch('GET', '/v1/payment-types');
 
     } else if (method === 'POST' && subPath === '/invoices') {
-      console.log('[siigo/invoices] body:', JSON.stringify(body));
-      if (!body?.seller) {
-        return json(400, { error: `DEBUG seller_missing. body_keys=${Object.keys(body||{}).join(',')} seller=${JSON.stringify(body?.seller)}` });
-      }
+      return json(200, { DEBUG: true, body_received: body });
+      // eslint-disable-next-line no-unreachable
       result = await siigoFetch('POST', '/v1/invoices', body);
-      console.log('[siigo/invoices] result:', JSON.stringify(result));
 
     } else {
       return json(404, { error: 'Ruta no encontrada' });
