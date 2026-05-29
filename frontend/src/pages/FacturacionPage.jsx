@@ -141,17 +141,33 @@ function FacturacionFlow({ session }) {
     const total     = items.reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
     const canSubmit = items.length > 0 && items.every(it => it.desc.trim() && Number(it.qty) > 0 && Number(it.price) > 0);
 
-    const addItem    = (product) => setItems(prev => [...prev, {
-      code:    product.code,
-      desc:    product.name,
-      qty:     1,
-      price:   product.price || '',
-      tax_id:  product.tax_id,
-      tax_pct: product.tax_pct,
-    }]);
+    const calcIva = (price, tax_pct) => {
+      const p = Number(price) || 0;
+      const t = Number(tax_pct) || 0;
+      return t > 0 ? Math.round(p * t / (100 + t)) : 0;
+    };
+
+    const addItem = (product) => {
+      const price   = product.price || 0;
+      const tax_pct = product.tax_pct || 0;
+      setItems(prev => [...prev, {
+        code:    product.code,
+        desc:    product.name,
+        qty:     1,
+        price,
+        tax_id:  product.tax_id,
+        tax_pct,
+        iva_amt: calcIva(price, tax_pct),
+      }]);
+    };
 
     const removeItem = (i) => setItems(prev => prev.filter((_, idx) => idx !== i));
-    const updateItem = (i, field, val) => setItems(prev => prev.map((it, idx) => idx === i ? { ...it, [field]: val } : it));
+    const updateItem = (i, field, val) => setItems(prev => prev.map((it, idx) => {
+      if (idx !== i) return it;
+      const updated = { ...it, [field]: val };
+      if (field === 'price') updated.iva_amt = calcIva(val, it.tax_pct);
+      return updated;
+    }));
 
     const handleEmitir = async () => {
       if (!sellerId) {
@@ -200,7 +216,7 @@ function FacturacionFlow({ session }) {
             code:        it.code,
             description: it.desc.trim(),
             quantity:    Number(it.qty),
-            price:       Number(it.price),
+            price:       Number(it.price) - (Number(it.iva_amt) || 0),  // base price (before IVA)
             discount:    0,
             taxes:       it.tax_id ? [{ id: it.tax_id }] : [],
           })),
@@ -232,16 +248,20 @@ function FacturacionFlow({ session }) {
         {/* Items list */}
         {items.length > 0 && (
           <Section title={`Factura (${items.length} ítem${items.length !== 1 ? 's' : ''})`}>
+            {/* Column headers */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 120px 90px 24px', gap: '0.5rem', marginBottom: '0.3rem' }}>
+              {['Descripción', 'Cant.', 'Precio c/IVA', 'IVA', ''].map((h, i) => (
+                <span key={i} style={{ fontSize: '0.65rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: i === 1 ? 'center' : i >= 2 ? 'right' : 'left' }}>{h}</span>
+              ))}
+            </div>
             {items.map((it, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 130px auto', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
-                <div>
-                  <input
-                    value={it.desc}
-                    onChange={e => updateItem(i, 'desc', e.target.value)}
-                    style={inputStyle}
-                    placeholder="Descripción"
-                  />
-                </div>
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 120px 90px 24px', gap: '0.5rem', marginBottom: '0.45rem', alignItems: 'center' }}>
+                <input
+                  value={it.desc}
+                  onChange={e => updateItem(i, 'desc', e.target.value)}
+                  style={inputStyle}
+                  placeholder="Descripción"
+                />
                 <input
                   type="number" min="1" value={it.qty}
                   onChange={e => updateItem(i, 'qty', e.target.value)}
@@ -254,11 +274,19 @@ function FacturacionFlow({ session }) {
                   style={{ ...inputStyle, textAlign: 'right' }}
                   placeholder="Precio"
                 />
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <span style={{ fontSize: '0.7rem', color: '#9ca3af', whiteSpace: 'nowrap' }}>IVA {it.tax_pct}%</span>
-                  <button onClick={() => removeItem(i)}
-                    style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '1rem', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}>✕</button>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="number" min="0" value={it.iva_amt ?? ''}
+                    onChange={e => updateItem(i, 'iva_amt', e.target.value)}
+                    style={{ ...inputStyle, textAlign: 'right', paddingRight: '1.6rem', color: it.tax_pct > 0 ? '#374151' : '#9ca3af' }}
+                    placeholder="0"
+                  />
+                  <span style={{ position: 'absolute', right: '0.35rem', top: '50%', transform: 'translateY(-50%)', fontSize: '0.6rem', color: '#9ca3af', pointerEvents: 'none' }}>
+                    {it.tax_pct}%
+                  </span>
                 </div>
+                <button onClick={() => removeItem(i)}
+                  style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '1rem', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}>✕</button>
               </div>
             ))}
             <div style={{ textAlign: 'right', fontWeight: 700, fontSize: '1rem', color: 'var(--color-primary)', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid #f3f4f6' }}>
