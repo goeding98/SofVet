@@ -61,14 +61,21 @@ export default function PatientsPage() {
   const clientDocMap = {};
   clients.forEach(c => { clientDocMap[c.id] = c.document || ''; });
 
-  const filtered = patients.filter(p => {
-    const matchNombre   = !searchNombre   || (p.name || '').toLowerCase().includes(searchNombre.toLowerCase()) || (p.owner || '').toLowerCase().includes(searchNombre.toLowerCase());
-    const matchHC       = !searchHC       || (p.no_historia || '').includes(searchHC);
-    const matchCedula   = !searchCedula   || (clientDocMap[p.client_id] || '').includes(searchCedula);
-    const matchTelefono = !searchTelefono || (p.owner_phone || '').includes(searchTelefono);
-    const matchClient   = !filterClient   || p.client_id === parseInt(filterClient);
-    return matchNombre && matchHC && matchCedula && matchTelefono && matchClient;
-  });
+  const filtered = patients
+    .filter(p => {
+      const matchNombre   = !searchNombre   || (p.name || '').toLowerCase().includes(searchNombre.toLowerCase()) || (p.owner || '').toLowerCase().includes(searchNombre.toLowerCase());
+      const matchHC       = !searchHC       || (p.no_historia || '').includes(searchHC);
+      const matchCedula   = !searchCedula   || (clientDocMap[p.client_id] || '').includes(searchCedula);
+      const matchTelefono = !searchTelefono || (p.owner_phone || '').includes(searchTelefono);
+      const matchClient   = !filterClient   || p.client_id === parseInt(filterClient);
+      return matchNombre && matchHC && matchCedula && matchTelefono && matchClient;
+    })
+    .sort((a, b) => {
+      if (!a.last_attention_date && !b.last_attention_date) return 0;
+      if (!a.last_attention_date) return 1;
+      if (!b.last_attention_date) return -1;
+      return b.last_attention_date.localeCompare(a.last_attention_date);
+    });
 
   const openAdd = () => {
     if (clients.length === 0) {
@@ -166,6 +173,11 @@ export default function PatientsPage() {
       </div>
     )},
     { key: 'status', label: 'Estado', render: v => badge(v) },
+    { key: 'last_attention_date', label: 'Última atención', render: v => (
+      <span style={{ fontSize: '0.78rem', color: v ? 'var(--color-text)' : 'var(--color-text-muted)' }}>
+        {v || '—'}
+      </span>
+    )},
   ];
 
   // Input helper
