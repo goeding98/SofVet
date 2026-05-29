@@ -209,7 +209,7 @@ export default function HospitalizationPage() {
 
   // ── derived ─────────────────────────────────────────────────────────────
   const activos         = hosps.filter(h => h.status === 'activo' && (hospSedeFilter === null || h.sede_id === hospSedeFilter));
-  const activosCompleta = activos.filter(h => h.tipo !== 'semi');
+  const activosCompleta = activos.filter(h => h.tipo !== 'semi').sort((a, b) => (b.viral ? 1 : 0) - (a.viral ? 1 : 0));
   const activosSemi     = activos.filter(h => h.tipo === 'semi');
   const noCobradas = hosps.filter(h => h.status === 'no_cobrada' && (hospSedeFilter === null || h.sede_id === hospSedeFilter)).slice(-20).reverse();
   const selected    = hosps.find(h => h.id === selectedId);
@@ -537,14 +537,17 @@ export default function HospitalizationPage() {
                   {activosCompleta.map((h, idx) => (
                     <tr
                       key={h.id}
-                      style={{ borderBottom: '1px solid var(--color-border)', background: selectedId === h.id ? 'rgba(49,109,116,0.05)' : idx % 2 === 0 ? 'transparent' : 'rgba(49,109,116,0.02)', cursor: 'pointer' }}
+                      style={{ borderBottom: '1px solid var(--color-border)', background: selectedId === h.id ? 'rgba(49,109,116,0.05)' : h.viral ? '#fff5f5' : idx % 2 === 0 ? 'transparent' : 'rgba(49,109,116,0.02)', cursor: 'pointer' }}
                       onClick={() => setSelectedId(selectedId === h.id ? null : h.id)}
                     >
                       <td style={{ padding: '0.85rem 1rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <span style={{ fontSize: '1.3rem' }}>{speciesIcon(h.species)}</span>
                           <div>
-                            <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{h.patient_name}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <span style={{ fontWeight: 700, fontSize: '0.875rem', color: h.viral ? '#dc2626' : 'inherit' }}>{h.patient_name}</span>
+                              {h.viral && <span style={{ fontSize: '0.65rem', fontWeight: 700, background: '#dc2626', color: '#fff', padding: '1px 6px', borderRadius: 999 }}>VIRAL</span>}
+                            </div>
                             <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{h.species}{h.breed ? ` · ${h.breed}` : ''}</div>
                           </div>
                         </div>

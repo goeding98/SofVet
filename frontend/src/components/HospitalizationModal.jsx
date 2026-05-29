@@ -24,6 +24,7 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
   const [diagnostico, setDiagnostico] = useState('');
   const [meds,        setMeds]        = useState([{ ...EMPTY_MED }]);
   const [sedeId,      setSedeId]      = useState(sedeActual || 1);
+  const [viral,       setViral]       = useState(false);
   const [error,       setError]       = useState('');
 
   useEffect(() => {
@@ -33,8 +34,9 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
         setDiagnostico(initialData.diagnostico || '');
         setMeds(initialData.tratamiento?.length ? initialData.tratamiento : [{ ...EMPTY_MED }]);
         setSedeId(initialData.sede_id || sedeActual || 1);
+        setViral(initialData.viral || false);
       } else {
-        setMotivo(''); setDiagnostico(''); setMeds([{ ...EMPTY_MED }]); setSedeId(sedeActual || 1);
+        setMotivo(''); setDiagnostico(''); setMeds([{ ...EMPTY_MED }]); setSedeId(sedeActual || 1); setViral(false);
       }
       setError('');
     }
@@ -62,6 +64,7 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
         diagnostico,
         tratamiento:   meds.filter(m => m.medicamento.trim()),
         sede_id:       sedeId,
+        ...(tipo !== 'semi' ? { viral } : {}),
         editado_por:   session?.nombre || null,
         hora_edicion:  nowTime(),
         fecha_edicion: nowDate(),
@@ -91,6 +94,7 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
       status:          'activo',
       aplicaciones:    [],
       tipo,
+      ...(tipo !== 'semi' ? { viral } : {}),
     });
 
     editPatient(pet.id, { status: 'hospitalizado' });
@@ -161,6 +165,31 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
               style={{ width: '100%', padding: '0.6rem 0.75rem', resize: 'vertical', fontFamily: 'var(--font-body)', fontSize: '0.875rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}
             />
           </div>
+
+          {/* Viral — solo hospitalización completa */}
+          {tipo !== 'semi' && (
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={viral}
+                  onChange={e => setViral(e.target.checked)}
+                  style={{ width: 18, height: 18, accentColor: '#dc2626', cursor: 'pointer' }}
+                />
+                <span style={{ fontWeight: 700, fontSize: '0.875rem', color: viral ? '#dc2626' : 'var(--color-text)' }}>
+                  🦠 Paciente viral
+                </span>
+                {viral && (
+                  <span style={{ fontSize: '0.75rem', color: '#dc2626', background: '#fee2e2', padding: '2px 8px', borderRadius: 999, fontWeight: 600 }}>
+                    VIRAL
+                  </span>
+                )}
+              </label>
+              <p style={{ margin: '0.3rem 0 0 1.6rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                Aparecerá en rojo y primero en la lista de hospitalizados.
+              </p>
+            </div>
+          )}
 
           {/* Tratamiento table */}
           <div style={{ marginBottom: '1.25rem' }}>
