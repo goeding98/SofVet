@@ -176,12 +176,17 @@ function FacturacionFlow({ session }) {
           const clean = cedula.trim();
           const search = await siigo.searchCustomer(clean);
           if ((search.results || []).length > 0) {
-            customer = { identification: clean, branch_office: 0 };
+            const found = search.results[0];
+            customer = {
+              id:             found.id,
+              identification: clean,
+              branch_office:  0,
+            };
           } else {
             const nameParts = (sofvetClient?.name || 'Cliente SofVet').trim().split(' ');
             const lastName  = nameParts.length > 1 ? nameParts.slice(1).join(' ') : nameParts[0];
             const firstName = nameParts[0];
-            await siigo.createCustomer({
+            const created = await siigo.createCustomer({
               type: 'Customer', person_type: 'Person',
               id_type: { code: '13' },
               identification: clean,
@@ -193,7 +198,11 @@ function FacturacionFlow({ session }) {
                 phone: { number: (sofvetClient?.phone || '').replace(/\D/g, '').slice(0, 10) || '0000000000' },
               }],
             });
-            customer = { identification: clean, branch_office: 0 };
+            customer = {
+              id:             created.id,
+              identification: clean,
+              branch_office:  0,
+            };
           }
         }
 
