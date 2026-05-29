@@ -5,7 +5,7 @@ import { useAuth } from '../utils/useAuth';
 import { nowDate, nowTime } from '../utils/nowLocal';
 
 const VACUNAS = {
-  Perro: ['Puppy Virbac', 'Quíntuple', 'Séxtuple', 'Anti-rabia', 'KC'],
+  Perro: ['Puppy Virbac', 'Quíntuple', 'Séxtuple', 'Anti-rabia', 'Tos de Perreras'],
   Gato:  ['Triple Felina', 'Leucemia', 'Anti-rabia'],
 };
 
