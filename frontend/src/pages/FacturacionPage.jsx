@@ -203,6 +203,7 @@ function FacturacionFlow({ session }) {
           customer,
           cost_center:  costCenter,
           seller:       sellerId,
+          stamp:        { send: true },  // enviar a DIAN al crear
           observations: customerMode === 'final' ? 'Consumidor final' : `Cliente: ${sofvetClient?.name || cedula}`,
           items: items.map(it => {
             const tax = Number(it.tax_pct) || 0;
