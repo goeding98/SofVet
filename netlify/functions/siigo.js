@@ -127,6 +127,9 @@ exports.handler = async (event) => {
 
     } else if (method === 'POST' && subPath === '/invoices') {
       console.log('[siigo/invoices] body:', JSON.stringify(body));
+      if (!body?.seller) {
+        return json(400, { error: `DEBUG seller_missing. body_keys=${Object.keys(body||{}).join(',')} seller=${JSON.stringify(body?.seller)}` });
+      }
       result = await siigoFetch('POST', '/v1/invoices', body);
       console.log('[siigo/invoices] result:', JSON.stringify(result));
 
