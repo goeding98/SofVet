@@ -721,6 +721,29 @@ export default function HospitalizationPage() {
                 </div>
                 <InfoBlock label="Motivo"      value={selected.motivo} />
                 <InfoBlock label="Diagnóstico" value={selected.diagnostico} />
+
+                {/* Toggle viral — solo hospitalización completa */}
+                {selected.tipo !== 'semi' && isMedico && selected.status === 'activo' && (
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginTop: '0.5rem', userSelect: 'none' }}>
+                    <input
+                      type="checkbox"
+                      checked={!!selected.viral}
+                      onChange={e => editHosp(selected.id, { viral: e.target.checked })}
+                      style={{ width: 16, height: 16, accentColor: '#dc2626', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: selected.viral ? '#dc2626' : 'var(--color-text-muted)' }}>
+                      🦠 Paciente viral
+                    </span>
+                    {selected.viral && (
+                      <span style={{ fontSize: '0.65rem', fontWeight: 700, background: '#dc2626', color: '#fff', padding: '1px 6px', borderRadius: 999 }}>VIRAL</span>
+                    )}
+                  </label>
+                )}
+                {selected.tipo !== 'semi' && !isMedico && selected.viral && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, background: '#dc2626', color: '#fff', padding: '2px 8px', borderRadius: 999 }}>🦠 VIRAL</span>
+                  </div>
+                )}
               </div>
 
               {/* Plan de tratamiento */}
