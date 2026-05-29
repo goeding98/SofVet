@@ -212,14 +212,20 @@ function FacturacionFlow({ session }) {
           cost_center:  costCenter,
           seller:       sellerId,
           observations: customerMode === 'final' ? 'Consumidor final' : `Cliente: ${sofvetClient?.name || cedula}`,
-          items: items.map(it => ({
-            code:        it.code,
-            description: it.desc.trim(),
-            quantity:    Number(it.qty),
-            price:       Number(it.price) - (Number(it.iva_amt) || 0),  // base price (before IVA)
-            discount:    0,
-            taxes:       it.tax_id ? [{ id: it.tax_id }] : [],
-          })),
+          items: items.map(it => {
+            const tax = Number(it.tax_pct) || 0;
+            const basePrice = tax > 0
+              ? Number(it.price) / (1 + tax / 100)  // exact division — Siigo adds tax on top
+              : Number(it.price);
+            return {
+              code:        it.code,
+              description: it.desc.trim(),
+              quantity:    Number(it.qty),
+              price:       basePrice,
+              discount:    0,
+              taxes:       it.tax_id ? [{ id: it.tax_id }] : [],
+            };
+          }),
           payments: [{ id: payment, value: total, due_date: today() }],
         };
 
