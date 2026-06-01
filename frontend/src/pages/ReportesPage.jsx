@@ -87,13 +87,15 @@ function computeDayData(items, dateField, start, end, sedeFilter) {
   return map;
 }
 
-// Returns { [YYYY-MM]: { total, bySede: { sedeId: count } } } — only 2026 up to current month
+// Returns { [YYYY-MM]: { total, bySede: { sedeId: count } } } — only 2026 up to today
 function computeMonthData(items, dateField, sedeFilter) {
+  const today = todayStr();
   const map = {};
   for (const item of items) {
     if (sedeFilter && item.sede_id !== sedeFilter) continue;
     const dateStr = (item[dateField] || '').slice(0, 10);
     if (!dateStr || !dateStr.startsWith('2026-')) continue;
+    if (dateStr > today) continue; // excluir fechas futuras (citas agendadas)
     const month = dateStr.slice(0, 7);
     if (!MONTHS_2026.includes(month)) continue;
     if (!map[month]) map[month] = { total: 0, bySede: {} };
