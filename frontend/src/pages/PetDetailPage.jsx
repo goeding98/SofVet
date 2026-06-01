@@ -51,7 +51,7 @@ export default function PetDetailPage() {
   const { items: procedimientos, add: addProcedimiento, edit: editProcedimiento } = useStore('procedimientos');
   const { items: laboratorios, add: addLaboratorio, edit: editLaboratorio } = useStore('laboratorios');
   const { items: hospReports, add: addHospReport, edit: editHospReport, remove: removeHospReport } = useStore('hospitalization_reports');
-  const { items: hospitalization }                     = useStore('hospitalization');
+  const { items: hospitalization, edit: editHosp }     = useStore('hospitalization');
   const { items: signedDocs }  = useStore('signedDocuments');
   const { items: labPedidos, edit: editLabPedido, add: addLabPedido } = useStore('laboratorios_pedidos');
   const { items: notasClincias, add: addNota, edit: editNota, remove: removeNota } = useStore('notas_clinicas');
@@ -385,14 +385,36 @@ export default function PetDetailPage() {
     closeConsultModal();
   };
 
+  const addToConsumo = (hosp, descripcion) => {
+    const newItem = {
+      id:             Date.now(),
+      descripcion,
+      cantidad:       '1',
+      fecha:          nowDate(),
+      hora:           nowTime(),
+      registrado_por: session?.nombre || 'Sistema',
+    };
+    editHosp(hosp.id, { consumo: [...(hosp.consumo || []), newItem] });
+  };
+
   const handleSolicitarLab = async (data) => {
     await addLabPedido({ ...data, patient_id: petId });
     setLabSolModal(false);
+    if (activeHosp && window.confirm(
+      `${pet.name} está hospitalizado/a.\n¿Agregar "${data.tipo_examen}" a la hoja de consumo?`
+    )) {
+      addToConsumo(activeHosp, `Lab: ${data.tipo_examen}`);
+    }
   };
 
   const handleSolicitarImagen = async (data) => {
     await addImagenPedido({ ...data, patient_id: petId });
     setImgSolModal(false);
+    if (activeHosp && window.confirm(
+      `${pet.name} está hospitalizado/a.\n¿Agregar "${data.tipo_examen}" a la hoja de consumo?`
+    )) {
+      addToConsumo(activeHosp, `Imagen: ${data.tipo_examen}`);
+    }
   };
 
   const handleSaveImagenResult = async (data) => {
