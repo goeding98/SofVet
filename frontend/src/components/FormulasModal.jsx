@@ -129,8 +129,9 @@ const EMPTY_PROD = { producto: '', cantidad: '', instrucciones: '' };
 
 // ── main component ────────────────────────────────────────────────────────────
 export default function FormulasModal({ isOpen, onClose, pet, client, formulas }) {
-  const { add: addFormula, edit: editFormula } = useStore('formulas_medicas');
+  const { add: addFormula, edit: editFormula, remove: removeFormula } = useStore('formulas_medicas');
   const { session } = useAuth();
+  const isAdmin = session?.rol === 'Administrador';
 
   const [showCreate, setShowCreate] = useState(false);
   const [editingFormula, setEditingFormula] = useState(null); // null = crear, obj = editar
@@ -350,6 +351,14 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
                     >
                       ⬇️ Descargar PDF
                     </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => { if (confirm(`¿Eliminar esta fórmula del ${f.fecha || ''}?`)) removeFormula(f.id); }}
+                        style={{ padding:'0.35rem 0.8rem', background:'rgba(220,38,38,0.25)', color:'#fff', border:'1px solid rgba(255,100,100,0.5)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.75rem', fontWeight:600, backdropFilter:'blur(4px)' }}
+                      >
+                        🗑️ Eliminar
+                      </button>
+                    )}
                   </div>
                 </div>
 
