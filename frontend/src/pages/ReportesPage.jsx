@@ -30,6 +30,17 @@ const PERIODOS = [
   { key: 'rango',  label: 'Personalizado' },
 ];
 
+const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+// Months of 2026 up to current month (computed once at module load)
+const _nowForMonths = new Date();
+const _curMonth = _nowForMonths.getFullYear() === 2026
+  ? _nowForMonths.getMonth() + 1
+  : _nowForMonths.getFullYear() < 2026 ? 0 : 12;
+const MONTHS_2026 = Array.from({ length: _curMonth }, (_, i) =>
+  `2026-${String(i + 1).padStart(2, '0')}`
+);
+
 // ── Date helpers ──────────────────────────────────────────────────────────────
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 
@@ -76,8 +87,25 @@ function computeDayData(items, dateField, start, end, sedeFilter) {
   return map;
 }
 
+// Returns { [YYYY-MM]: { total, bySede: { sedeId: count } } } — only 2026 up to current month
+function computeMonthData(items, dateField, sedeFilter) {
+  const map = {};
+  for (const item of items) {
+    if (sedeFilter && item.sede_id !== sedeFilter) continue;
+    const dateStr = (item[dateField] || '').slice(0, 10);
+    if (!dateStr || !dateStr.startsWith('2026-')) continue;
+    const month = dateStr.slice(0, 7);
+    if (!MONTHS_2026.includes(month)) continue;
+    if (!map[month]) map[month] = { total: 0, bySede: {} };
+    map[month].total++;
+    const s = item.sede_id != null ? item.sede_id : 0;
+    map[month].bySede[s] = (map[month].bySede[s] || 0) + 1;
+  }
+  return map;
+}
+
 // ── SVG Bar Chart ─────────────────────────────────────────────────────────────
-function BarChart({ days, activeMetrics, data, sedeFilter }) {
+function BarChart({ days, activeMetrics, data, sedeFilter, labelFn }) {
   const PAD_L = 38, PAD_B = 32, PAD_T = 12, H = 270;
   const BAR_W = Math.max(6, Math.min(22, Math.floor(580 / days.length / activeMetrics.length) - 2));
   const GROUP_W = activeMetrics.length * (BAR_W + 2) + 10;
@@ -98,7 +126,6 @@ function BarChart({ days, activeMetrics, data, sedeFilter }) {
   return (
     <div style={{ overflowX: 'auto', marginTop: '0.5rem' }}>
       <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ display: 'block' }}>
-        {/* Gridlines + Y labels */}
         {yTicks.map(v => {
           const y = PAD_T + chartH - (v / maxVal) * chartH;
           return (
@@ -109,7 +136,6 @@ function BarChart({ days, activeMetrics, data, sedeFilter }) {
           );
         })}
 
-        {/* Bars */}
         {days.map((day, di) => {
           const centerX = PAD_L + di * GROUP_W + GROUP_W / 2;
           const offsetStart = -(activeMetrics.length * (BAR_W + 2)) / 2 + 1;
@@ -137,7 +163,6 @@ function BarChart({ days, activeMetrics, data, sedeFilter }) {
                     return { segY, segH, color: sede.color, cnt };
                   }).filter(Boolean);
 
-                  // If no sede data at all, fall back to metric color
                   if (segments.length === 0) {
                     const bH = Math.max(1, (total / maxVal) * chartH);
                     const bY = baseY - bH;
@@ -178,18 +203,111 @@ function BarChart({ days, activeMetrics, data, sedeFilter }) {
                 }
               })}
 
-              {/* X-axis label */}
               <text x={centerX} y={H - PAD_B + 14} textAnchor="middle" fontSize={9} fill="#6b7280">
-                {dayLabel(day, days.length)}
+                {labelFn ? labelFn(day) : dayLabel(day, days.length)}
               </text>
             </g>
           );
         })}
 
-        {/* Axes */}
         <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={PAD_T + chartH} stroke="#d1d5db" strokeWidth={1} />
         <line x1={PAD_L} y1={PAD_T + chartH} x2={W - 10} y2={PAD_T + chartH} stroke="#d1d5db" strokeWidth={1} />
       </svg>
+    </div>
+  );
+}
+
+// ── Shared: sede breakdown table ──────────────────────────────────────────────
+function SedeBreakdownTable({ breakdown, activeMlist }) {
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+        <thead>
+          <tr style={{ borderBottom: '2px solid #f0f0f0' }}>
+            <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem', color: '#6b7280', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase' }}>Sede</th>
+            {activeMlist.map(m => (
+              <th key={m.key} style={{ textAlign: 'center', padding: '0.5rem 0.75rem', color: m.color, fontWeight: 700, fontSize: '0.75rem' }}>
+                {m.icon} {m.label}
+              </th>
+            ))}
+            <th style={{ textAlign: 'center', padding: '0.5rem 0.75rem', color: '#374151', fontWeight: 700, fontSize: '0.75rem' }}>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {SEDES.map(s => {
+            const row = breakdown[s.id] || {};
+            const rowTotal = activeMlist.reduce((sum, m) => sum + (row[m.key] || 0), 0);
+            if (!rowTotal) return null;
+            return (
+              <tr key={s.id} style={{ borderBottom: '1px solid #f9f9f9' }}>
+                <td style={{ padding: '0.55rem 0.75rem', fontWeight: 600 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 3, background: s.color, flexShrink: 0 }} />
+                    {s.nombre}
+                  </div>
+                </td>
+                {activeMlist.map(m => (
+                  <td key={m.key} style={{ textAlign: 'center', padding: '0.55rem 0.75rem', color: row[m.key] ? m.color : '#d1d5db', fontWeight: row[m.key] ? 700 : 400 }}>
+                    {row[m.key] || '—'}
+                  </td>
+                ))}
+                <td style={{ textAlign: 'center', padding: '0.55rem 0.75rem', fontWeight: 800, color: '#111' }}>{rowTotal}</td>
+              </tr>
+            );
+          })}
+          {(() => {
+            const row = breakdown[0] || {};
+            const rowTotal = activeMlist.reduce((sum, m) => sum + (row[m.key] || 0), 0);
+            if (!rowTotal) return null;
+            return (
+              <tr key="sin-sede">
+                <td style={{ padding: '0.55rem 0.75rem', color: '#9ca3af', fontWeight: 600 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 3, background: '#d1d5db', flexShrink: 0 }} />
+                    Sin sede
+                  </div>
+                </td>
+                {activeMlist.map(m => (
+                  <td key={m.key} style={{ textAlign: 'center', padding: '0.55rem 0.75rem', color: '#9ca3af' }}>
+                    {row[m.key] || '—'}
+                  </td>
+                ))}
+                <td style={{ textAlign: 'center', padding: '0.55rem 0.75rem', fontWeight: 700, color: '#9ca3af' }}>{rowTotal}</td>
+              </tr>
+            );
+          })()}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── Shared: chart legend ──────────────────────────────────────────────────────
+function ChartLegend({ sedeFilter, activeMlist }) {
+  if (!sedeFilter) {
+    return (
+      <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.75rem' }}>
+        {SEDES.map(s => (
+          <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: '#374151' }}>
+            <div style={{ width: 12, height: 12, borderRadius: 2, background: s.color }} />
+            {s.nombre}
+          </div>
+        ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: '#9ca3af' }}>
+          <div style={{ width: 12, height: 12, borderRadius: 2, background: '#d1d5db' }} />
+          Sin sede
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.75rem' }}>
+      {activeMlist.map(m => (
+        <div key={m.key} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: '#374151' }}>
+          <div style={{ width: 12, height: 12, borderRadius: 2, background: m.color }} />
+          {m.icon} {m.label}
+        </div>
+      ))}
     </div>
   );
 }
@@ -224,6 +342,7 @@ export default function ReportesPage() {
 
   const { start, end, days } = useMemo(() => getRange(periodo, desde, hasta), [periodo, desde, hasta]);
 
+  // ── Daily data ──────────────────────────────────────────────────────────────
   const data = useMemo(() => {
     const result = {};
     for (const m of METRICS) {
@@ -241,23 +360,27 @@ export default function ReportesPage() {
     return t;
   }, [data]);
 
-  // Per-sede totals for the breakdown table (only when "Todas")
-  const sedeBreakdown = useMemo(() => {
-    if (sedeFilter) return null;
+  const sedeBreakdown = useMemo(() => buildSedeBreakdown(data, activeMetrics, sedeFilter), [data, activeMetrics, sedeFilter]);
+
+  // ── Monthly data ────────────────────────────────────────────────────────────
+  const monthData = useMemo(() => {
     const result = {};
-    SEDES_CON_UNKNOWN.forEach(s => { result[s.id] = {}; });
-    for (const m of METRICS.filter(x => activeMetrics.includes(x.key))) {
-      for (const dayData of Object.values(data[m.key] || {})) {
-        Object.entries(dayData.bySede || {}).forEach(([sid, cnt]) => {
-          const id = Number(sid);
-          if (!result[id]) result[id] = {};
-          result[id][m.key] = (result[id][m.key] || 0) + cnt;
-        });
-      }
+    for (const m of METRICS) {
+      result[m.key] = computeMonthData(STORES_DATA[m.key] || [], m.dateField, sedeFilter);
     }
-    // Only return sedes that have at least one record
     return result;
-  }, [data, activeMetrics, sedeFilter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consultations, hospitalization, labPedidos, imgPedidos, vaccines, groomingItems, procedimientos, formulas, sedeFilter]);
+
+  const monthTotals = useMemo(() => {
+    const t = {};
+    for (const m of METRICS) {
+      t[m.key] = Object.values(monthData[m.key] || {}).reduce((s, v) => s + (v.total || 0), 0);
+    }
+    return t;
+  }, [monthData]);
+
+  const monthSedeBreakdown = useMemo(() => buildSedeBreakdown(monthData, activeMetrics, sedeFilter), [monthData, activeMetrics, sedeFilter]);
 
   const toggleMetric = (key) => {
     setActiveMetrics(prev =>
@@ -274,6 +397,7 @@ export default function ReportesPage() {
   });
 
   const activeMlist = METRICS.filter(m => activeMetrics.includes(m.key));
+  const sedeLabel = sedeFilter ? SEDES.find(s => s.id === sedeFilter)?.nombre : 'Todas las sedes (colores = sede)';
 
   return (
     <div>
@@ -284,7 +408,6 @@ export default function ReportesPage() {
 
       {/* ── Filter card ── */}
       <Card style={{ marginBottom: '1rem' }}>
-        {/* Período row */}
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
           <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: 60 }}>Período:</span>
           {PERIODOS.map(p => (
@@ -303,10 +426,8 @@ export default function ReportesPage() {
           )}
         </div>
 
-        {/* Divider */}
         <div style={{ borderTop: '1px solid #f0f0f0', marginBottom: '1rem' }} />
 
-        {/* Sede row */}
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: 60 }}>Sede:</span>
           <button onClick={() => setSedeFilter(null)} style={btnStyle(!sedeFilter, '#374151')}>
@@ -343,131 +464,127 @@ export default function ReportesPage() {
         </div>
       </Card>
 
-      {/* ── Summary cards ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
-        {activeMlist.map(m => (
-          <div key={m.key} style={{ background: '#fff', border: `2px solid ${m.color}22`, borderRadius: 12, padding: '1rem 1.1rem', textAlign: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-            <div style={{ fontSize: '1.5rem', marginBottom: '0.2rem' }}>{m.icon}</div>
-            <div style={{ fontSize: '2rem', fontWeight: 800, color: m.color, lineHeight: 1.1 }}>{totals[m.key]}</div>
-            <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#6b7280', marginTop: '0.2rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{m.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Chart ── */}
-      {activeMetrics.length > 0 && (
-        <Card style={{ marginBottom: '1rem' }}>
-          <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#111', marginBottom: '0.5rem' }}>
-            Actividad por día
-            <span style={{ fontWeight: 400, color: '#9ca3af', marginLeft: '0.5rem', fontSize: '0.78rem' }}>
-              {days.length} día{days.length !== 1 ? 's' : ''} · {start}{start !== end ? ` → ${end}` : ''}
-              {sedeFilter ? ` · ${SEDES.find(s => s.id === sedeFilter)?.nombre}` : ' · Todas las sedes (colores = sede)'}
-            </span>
-          </div>
-
-          {/* Legend */}
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-            {!sedeFilter ? (
-              // Sede legend when "todas"
-              <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                {SEDES.map(s => (
-                  <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: '#374151' }}>
-                    <div style={{ width: 12, height: 12, borderRadius: 2, background: s.color }} />
-                    {s.nombre}
-                  </div>
-                ))}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: '#9ca3af' }}>
-                  <div style={{ width: 12, height: 12, borderRadius: 2, background: '#d1d5db' }} />
-                  Sin sede
-                </div>
-              </div>
-            ) : (
-              // Metric legend when specific sede
-              <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                {activeMlist.map(m => (
-                  <div key={m.key} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: '#374151' }}>
-                    <div style={{ width: 12, height: 12, borderRadius: 2, background: m.color }} />
-                    {m.icon} {m.label}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <BarChart days={days} activeMetrics={activeMetrics} data={data} sedeFilter={sedeFilter} />
-        </Card>
-      )}
-
-      {/* ── Breakdown por sede (solo cuando "Todas") ── */}
-      {!sedeFilter && sedeBreakdown && activeMetrics.length > 0 && (
-        <Card>
-          <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#111', marginBottom: '1rem' }}>
-            Distribución por sede
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid #f0f0f0' }}>
-                  <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem', color: '#6b7280', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase' }}>Sede</th>
-                  {activeMlist.map(m => (
-                    <th key={m.key} style={{ textAlign: 'center', padding: '0.5rem 0.75rem', color: m.color, fontWeight: 700, fontSize: '0.75rem' }}>
-                      {m.icon} {m.label}
-                    </th>
-                  ))}
-                  <th style={{ textAlign: 'center', padding: '0.5rem 0.75rem', color: '#374151', fontWeight: 700, fontSize: '0.75rem' }}>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {SEDES.map(s => {
-                  const row = sedeBreakdown[s.id] || {};
-                  const rowTotal = activeMlist.reduce((sum, m) => sum + (row[m.key] || 0), 0);
-                  if (rowTotal === 0) return null;
-                  return (
-                    <tr key={s.id} style={{ borderBottom: '1px solid #f9f9f9' }}>
-                      <td style={{ padding: '0.55rem 0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div style={{ width: 10, height: 10, borderRadius: 3, background: s.color, flexShrink: 0 }} />
-                        {s.nombre}
-                      </td>
-                      {activeMlist.map(m => (
-                        <td key={m.key} style={{ textAlign: 'center', padding: '0.55rem 0.75rem', color: row[m.key] ? m.color : '#d1d5db', fontWeight: row[m.key] ? 700 : 400 }}>
-                          {row[m.key] || '—'}
-                        </td>
-                      ))}
-                      <td style={{ textAlign: 'center', padding: '0.55rem 0.75rem', fontWeight: 800, color: '#111' }}>{rowTotal}</td>
-                    </tr>
-                  );
-                })}
-                {/* "Sin sede" row if data exists */}
-                {(() => {
-                  const row = sedeBreakdown[0] || {};
-                  const rowTotal = activeMlist.reduce((sum, m) => sum + (row[m.key] || 0), 0);
-                  if (!rowTotal) return null;
-                  return (
-                    <tr key="sin-sede" style={{ borderBottom: '1px solid #f9f9f9' }}>
-                      <td style={{ padding: '0.55rem 0.75rem', color: '#9ca3af', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div style={{ width: 10, height: 10, borderRadius: 3, background: '#d1d5db', flexShrink: 0 }} />
-                        Sin sede
-                      </td>
-                      {activeMlist.map(m => (
-                        <td key={m.key} style={{ textAlign: 'center', padding: '0.55rem 0.75rem', color: '#9ca3af' }}>
-                          {row[m.key] || '—'}
-                        </td>
-                      ))}
-                      <td style={{ textAlign: 'center', padding: '0.55rem 0.75rem', fontWeight: 700, color: '#9ca3af' }}>{rowTotal}</td>
-                    </tr>
-                  );
-                })()}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
       {activeMetrics.length === 0 && (
         <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
           Selecciona al menos una métrica para ver el gráfico.
         </div>
       )}
+
+      {activeMetrics.length > 0 && (
+        <>
+          {/* ════════════════════════════════════════════════
+              SECCIÓN DIARIA
+          ════════════════════════════════════════════════ */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '0.5rem 0 0.75rem' }}>
+            <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
+              Actividad diaria
+            </span>
+            <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
+          </div>
+
+          {/* Summary cards — daily */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
+            {activeMlist.map(m => (
+              <div key={m.key} style={{ background: '#fff', border: `2px solid ${m.color}22`, borderRadius: 12, padding: '1rem 1.1rem', textAlign: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                <div style={{ fontSize: '1.5rem', marginBottom: '0.2rem' }}>{m.icon}</div>
+                <div style={{ fontSize: '2rem', fontWeight: 800, color: m.color, lineHeight: 1.1 }}>{totals[m.key]}</div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#6b7280', marginTop: '0.2rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{m.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Daily chart */}
+          <Card style={{ marginBottom: '1rem' }}>
+            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#111', marginBottom: '0.5rem' }}>
+              Actividad por día
+              <span style={{ fontWeight: 400, color: '#9ca3af', marginLeft: '0.5rem', fontSize: '0.78rem' }}>
+                {days.length} día{days.length !== 1 ? 's' : ''} · {start}{start !== end ? ` → ${end}` : ''} · {sedeLabel}
+              </span>
+            </div>
+            <ChartLegend sedeFilter={sedeFilter} activeMlist={activeMlist} />
+            <BarChart days={days} activeMetrics={activeMetrics} data={data} sedeFilter={sedeFilter} />
+          </Card>
+
+          {/* Daily sede breakdown */}
+          {!sedeFilter && sedeBreakdown && (
+            <Card style={{ marginBottom: '1.5rem' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#111', marginBottom: '1rem' }}>
+                Distribución por sede · período seleccionado
+              </div>
+              <SedeBreakdownTable breakdown={sedeBreakdown} activeMlist={activeMlist} />
+            </Card>
+          )}
+
+          {/* ════════════════════════════════════════════════
+              SECCIÓN MENSUAL 2026
+          ════════════════════════════════════════════════ */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '0.5rem 0 0.75rem' }}>
+            <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
+              Tendencia mensual 2026
+            </span>
+            <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
+          </div>
+
+          {/* Summary cards — monthly (YTD 2026) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
+            {activeMlist.map(m => (
+              <div key={m.key} style={{ background: '#fff', border: `2px solid ${m.color}22`, borderRadius: 12, padding: '1rem 1.1rem', textAlign: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                <div style={{ fontSize: '1.5rem', marginBottom: '0.2rem' }}>{m.icon}</div>
+                <div style={{ fontSize: '2rem', fontWeight: 800, color: m.color, lineHeight: 1.1 }}>{monthTotals[m.key]}</div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#6b7280', marginTop: '0.2rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{m.label}</div>
+                <div style={{ fontSize: '0.62rem', color: '#9ca3af', marginTop: '0.15rem' }}>Acum. 2026</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Monthly chart */}
+          <Card style={{ marginBottom: '1rem' }}>
+            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#111', marginBottom: '0.5rem' }}>
+              Actividad por mes
+              <span style={{ fontWeight: 400, color: '#9ca3af', marginLeft: '0.5rem', fontSize: '0.78rem' }}>
+                {MONTHS_2026.length} mes{MONTHS_2026.length !== 1 ? 'es' : ''} · Ene → {MONTH_NAMES[MONTHS_2026.length - 1]} 2026 · {sedeLabel}
+              </span>
+            </div>
+            <ChartLegend sedeFilter={sedeFilter} activeMlist={activeMlist} />
+            <BarChart
+              days={MONTHS_2026}
+              activeMetrics={activeMetrics}
+              data={monthData}
+              sedeFilter={sedeFilter}
+              labelFn={m => MONTH_NAMES[parseInt(m.slice(5, 7)) - 1]}
+            />
+          </Card>
+
+          {/* Monthly sede breakdown */}
+          {!sedeFilter && monthSedeBreakdown && (
+            <Card style={{ marginBottom: '1rem' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#111', marginBottom: '1rem' }}>
+                Distribución por sede · acumulado 2026
+              </div>
+              <SedeBreakdownTable breakdown={monthSedeBreakdown} activeMlist={activeMlist} />
+            </Card>
+          )}
+        </>
+      )}
     </div>
   );
+}
+
+// ── Helper: build sede breakdown from any data dict ───────────────────────────
+function buildSedeBreakdown(dataDict, activeMetrics, sedeFilter) {
+  if (sedeFilter) return null;
+  const result = {};
+  SEDES_CON_UNKNOWN.forEach(s => { result[s.id] = {}; });
+  for (const m of METRICS.filter(x => activeMetrics.includes(x.key))) {
+    for (const dayData of Object.values(dataDict[m.key] || {})) {
+      Object.entries(dayData.bySede || {}).forEach(([sid, cnt]) => {
+        const id = Number(sid);
+        if (!result[id]) result[id] = {};
+        result[id][m.key] = (result[id][m.key] || 0) + cnt;
+      });
+    }
+  }
+  return result;
 }
