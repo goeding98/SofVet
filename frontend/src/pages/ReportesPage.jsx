@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useStore } from '../utils/useStore';
 import Card from '../components/Card';
 
-// ── Metric definitions ────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 const METRICS = [
   { key: 'consultas',      store: 'consultations',        dateField: 'created_at',       label: 'Consultas',      icon: '🩺', color: '#2e5cbf' },
   { key: 'hospitalizados', store: 'hospitalization',      dateField: 'ingreso_date',     label: 'Hospitalizados', icon: '🏥', color: '#dc2626' },
@@ -14,14 +14,23 @@ const METRICS = [
   { key: 'formulas',       store: 'formulas_medicas',     dateField: 'fecha',            label: 'Fórmulas',       icon: '💊', color: '#64748b' },
 ];
 
-const PERIODOS = [
-  { key: 'hoy',    label: 'Hoy'        },
-  { key: 'semana', label: 'Esta semana'},
-  { key: 'mes',    label: 'Este mes'   },
-  { key: 'rango',  label: 'Personalizado'},
+const SEDES = [
+  { id: 1, nombre: 'Santa Mónica', color: '#2e5cbf' },
+  { id: 2, nombre: 'Colseguros',   color: '#2e7d50' },
+  { id: 3, nombre: 'Cdad. Jardín', color: '#b8860b' },
+  { id: 4, nombre: 'Domicilio',    color: '#7c5cbf' },
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const SEDES_CON_UNKNOWN = [...SEDES, { id: 0, nombre: 'Sin sede', color: '#d1d5db' }];
+
+const PERIODOS = [
+  { key: 'hoy',    label: 'Hoy'           },
+  { key: 'semana', label: 'Esta semana'   },
+  { key: 'mes',    label: 'Este mes'      },
+  { key: 'rango',  label: 'Personalizado' },
+];
+
+// ── Date helpers ──────────────────────────────────────────────────────────────
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 
 function getRange(periodo, desde, hasta) {
@@ -45,46 +54,51 @@ function getRange(periodo, desde, hasta) {
   return { start, end, days };
 }
 
-function countByDay(items, dateField, start, end) {
+function dayLabel(dateStr, totalDays) {
+  const d = new Date(dateStr + 'T12:00:00');
+  if (totalDays === 1) return 'Hoy';
+  if (totalDays <= 14) return ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d.getDay()] + ' ' + d.getDate();
+  return String(d.getDate());
+}
+
+// Returns { [day]: { total, bySede: { sedeId: count } } }
+function computeDayData(items, dateField, start, end, sedeFilter) {
   const map = {};
   for (const item of items) {
+    if (sedeFilter && item.sede_id !== sedeFilter) continue;
     const d = (item[dateField] || '').slice(0, 10);
-    if (d >= start && d <= end) map[d] = (map[d] || 0) + 1;
+    if (!d || d < start || d > end) continue;
+    if (!map[d]) map[d] = { total: 0, bySede: {} };
+    map[d].total++;
+    const s = item.sede_id != null ? item.sede_id : 0;
+    map[d].bySede[s] = (map[d].bySede[s] || 0) + 1;
   }
   return map;
 }
 
-function dayLabel(dateStr, totalDays) {
-  const d = new Date(dateStr + 'T12:00:00');
-  if (totalDays === 1) return 'Hoy';
-  if (totalDays <= 14) {
-    return ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d.getDay()] + ' ' + d.getDate();
-  }
-  return String(d.getDate());
-}
-
 // ── SVG Bar Chart ─────────────────────────────────────────────────────────────
-function BarChart({ days, activeMetrics, data }) {
-  const PAD_L = 38, PAD_B = 32, PAD_T = 12, H = 260;
+function BarChart({ days, activeMetrics, data, sedeFilter }) {
+  const PAD_L = 38, PAD_B = 32, PAD_T = 12, H = 270;
   const BAR_W = Math.max(6, Math.min(22, Math.floor(580 / days.length / activeMetrics.length) - 2));
   const GROUP_W = activeMetrics.length * (BAR_W + 2) + 10;
   const W = Math.max(600, days.length * GROUP_W + PAD_L + 20);
   const chartH = H - PAD_T - PAD_B;
-  const chartW = W - PAD_L - 10;
 
   const maxVal = Math.max(1, ...activeMetrics.flatMap(m =>
-    days.map(d => data[m]?.[d] || 0)
+    days.map(d => data[m]?.[d]?.total || 0)
   ));
 
   const yTicks = [];
-  const step = Math.ceil(maxVal / 4);
+  const step = Math.max(1, Math.ceil(maxVal / 4));
   for (let v = 0; v <= maxVal; v += step) yTicks.push(v);
-  if (!yTicks.includes(maxVal)) yTicks.push(maxVal);
+  if (yTicks[yTicks.length - 1] !== maxVal) yTicks.push(maxVal);
+
+  const isStacked = !sedeFilter;
 
   return (
     <div style={{ overflowX: 'auto', marginTop: '0.5rem' }}>
-      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ display: 'block', minWidth: '100%' }}>
-        {/* Gridlines */}
+      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ display: 'block' }}>
+        {/* Gridlines + Y labels */}
         {yTicks.map(v => {
           const y = PAD_T + chartH - (v / maxVal) * chartH;
           return (
@@ -99,23 +113,72 @@ function BarChart({ days, activeMetrics, data }) {
         {days.map((day, di) => {
           const centerX = PAD_L + di * GROUP_W + GROUP_W / 2;
           const offsetStart = -(activeMetrics.length * (BAR_W + 2)) / 2 + 1;
+
           return (
             <g key={day}>
               {activeMetrics.map((mKey, mi) => {
                 const m = METRICS.find(x => x.key === mKey);
-                const val = data[mKey]?.[day] || 0;
-                const bH = Math.max(0, (val / maxVal) * chartH);
+                const dayData = data[mKey]?.[day] || { total: 0, bySede: {} };
+                const total = dayData.total;
                 const bX = centerX + offsetStart + mi * (BAR_W + 2);
-                const bY = PAD_T + chartH - bH;
-                return (
-                  <g key={mKey}>
-                    <rect x={bX} y={bY} width={BAR_W} height={bH} fill={m.color} rx={2} opacity={0.85} />
-                    {val > 0 && BAR_W >= 10 && (
-                      <text x={bX + BAR_W / 2} y={bY - 2} textAnchor="middle" fontSize={8} fill={m.color} fontWeight={700}>{val}</text>
-                    )}
-                  </g>
-                );
+                const totalH = (total / maxVal) * chartH;
+                const baseY = PAD_T + chartH;
+
+                if (!total) return null;
+
+                if (isStacked) {
+                  let stackedH = 0;
+                  const segments = SEDES_CON_UNKNOWN.map(sede => {
+                    const cnt = dayData.bySede[sede.id] || 0;
+                    if (!cnt) return null;
+                    const segH = (cnt / maxVal) * chartH;
+                    const segY = baseY - stackedH - segH;
+                    stackedH += segH;
+                    return { segY, segH, color: sede.color, cnt };
+                  }).filter(Boolean);
+
+                  // If no sede data at all, fall back to metric color
+                  if (segments.length === 0) {
+                    const bH = Math.max(1, (total / maxVal) * chartH);
+                    const bY = baseY - bH;
+                    return (
+                      <g key={mKey}>
+                        <rect x={bX} y={bY} width={BAR_W} height={bH} fill={m.color} rx={2} opacity={0.6} />
+                        {BAR_W >= 8 && (
+                          <text x={bX + BAR_W / 2} y={bY - 2} textAnchor="middle" fontSize={8} fill={m.color} fontWeight={700}>{total}</text>
+                        )}
+                      </g>
+                    );
+                  }
+
+                  return (
+                    <g key={mKey}>
+                      {segments.map((seg, si) => (
+                        <rect key={si} x={bX} y={seg.segY} width={BAR_W} height={seg.segH}
+                          fill={seg.color} rx={si === segments.length - 1 ? 2 : 0} />
+                      ))}
+                      {BAR_W >= 8 && (
+                        <text x={bX + BAR_W / 2} y={baseY - totalH - 2}
+                          textAnchor="middle" fontSize={8} fill="#374151" fontWeight={700}>{total}</text>
+                      )}
+                    </g>
+                  );
+                } else {
+                  const bH = Math.max(1, (total / maxVal) * chartH);
+                  const bY = baseY - bH;
+                  return (
+                    <g key={mKey}>
+                      <rect x={bX} y={bY} width={BAR_W} height={bH} fill={m.color} rx={2} opacity={0.85} />
+                      {total > 0 && BAR_W >= 10 && (
+                        <text x={bX + BAR_W / 2} y={bY - 2}
+                          textAnchor="middle" fontSize={8} fill={m.color} fontWeight={700}>{total}</text>
+                      )}
+                    </g>
+                  );
+                }
               })}
+
+              {/* X-axis label */}
               <text x={centerX} y={H - PAD_B + 14} textAnchor="middle" fontSize={9} fill="#6b7280">
                 {dayLabel(day, days.length)}
               </text>
@@ -136,9 +199,9 @@ export default function ReportesPage() {
   const [periodo,       setPeriodo]       = useState('semana');
   const [desde,         setDesde]         = useState('');
   const [hasta,         setHasta]         = useState('');
+  const [sedeFilter,    setSedeFilter]    = useState(null);
   const [activeMetrics, setActiveMetrics] = useState(['consultas', 'hospitalizados', 'laboratorios', 'imagenes', 'vacunas']);
 
-  // Load all stores
   const { items: consultations }   = useStore('consultations');
   const { items: hospitalization } = useStore('hospitalization');
   const { items: labPedidos }      = useStore('laboratorios_pedidos');
@@ -155,8 +218,8 @@ export default function ReportesPage() {
     imagenes:       imgPedidos,
     vacunas:        vaccines,
     grooming:       groomingItems,
-    procedimientos: procedimientos,
-    formulas:       formulas,
+    procedimientos,
+    formulas,
   };
 
   const { start, end, days } = useMemo(() => getRange(periodo, desde, hasta), [periodo, desde, hasta]);
@@ -164,19 +227,37 @@ export default function ReportesPage() {
   const data = useMemo(() => {
     const result = {};
     for (const m of METRICS) {
-      result[m.key] = countByDay(STORES_DATA[m.key] || [], m.dateField, start, end);
+      result[m.key] = computeDayData(STORES_DATA[m.key] || [], m.dateField, start, end, sedeFilter);
     }
     return result;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [consultations, hospitalization, labPedidos, imgPedidos, vaccines, groomingItems, procedimientos, formulas, start, end]);
+  }, [consultations, hospitalization, labPedidos, imgPedidos, vaccines, groomingItems, procedimientos, formulas, start, end, sedeFilter]);
 
   const totals = useMemo(() => {
     const t = {};
     for (const m of METRICS) {
-      t[m.key] = Object.values(data[m.key] || {}).reduce((s, v) => s + v, 0);
+      t[m.key] = Object.values(data[m.key] || {}).reduce((s, v) => s + (v.total || 0), 0);
     }
     return t;
   }, [data]);
+
+  // Per-sede totals for the breakdown table (only when "Todas")
+  const sedeBreakdown = useMemo(() => {
+    if (sedeFilter) return null;
+    const result = {};
+    SEDES_CON_UNKNOWN.forEach(s => { result[s.id] = {}; });
+    for (const m of METRICS.filter(x => activeMetrics.includes(x.key))) {
+      for (const dayData of Object.values(data[m.key] || {})) {
+        Object.entries(dayData.bySede || {}).forEach(([sid, cnt]) => {
+          const id = Number(sid);
+          if (!result[id]) result[id] = {};
+          result[id][m.key] = (result[id][m.key] || 0) + cnt;
+        });
+      }
+    }
+    // Only return sedes that have at least one record
+    return result;
+  }, [data, activeMetrics, sedeFilter]);
 
   const toggleMetric = (key) => {
     setActiveMetrics(prev =>
@@ -184,30 +265,35 @@ export default function ReportesPage() {
     );
   };
 
+  const btnStyle = (active, color) => ({
+    padding: '0.4rem 0.9rem', borderRadius: 20, fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer',
+    border: active ? `2px solid ${color}` : '1.5px solid #d1d5db',
+    background: active ? color : '#fff',
+    color: active ? '#fff' : '#374151',
+    transition: 'all 0.15s',
+  });
+
+  const activeMlist = METRICS.filter(m => activeMetrics.includes(m.key));
+
   return (
     <div>
       <div className="page-header">
         <h1>📊 Reportes</h1>
-        <p>Actividad clínica por período</p>
+        <p>Actividad clínica por período y sede</p>
       </div>
 
-      {/* ── Period filter ── */}
+      {/* ── Filter card ── */}
       <Card style={{ marginBottom: '1rem' }}>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: '0.25rem' }}>Período:</span>
+        {/* Período row */}
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
+          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: 60 }}>Período:</span>
           {PERIODOS.map(p => (
-            <button key={p.key} onClick={() => setPeriodo(p.key)}
-              style={{
-                padding: '0.4rem 0.9rem', borderRadius: 20, fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer',
-                border: periodo === p.key ? '2px solid var(--color-primary)' : '1.5px solid #d1d5db',
-                background: periodo === p.key ? 'var(--color-primary)' : '#fff',
-                color: periodo === p.key ? '#fff' : '#374151',
-              }}>
+            <button key={p.key} onClick={() => setPeriodo(p.key)} style={btnStyle(periodo === p.key, 'var(--color-primary)')}>
               {p.label}
             </button>
           ))}
           {periodo === 'rango' && (
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: '0.25rem' }}>
               <input type="date" value={desde} onChange={e => setDesde(e.target.value)}
                 style={{ padding: '0.35rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6, fontSize: '0.82rem' }} />
               <span style={{ color: '#9ca3af' }}>—</span>
@@ -216,12 +302,29 @@ export default function ReportesPage() {
             </div>
           )}
         </div>
+
+        {/* Divider */}
+        <div style={{ borderTop: '1px solid #f0f0f0', marginBottom: '1rem' }} />
+
+        {/* Sede row */}
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: 60 }}>Sede:</span>
+          <button onClick={() => setSedeFilter(null)} style={btnStyle(!sedeFilter, '#374151')}>
+            🏢 Todas las sedes
+          </button>
+          {SEDES.map(s => (
+            <button key={s.id} onClick={() => setSedeFilter(sedeFilter === s.id ? null : s.id)}
+              style={btnStyle(sedeFilter === s.id, s.color)}>
+              {s.nombre}
+            </button>
+          ))}
+        </div>
       </Card>
 
       {/* ── Metric selector ── */}
       <Card style={{ marginBottom: '1rem' }}>
         <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: '0.25rem' }}>Métricas:</span>
+          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: 60 }}>Métricas:</span>
           {METRICS.map(m => {
             const on = activeMetrics.includes(m.key);
             return (
@@ -242,36 +345,121 @@ export default function ReportesPage() {
 
       {/* ── Summary cards ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
-        {METRICS.filter(m => activeMetrics.includes(m.key)).map(m => (
+        {activeMlist.map(m => (
           <div key={m.key} style={{ background: '#fff', border: `2px solid ${m.color}22`, borderRadius: 12, padding: '1rem 1.1rem', textAlign: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-            <div style={{ fontSize: '1.6rem', marginBottom: '0.25rem' }}>{m.icon}</div>
+            <div style={{ fontSize: '1.5rem', marginBottom: '0.2rem' }}>{m.icon}</div>
             <div style={{ fontSize: '2rem', fontWeight: 800, color: m.color, lineHeight: 1.1 }}>{totals[m.key]}</div>
-            <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#6b7280', marginTop: '0.2rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{m.label}</div>
+            <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#6b7280', marginTop: '0.2rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{m.label}</div>
           </div>
         ))}
       </div>
 
       {/* ── Chart ── */}
       {activeMetrics.length > 0 && (
-        <Card>
-          <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: '0.5rem', color: '#111' }}>
+        <Card style={{ marginBottom: '1rem' }}>
+          <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#111', marginBottom: '0.5rem' }}>
             Actividad por día
             <span style={{ fontWeight: 400, color: '#9ca3af', marginLeft: '0.5rem', fontSize: '0.78rem' }}>
               {days.length} día{days.length !== 1 ? 's' : ''} · {start}{start !== end ? ` → ${end}` : ''}
+              {sedeFilter ? ` · ${SEDES.find(s => s.id === sedeFilter)?.nombre}` : ' · Todas las sedes (colores = sede)'}
             </span>
           </div>
 
           {/* Legend */}
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-            {METRICS.filter(m => activeMetrics.includes(m.key)).map(m => (
-              <div key={m.key} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', color: '#374151' }}>
-                <div style={{ width: 10, height: 10, borderRadius: 2, background: m.color }} />
-                {m.label}
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+            {!sedeFilter ? (
+              // Sede legend when "todas"
+              <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                {SEDES.map(s => (
+                  <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: '#374151' }}>
+                    <div style={{ width: 12, height: 12, borderRadius: 2, background: s.color }} />
+                    {s.nombre}
+                  </div>
+                ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: '#9ca3af' }}>
+                  <div style={{ width: 12, height: 12, borderRadius: 2, background: '#d1d5db' }} />
+                  Sin sede
+                </div>
               </div>
-            ))}
+            ) : (
+              // Metric legend when specific sede
+              <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                {activeMlist.map(m => (
+                  <div key={m.key} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: '#374151' }}>
+                    <div style={{ width: 12, height: 12, borderRadius: 2, background: m.color }} />
+                    {m.icon} {m.label}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          <BarChart days={days} activeMetrics={activeMetrics} data={data} />
+          <BarChart days={days} activeMetrics={activeMetrics} data={data} sedeFilter={sedeFilter} />
+        </Card>
+      )}
+
+      {/* ── Breakdown por sede (solo cuando "Todas") ── */}
+      {!sedeFilter && sedeBreakdown && activeMetrics.length > 0 && (
+        <Card>
+          <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#111', marginBottom: '1rem' }}>
+            Distribución por sede
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #f0f0f0' }}>
+                  <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem', color: '#6b7280', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase' }}>Sede</th>
+                  {activeMlist.map(m => (
+                    <th key={m.key} style={{ textAlign: 'center', padding: '0.5rem 0.75rem', color: m.color, fontWeight: 700, fontSize: '0.75rem' }}>
+                      {m.icon} {m.label}
+                    </th>
+                  ))}
+                  <th style={{ textAlign: 'center', padding: '0.5rem 0.75rem', color: '#374151', fontWeight: 700, fontSize: '0.75rem' }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {SEDES.map(s => {
+                  const row = sedeBreakdown[s.id] || {};
+                  const rowTotal = activeMlist.reduce((sum, m) => sum + (row[m.key] || 0), 0);
+                  if (rowTotal === 0) return null;
+                  return (
+                    <tr key={s.id} style={{ borderBottom: '1px solid #f9f9f9' }}>
+                      <td style={{ padding: '0.55rem 0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div style={{ width: 10, height: 10, borderRadius: 3, background: s.color, flexShrink: 0 }} />
+                        {s.nombre}
+                      </td>
+                      {activeMlist.map(m => (
+                        <td key={m.key} style={{ textAlign: 'center', padding: '0.55rem 0.75rem', color: row[m.key] ? m.color : '#d1d5db', fontWeight: row[m.key] ? 700 : 400 }}>
+                          {row[m.key] || '—'}
+                        </td>
+                      ))}
+                      <td style={{ textAlign: 'center', padding: '0.55rem 0.75rem', fontWeight: 800, color: '#111' }}>{rowTotal}</td>
+                    </tr>
+                  );
+                })}
+                {/* "Sin sede" row if data exists */}
+                {(() => {
+                  const row = sedeBreakdown[0] || {};
+                  const rowTotal = activeMlist.reduce((sum, m) => sum + (row[m.key] || 0), 0);
+                  if (!rowTotal) return null;
+                  return (
+                    <tr key="sin-sede" style={{ borderBottom: '1px solid #f9f9f9' }}>
+                      <td style={{ padding: '0.55rem 0.75rem', color: '#9ca3af', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div style={{ width: 10, height: 10, borderRadius: 3, background: '#d1d5db', flexShrink: 0 }} />
+                        Sin sede
+                      </td>
+                      {activeMlist.map(m => (
+                        <td key={m.key} style={{ textAlign: 'center', padding: '0.55rem 0.75rem', color: '#9ca3af' }}>
+                          {row[m.key] || '—'}
+                        </td>
+                      ))}
+                      <td style={{ textAlign: 'center', padding: '0.55rem 0.75rem', fontWeight: 700, color: '#9ca3af' }}>{rowTotal}</td>
+                    </tr>
+                  );
+                })()}
+              </tbody>
+            </table>
+          </div>
         </Card>
       )}
 
