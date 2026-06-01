@@ -31,6 +31,7 @@ import PersonalPage from './pages/PersonalPage';
 import ImagenesPage from './pages/ImagenesPage';
 import PedidosCompraPage from './pages/PedidosCompraPage';
 import FacturacionPage   from './pages/FacturacionPage';
+import ReportesPage      from './pages/ReportesPage';
 
 function ProtectedLayout({ children }) {
   const { session } = useAuth();
@@ -102,6 +103,7 @@ function AppRoutes() {
           <Route path="/certificados-viaje"   element={<ProtectedLayout><CertificadosViajePage /></ProtectedLayout>} />
           <Route path="/pedidos-compra"        element={<ProtectedLayout><PedidosCompraPage /></ProtectedLayout>} />
           <Route path="/facturacion"           element={<ProtectedLayout><FacturacionPage /></ProtectedLayout>} />
+          <Route path="/reportes"              element={<ProtectedLayout><ReportesPage /></ProtectedLayout>} />
         </>
       )}
 

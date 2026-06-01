@@ -112,6 +112,7 @@ export default function Sidebar() {
               <MenuItem item={{ path: '/hc-requests',         label: 'Hist. Clínicas',     icon: '📄' }} badge={hcPending} />
               <MenuItem item={{ path: '/certificados-viaje',  label: 'Cert. de Viaje',     icon: '✈️' }} badge={certPending} />
               <MenuItem item={{ path: '/pedidos-compra',      label: 'Pedidos de Compra',  icon: '🛒' }} />
+              <MenuItem item={{ path: '/reportes',            label: 'Reportes',           icon: '📊' }} />
               {session?.username === 'goeding' && (
                 <MenuItem item={{ path: '/facturacion', label: 'Facturación', icon: '🧾' }} />
               )}
