@@ -8,7 +8,7 @@ import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { nowDate } from '../utils/nowLocal';
 
-const EMPTY_PET = { name: '', species: 'Perro', breed: '', age: '', weight: '', sex: 'Macho', esterilizado: 'No', caracter: 'Dócil', status: 'activo', client_id: '', owner: '', owner_phone: '', owner_email: '', ultima_vacuna: '' };
+const EMPTY_PET = { name: '', species: 'Perro', breed: '', age: '', weight: '', sex: 'Macho', esterilizado: 'No', caracter: 'Dócil', status: 'activo', client_id: '', owner: '', owner_phone: '', owner_email: '', ultima_vacuna: null };
 
 const validatePet = (f) => {
   if (!f.name.trim() || !f.breed.trim() || !f.fecha_nacimiento || !f.sex || !f.esterilizado || !f.caracter) {
@@ -303,7 +303,7 @@ export default function PatientsPage() {
           {F('Peso (kg)', 'weight', 'number')}
           {F('Esterilizado *', 'esterilizado', 'text', ['No', 'Sí'])}
           {F('Carácter *', 'caracter', 'text', ['Dócil', 'Calmado', 'Nervioso', 'Agresivo'])}
-          {F('Última vacuna', 'ultima_vacuna', 'text', ['— No sabe / Sin info', 'Hace menos de 6 meses', 'Entre 6 y 12 meses', 'Hace más de 1 año', 'Nunca vacunado'])}
+          {F('Última vacuna', 'ultima_vacuna', 'date')}
         </div>
       </Modal>
     </div>
