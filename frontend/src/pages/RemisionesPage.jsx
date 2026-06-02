@@ -258,15 +258,20 @@ export default function RemisionesPage() {
     return m;
   }, [aliados]);
 
+  // Todas las remisiones del mes seleccionado (sin sub-filtros)
+  const remisionesMes = useMemo(() =>
+    remisiones.filter(r => r.fecha?.startsWith(mes)),
+    [remisiones, mes]
+  );
+
   const filtradas = useMemo(() => {
     const pac = filtroPaciente.toLowerCase().trim();
-    return remisiones
-      .filter(r => r.fecha?.startsWith(mes))
+    return remisionesMes
       .filter(r => !filtroAliado  || String(r.aliado_id) === filtroAliado)
       .filter(r => !filtroSede    || String(r.sede_id)   === filtroSede)
       .filter(r => !pac           || (r.paciente_nombre || '').toLowerCase().includes(pac))
       .sort((a, b) => a.fecha < b.fecha ? 1 : -1);
-  }, [remisiones, mes, filtroAliado, filtroSede, filtroPaciente]);
+  }, [remisionesMes, filtroAliado, filtroSede, filtroPaciente]);
 
   const totalValor       = filtradas.reduce((s, r) => s + (parseFloat(r.valor_facturado) || 0), 0);
   const totalComision    = filtradas.reduce((s, r) => {
@@ -280,7 +285,7 @@ export default function RemisionesPage() {
 
   const ranking = useMemo(() => {
     const byAliado = {};
-    remisiones.filter(r => r.fecha?.startsWith(mes)).forEach(r => {
+    remisionesMes.forEach(r => {
       const id = r.aliado_id;
       if (!id) return;
       if (!byAliado[id]) byAliado[id] = { id, nombre: aliadoMap[id]?.nombre || '?', count: 0, total: 0, comAliado: 0, comVis: 0 };
@@ -296,7 +301,7 @@ export default function RemisionesPage() {
       porTotal:  [...arr].sort((a, b) => b.total  - a.total).slice(0, 5),
       porComVis: [...arr].sort((a, b) => b.comVis - a.comVis).slice(0, 5),
     };
-  }, [remisiones, aliadoMap, mes]);
+  }, [remisionesMes, aliadoMap]);
 
   const liquidacion = useMemo(() => {
     const año = mes.slice(0, 4);
