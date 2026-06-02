@@ -8,10 +8,10 @@ import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { nowDate } from '../utils/nowLocal';
 
-const EMPTY_PET = { name: '', species: 'Perro', breed: '', age: '', weight: '', sex: 'Macho', esterilizado: 'No', caracter: 'Dócil', status: 'activo', client_id: '', owner: '', owner_phone: '', owner_email: '' };
+const EMPTY_PET = { name: '', species: 'Perro', breed: '', age: '', weight: '', sex: 'Macho', esterilizado: 'No', caracter: 'Dócil', status: 'activo', client_id: '', owner: '', owner_phone: '', owner_email: '', ultima_vacuna: '' };
 
 const validatePet = (f) => {
-  if (!f.name.trim() || !f.breed.trim() || !f.fecha_nacimiento || !f.weight || !f.sex || !f.esterilizado || !f.caracter) {
+  if (!f.name.trim() || !f.breed.trim() || !f.fecha_nacimiento || !f.sex || !f.esterilizado || !f.caracter) {
     alert('Por favor completa todos los campos requeridos.');
     return false;
   }
@@ -112,7 +112,8 @@ export default function PatientsPage() {
     const payload = {
       ...form,
       age,
-      weight:   parseFloat(form.weight) || 0,
+      weight:        form.weight ? parseFloat(form.weight) : null,
+      ultima_vacuna: form.ultima_vacuna || null,
       no_historia,
       created_at: editId
         ? (patients.find(p => p.id === editId)?.created_at || nowDate())
@@ -299,9 +300,10 @@ export default function PatientsPage() {
           {F('Raza *', 'breed')}
           {F('Sexo *', 'sex', 'text', ['Macho', 'Hembra'])}
           {F('Fecha de nacimiento *', 'fecha_nacimiento', 'date')}
-          {F('Peso (kg) *', 'weight', 'number')}
+          {F('Peso (kg)', 'weight', 'number')}
           {F('Esterilizado *', 'esterilizado', 'text', ['No', 'Sí'])}
           {F('Carácter *', 'caracter', 'text', ['Dócil', 'Calmado', 'Nervioso', 'Agresivo'])}
+          {F('Última vacuna', 'ultima_vacuna', 'text', ['— No sabe / Sin info', 'Hace menos de 6 meses', 'Entre 6 y 12 meses', 'Hace más de 1 año', 'Nunca vacunado'])}
         </div>
       </Modal>
     </div>
