@@ -280,7 +280,7 @@ export default function RemisionesPage() {
 
   const ranking = useMemo(() => {
     const byAliado = {};
-    remisiones.forEach(r => {
+    remisiones.filter(r => r.fecha?.startsWith(mes)).forEach(r => {
       const id = r.aliado_id;
       if (!id) return;
       if (!byAliado[id]) byAliado[id] = { id, nombre: aliadoMap[id]?.nombre || '?', count: 0, total: 0, comAliado: 0, comVis: 0 };
@@ -451,7 +451,7 @@ export default function RemisionesPage() {
       {showStats && remisiones.length > 0 && (
         <div style={{ marginBottom: '1.25rem', border: '1px solid #c7d9f8', borderRadius: 'var(--radius-lg)', overflow: 'hidden', background: '#f8faff' }}>
           <div style={{ padding: '0.75rem 1.25rem', background: '#e8f0fd', borderBottom: '1px solid #c7d9f8', fontSize: '0.78rem', fontWeight: 700, color: '#2e5cbf', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            📊 Ranking global de aliados — todas las remisiones ({remisiones.length} registros)
+            📊 Ranking de aliados — {mesLabel} ({filtradas.length} remisión{filtradas.length !== 1 ? 'es' : ''})
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 0 }}>
             {[
