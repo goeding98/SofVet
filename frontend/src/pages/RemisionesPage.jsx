@@ -296,7 +296,7 @@ export default function RemisionesPage() {
       porTotal:  [...arr].sort((a, b) => b.total  - a.total).slice(0, 5),
       porComVis: [...arr].sort((a, b) => b.comVis - a.comVis).slice(0, 5),
     };
-  }, [remisiones, aliadoMap]);
+  }, [remisiones, aliadoMap, mes]);
 
   const liquidacion = useMemo(() => {
     const año = mes.slice(0, 4);
