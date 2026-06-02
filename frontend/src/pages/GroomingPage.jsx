@@ -359,11 +359,113 @@ function PhotoField({ label, value, onChange }) {
   );
 }
 
+// ── Desistentes panel ─────────────────────────────────────────────────────────
+function DesistentesPanel({ items, onClose, onAdd, onDelete, defaultSedeId, session, isAdmin }) {
+  const today = nowDate();
+  const [fecha,    setFecha]    = useState(today);
+  const [nombre,   setNombre]   = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [notas,    setNotas]    = useState('');
+  const [saving,   setSaving]   = useState(false);
+
+  const sorted     = useMemo(() => [...items].sort((a, b) => (b.created_at || b.fecha) > (a.created_at || a.fecha) ? 1 : -1), [items]);
+  const todayCount = items.filter(i => i.fecha === today).length;
+  const monthCount = items.filter(i => i.fecha?.startsWith(today.slice(0, 7))).length;
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onAdd({
+      fecha,
+      nombre:   nombre.trim()   || null,
+      telefono: telefono.trim() || null,
+      notas:    notas.trim()    || null,
+      sede_id:  defaultSedeId   || null,
+    });
+    setNombre(''); setTelefono(''); setNotas('');
+    setSaving(false);
+  };
+
+  const ONG = '#b45309'; // orange tone
+
+  return (
+    <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:1200, display:'flex', justifyContent:'flex-end' }}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ width:'min(420px, 100vw)', height:'100vh', background:'white', display:'flex', flexDirection:'column', boxShadow:'-6px 0 28px rgba(0,0,0,0.18)' }}>
+
+        {/* Header */}
+        <div style={{ padding:'1rem 1.25rem', borderBottom:'1px solid #f0e8d8', background:'#fffaf3', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
+          <div>
+            <div style={{ fontFamily:'var(--font-title)', fontSize:'1rem', fontWeight:700, color:ONG }}>👋 Clientes Desistentes</div>
+            <div style={{ fontSize:'0.72rem', color:'#9ca3af', marginTop:'0.2rem' }}>
+              Hoy: <strong style={{ color:ONG }}>{todayCount}</strong> · Este mes: <strong style={{ color:ONG }}>{monthCount}</strong>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ width:28, height:28, background:'rgba(0,0,0,0.06)', border:'none', borderRadius:'50%', cursor:'pointer', fontSize:'1.1rem', display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
+        </div>
+
+        {/* Form */}
+        <div style={{ padding:'1rem 1.25rem', borderBottom:'1px solid #f0e8d8', background:'#fffcf8', flexShrink:0 }}>
+          <div style={{ fontSize:'0.7rem', fontWeight:700, textTransform:'uppercase', color:ONG, marginBottom:'0.75rem', letterSpacing:'0.06em' }}>Registrar desistente</div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.6rem', marginBottom:'0.6rem' }}>
+            <div>
+              <label style={{ ...labelSt, color:ONG }}>Fecha</label>
+              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={{ ...inputSt, fontSize:'0.82rem' }} />
+            </div>
+            <div>
+              <label style={{ ...labelSt, color:ONG }}>Nombre <span style={{ fontWeight:400, textTransform:'none', fontSize:'0.68rem' }}>(opcional)</span></label>
+              <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre del cliente" style={{ ...inputSt, fontSize:'0.82rem' }} />
+            </div>
+          </div>
+          <div style={{ marginBottom:'0.6rem' }}>
+            <label style={{ ...labelSt, color:ONG }}>Teléfono <span style={{ fontWeight:400, textTransform:'none', fontSize:'0.68rem' }}>(opcional)</span></label>
+            <input value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="Número de contacto" style={{ ...inputSt, fontSize:'0.82rem' }} />
+          </div>
+          <div style={{ marginBottom:'0.75rem' }}>
+            <label style={{ ...labelSt, color:ONG }}>Notas <span style={{ fontWeight:400, textTransform:'none', fontSize:'0.68rem' }}>(opcional)</span></label>
+            <input value={notas} onChange={e => setNotas(e.target.value)} placeholder="ej: Labrador grande, no quiso esperar" style={{ ...inputSt, fontSize:'0.82rem' }} />
+          </div>
+          <button onClick={handleSave} disabled={saving}
+            style={{ width:'100%', padding:'0.55rem', background: saving ? '#d97706' : ONG, color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.85rem', fontWeight:700 }}>
+            {saving ? 'Guardando…' : '+ Registrar'}
+          </button>
+        </div>
+
+        {/* List */}
+        <div style={{ flex:1, overflowY:'auto' }}>
+          {sorted.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'2.5rem 1rem', color:'#9ca3af', fontSize:'0.82rem' }}>
+              <div style={{ fontSize:'2.5rem', marginBottom:'0.5rem' }}>👋</div>
+              Sin registros aún.
+            </div>
+          ) : sorted.map(item => (
+            <div key={item.id} style={{ padding:'0.7rem 1.25rem', borderBottom:'1px solid #faf5ec', display:'flex', alignItems:'center', gap:'0.75rem' }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:'0.82rem', fontWeight:600, color:'#374151' }}>
+                  {item.nombre || <span style={{ color:'#9ca3af', fontStyle:'italic', fontWeight:400 }}>Sin nombre</span>}
+                  {item.telefono && <span style={{ color:'#6b7280', fontWeight:400, marginLeft:'0.45rem', fontSize:'0.78rem' }}>· {item.telefono}</span>}
+                </div>
+                <div style={{ fontSize:'0.7rem', color:'#9ca3af', marginTop:'0.1rem' }}>
+                  {item.fecha}{item.notas ? ` · ${item.notas}` : ''}
+                </div>
+              </div>
+              {isAdmin && (
+                <button onClick={() => onDelete(item.id)}
+                  style={{ background:'none', border:'none', cursor:'pointer', color:'#d1d5db', fontSize:'0.8rem', padding:'0.2rem', flexShrink:0, lineHeight:1 }}>✕</button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function GroomingPage() {
   const { items, add, edit, remove, refresh } = useStore('grooming');
   const { items: clients }  = useStore('clients');
   const { items: patients } = useStore('patients');
+  const { items: desistentesAll, add: addDesistente, remove: removeDesistente } = useStore('grooming_desistentes');
   const { session } = useAuth();
   useSede();
 
@@ -377,9 +479,10 @@ export default function GroomingPage() {
   const [calMonth,    setCalMonth]    = useState(today.getMonth());
   const [selectedDay, setSelectedDay] = useState(todayStr);
   const [sedeFilter,  setSedeFilter]  = useState(isAdminUser ? null : (session?.sede_id || null));
-  const [modal,       setModal]       = useState(false);
-  const [form,        setForm]        = useState({});
-  const [editId,      setEditId]      = useState(null);
+  const [modal,            setModal]            = useState(false);
+  const [form,             setForm]             = useState({});
+  const [editId,           setEditId]           = useState(null);
+  const [showDesistentes,  setShowDesistentes]  = useState(false);
 
   // ── Client/patient lookup ─────────────────────────────────────────────────
   const [cedula, setCedula] = useState('');
@@ -509,6 +612,11 @@ export default function GroomingPage() {
     return { ...f, services: svcs.includes(svc) ? svcs.filter(s=>s!==svc) : [...svcs, svc] };
   });
 
+  const desistentes    = useMemo(() =>
+    sedeFilter === null ? desistentesAll : desistentesAll.filter(i => i.sede_id === sedeFilter),
+    [desistentesAll, sedeFilter]);
+  const desistentesHoy = desistentes.filter(i => i.fecha === todayStr).length;
+
   const activeCount = filtered.filter(i=>['pendiente','en proceso'].includes(i.status)).length;
   const todayCount  = (byDate[todayStr]||[]).length;
 
@@ -636,6 +744,13 @@ export default function GroomingPage() {
           <div style={{fontFamily:'var(--font-title)',fontWeight:700,fontSize:'0.9rem',color:'var(--color-text)',minWidth:180,textAlign:'center'}}>{periodLabel}</div>
           <button onClick={()=>nav(1)}  style={{width:30,height:30,border:'1px solid var(--color-border)',borderRadius:'var(--radius-sm)',background:'var(--color-white)',cursor:'pointer',fontSize:'1rem',display:'flex',alignItems:'center',justifyContent:'center'}}>›</button>
           <button onClick={goToday} style={{padding:'0.28rem 0.7rem',border:'1px solid var(--color-border)',borderRadius:'var(--radius-sm)',background:'var(--color-white)',cursor:'pointer',fontFamily:'var(--font-body)',fontSize:'0.75rem',color:'var(--color-text-muted)'}}>Hoy</button>
+          <button onClick={() => setShowDesistentes(true)}
+            style={{ padding:'0.38rem 0.85rem', background:'#fff4ed', color:'#b45309', border:'1px solid #f5c59a', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:700, display:'flex', alignItems:'center', gap:'0.35rem' }}>
+            👋 Desistentes
+            {desistentesHoy > 0 && (
+              <span style={{ background:'#b45309', color:'white', borderRadius:999, padding:'0 5px', fontSize:'0.65rem', fontWeight:800, minWidth:16, textAlign:'center' }}>{desistentesHoy}</span>
+            )}
+          </button>
           {viewMode !== 'day' && (
             <button onClick={()=>openAdd(viewMode==='week'?anchor:todayStr)} style={{padding:'0.38rem 1rem',background:BLOCK_COLOR,color:'white',border:'none',borderRadius:'var(--radius-sm)',cursor:'pointer',fontFamily:'var(--font-body)',fontSize:'0.82rem',fontWeight:700}}>
               + Nuevo servicio
@@ -648,6 +763,19 @@ export default function GroomingPage() {
       {viewMode==='week'  && <TimeGrid days={wkDays} byDate={byDate} todayStr={todayStr} isAdmin={isAdminUser} onCellClick={openAdd} onEdit={openEdit} onDelete={handleDelete} onStatusChange={handleStatusChange}/>}
       {viewMode==='day'   && <DayTableView dayStr={anchor} dayItems={byDate[anchor]||[]} isAdmin={isAdminUser} onAdd={()=>openAdd(anchor)} onEdit={openEdit} onDelete={handleDelete} onStatusChange={handleStatusChange}/>}
       {viewMode==='month' && renderMonthView()}
+
+      {/* Desistentes panel */}
+      {showDesistentes && (
+        <DesistentesPanel
+          items={desistentes}
+          onClose={() => setShowDesistentes(false)}
+          onAdd={addDesistente}
+          onDelete={removeDesistente}
+          defaultSedeId={sedeFilter || session?.sede_id}
+          session={session}
+          isAdmin={isAdminUser}
+        />
+      )}
 
       {/* Modal */}
       <Modal isOpen={modal} onClose={()=>setModal(false)} title={editId?'Editar Servicio':'✂️ Nuevo Servicio de Peluquería'} onSave={handleSave} size="md">

@@ -26,6 +26,7 @@ const TABLE_MAP = {
   controles:               'controles',
   aliados:                 'aliados',
   remisionesVis:           'remisiones',
+  grooming_desistentes:    'grooming_desistentes',
   turnos:                  'turnos',
   permisos_empleados:      'permisos_empleados',
   imagenesPedidos:         'imagenes_pedidos',
