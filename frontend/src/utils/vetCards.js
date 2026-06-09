@@ -1,6 +1,7 @@
 // Tarjetas / matrículas profesionales por nombre de usuario
 const MAP = [
-  { nombre: 'jessica hincapie',          tp: 'TP 54005'  },
+  { nombre: 'jessica hincapie',           tp: 'TP 54005'  },
+  { nombre: 'jessica hincapié',          tp: 'TP 54005'  },
   { nombre: 'diego paris',               tp: 'TP 57719'  },
   { nombre: 'josé alejandro estupiñan',  tp: 'TP 54472'  },
   { nombre: 'jose alejandro estupinan',  tp: 'TP 54472'  },
