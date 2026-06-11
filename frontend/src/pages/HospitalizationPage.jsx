@@ -1758,7 +1758,7 @@ export default function HospitalizationPage() {
                             <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', marginTop: '0.1rem' }}>{ab.fecha} {ab.hora} · {ab.registrado_por}</div>
                           </td>
                           <td style={{ padding: '0.6rem 0.85rem', textAlign: 'right', fontWeight: 700, color: '#8e44ad', whiteSpace: 'nowrap' }}>{fmtCOP(ab.valor)}</td>
-                          {isMedico && (
+                          {(isMedico || isCaja) && (
                             <td style={{ padding: '0.4rem 0.5rem' }}>
                               <button onClick={() => handleDeleteAbono(abonoHosp.id, ab.id)}
                                 style={{ background: 'none', color: 'var(--color-danger)', border: 'none', cursor: 'pointer', fontSize: '0.8rem', padding: '0.2rem 0.4rem' }}>✕</button>
