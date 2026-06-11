@@ -63,6 +63,7 @@ export default function PetDetailPage() {
 
   const { sedeActual, isAdmin: isAdminUser } = useSede();
   const { session } = useAuth();
+  const isMedico = session?.rol === 'Médico' || session?.rol === 'Administrador';
 
   const [consultModal,   setConsultModal]   = useState(false);
   const [editingConsult, setEditingConsult] = useState(null); // consultation being edited
@@ -489,8 +490,8 @@ export default function PetDetailPage() {
         fecha_edicion: hoy,
         hora_edicion:  horaAhora,
       };
-      if (isAdminUser && notaForm.fecha_creacion) editPayload.created_at    = notaForm.fecha_creacion;
-      if (isAdminUser && notaForm.hora_creacion)  editPayload.hora_creacion = notaForm.hora_creacion;
+      if ((isAdminUser || isMedico) && notaForm.fecha_creacion) editPayload.created_at    = notaForm.fecha_creacion;
+      if ((isAdminUser || isMedico) && notaForm.hora_creacion)  editPayload.hora_creacion = notaForm.hora_creacion;
       await editNota(editingNota.id, editPayload);
       setNotaUploading(false);
     } else {
@@ -1713,9 +1714,9 @@ export default function PetDetailPage() {
                   style={{ width:'100%', padding:'0.6rem 0.75rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.875rem', resize:'vertical', boxSizing:'border-box' }}
                 />
               </div>
-              {editingNota && isAdminUser && (
+              {editingNota && (isAdminUser || isMedico) && (
                 <div style={{ background:'#fef3c7', border:'1px solid #f59e0b', borderRadius:'var(--radius-sm)', padding:'0.75rem', display:'flex', flexDirection:'column', gap:'0.5rem' }}>
-                  <div style={{ fontSize:'0.7rem', fontWeight:700, color:'#92400e', textTransform:'uppercase', letterSpacing:'0.05em' }}>🔧 Corrección de fecha/hora (solo admin)</div>
+                  <div style={{ fontSize:'0.7rem', fontWeight:700, color:'#92400e', textTransform:'uppercase', letterSpacing:'0.05em' }}>🔧 Corrección de fecha/hora</div>
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem' }}>
                     <div>
                       <label style={{ display:'block', fontSize:'0.7rem', fontWeight:600, color:'#92400e', marginBottom:'0.25rem' }}>Fecha de creación</label>
