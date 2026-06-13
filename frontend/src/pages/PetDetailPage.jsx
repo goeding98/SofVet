@@ -719,6 +719,28 @@ export default function PetDetailPage() {
     w.document.close();
   };
 
+  const handlePrintNota = (n) => {
+    const fecha = n.created_at ? n.created_at.split('T')[0] : '—';
+    const hora = n.hora_creacion || (n.created_at ? n.created_at.split('T')[1]?.slice(0, 5) : '');
+    const archHtml = (() => {
+      if (!n.archivos?.length) return '';
+      const items = n.archivos.filter(a => a.url).map(a => {
+        const nm = a.name?.toLowerCase() || '';
+        const isImg = a.type?.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp)$/.test(nm);
+        if (isImg) return `<img src="${a.url}" alt="${a.name}" style="display:block;max-width:100%;max-height:200px;object-fit:contain;border-radius:4px;border:1px solid #f5c842;margin:6px 0" />`;
+        return `<a href="${a.url}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#fff8e1;border:1px solid #f5c842;border-radius:12px;color:#8a6200;font-size:10px;font-weight:600;text-decoration:none;margin:2px">${a.name}</a>`;
+      }).join('');
+      return items ? `<div style="margin-top:10px">${items}</div>` : '';
+    })();
+    const editInfo = n.editado_por
+      ? `<div style="font-size:10px;color:#999;margin-top:4px">Editado por ${n.editado_por}${n.hora_edicion ? ' · ' + n.hora_edicion : ''}${n.fecha_edicion ? ' (' + n.fecha_edicion + ')' : ''}</div>`
+      : '';
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Nota — ${n.titulo || 'Nota Clínica'} — ${pet?.name || ''}</title><style>*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#333;margin:0;padding:24px 28px}@media print{body{padding:10px 14px}}</style></head><body><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;border-bottom:3px solid #b8860b;padding-bottom:12px"><div><div style="font-size:18px;font-weight:bold;color:#2e5cbf">🐾 Pets&amp;Pets Veterinaria</div><div style="font-size:10px;color:#888;margin-top:2px">Nota Clínica · ${new Date().toLocaleDateString('es-CO')}</div></div><div style="text-align:right"><div style="font-weight:bold;font-size:15px;color:#333">${pet?.name || ''}</div>${client ? `<div style="font-size:10px;color:#666">👤 ${client.name}${client.phone ? ' · ' + client.phone : ''}</div>` : ''}${pet ? `<div style="font-size:10px;color:#888">${pet.species || ''}${pet.breed ? ' · ' + pet.breed : ''}</div>` : ''}</div></div><div style="border-left:4px solid #b8860b;padding-left:14px"><div style="background:#fff8e1;padding:10px 14px;border-radius:4px;margin-bottom:12px"><div style="font-size:15px;font-weight:700;color:#8a6200;margin-bottom:4px">${n.titulo || '(Sin título)'}</div><div style="font-size:10px;color:#b8860b">${fecha}${hora ? ' · ' + hora : ''}${n.autor ? ' · ' + n.autor : ''}</div>${editInfo}</div>${n.observaciones ? `<div style="font-size:12px;color:#333;line-height:1.7;white-space:pre-wrap;padding-bottom:10px">${n.observaciones.replace(/\n/g, '<br>')}</div>` : ''}${archHtml}</div><div style="margin-top:32px;padding-top:10px;border-top:1px solid #ddd;font-size:9px;color:#bbb;text-align:center">Nota generada por SofVet · Pets&amp;Pets Veterinaria · Cali, Colombia</div><script>window.onload=()=>{window.print()}<\/script></body></html>`;
+    const w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
+  };
+
   // ── Editable HC ──────────────────────────────────────────────────────────
   const handleEditHC = () => {
     setEditHCConfirm(false);
@@ -1130,6 +1152,11 @@ export default function PetDetailPage() {
                         onClick={() => { setEditingNota(n); setNotaForm({ titulo: n.titulo, observaciones: n.observaciones || '', fecha_creacion: n.created_at || '', hora_creacion: n.hora_creacion || '' }); setNotaEditArchivos(n.archivos || []); setNotaFiles([]); setNotaModal(true); }}
                         style={{ padding:'2px 7px', background:'#fffbe6', border:'1px solid #f5c842', borderRadius:4, cursor:'pointer', fontSize:'0.72rem', color:'#8a6200', fontWeight:600 }}
                       >✏️</button>
+                      <button
+                        onClick={() => handlePrintNota(n)}
+                        title="Imprimir / descargar PDF"
+                        style={{ padding:'2px 7px', background:'#fffbe6', border:'1px solid #f5c842', borderRadius:4, cursor:'pointer', fontSize:'0.72rem', color:'#8a6200', fontWeight:600 }}
+                      >🖨️</button>
                       {(isAdminUser || isMedico) && (
                         <button
                           onClick={() => { if (confirm(`¿Eliminar la nota "${n.titulo}"? Esta acción no se puede deshacer.`)) removeNota(n.id); }}
