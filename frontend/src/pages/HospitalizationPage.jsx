@@ -8,6 +8,7 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import VetName from '../components/VetName';
 import { nowDate, nowTime, localDateStr } from '../utils/nowLocal';
+import { supabase } from '../utils/supabaseClient';
 
 const localDate = () => nowDate();
 
@@ -147,6 +148,7 @@ export default function HospitalizationPage() {
   // Forzar datos frescos al entrar — múltiples usuarios editan hospitalizaciones simultáneamente
   useEffect(() => { refreshHosps(); }, []);  // eslint-disable-line react-hooks/exhaustive-deps
   const { items: patients, edit: editPatient }               = useStore('patients');
+  const { items: inventario, edit: editInventario }          = useStore('inventario');
 
   const isAdmin    = session?.rol === 'Administrador';
   const isAuxiliar = session?.rol === 'Auxiliar';
@@ -304,6 +306,62 @@ export default function HospitalizationPage() {
       updates.insumos = [...(applyHosp.insumos || []), ...editTxInsumos];
     }
     editHosp(applyHospId, updates);
+
+    // Descontar inventario solo si esta hospitalización tiene el flag activo
+    if (applyHosp.conectar_inventario) {
+      for (const med of selected_meds) {
+        const dosis = parseFloat(String(med.dosis).replace(',', '.')) || 0;
+        if (dosis <= 0) continue;
+
+        const invItem = inventario.find(i =>
+          i.nombre.toLowerCase() === med.medicamento.toLowerCase()
+        );
+        if (!invItem) continue;
+
+        if (invItem.tipo === 'ml') {
+          const newStock = Math.max(0, (invItem.stock || 0) - dosis);
+          editInventario(invItem.id, { stock: newStock });
+          supabase.from('inventario_movimientos').insert({
+            inventario_id: invItem.id,
+            tipo:          'descargue_hosp',
+            cantidad:      -dosis,
+            motivo:        `Hosp #${applyHospId} — ${med.medicamento}`,
+            created_by:    session?.nombre || 'Sistema',
+            hosp_id:       applyHospId,
+          });
+
+        } else if (invItem.tipo === 'ampolla') {
+          // Acumular ML previos para este paciente + medicamento en esta hospitalización
+          const prevApps = applyHosp.aplicaciones || [];
+          let mlBefore = 0;
+          prevApps.forEach(app => {
+            (app.medicamentos || []).forEach(m => {
+              if (m.medicamento.toLowerCase() === med.medicamento.toLowerCase()) {
+                mlBefore += parseFloat(String(m.dosis).replace(',', '.')) || 0;
+              }
+            });
+          });
+          const mlAfter  = mlBefore + dosis;
+          const mlxAmp   = invItem.ml_por_ampolla || 1;
+          const ampAntes = mlBefore === 0 ? 0 : Math.ceil(mlBefore / mlxAmp);
+          const ampDespues = Math.ceil(mlAfter / mlxAmp);
+          const toDeduct = ampDespues - ampAntes;
+          if (toDeduct > 0) {
+            const newStock = Math.max(0, (invItem.stock || 0) - toDeduct);
+            editInventario(invItem.id, { stock: newStock });
+            supabase.from('inventario_movimientos').insert({
+              inventario_id: invItem.id,
+              tipo:          'descargue_hosp',
+              cantidad:      -toDeduct,
+              motivo:        `Hosp #${applyHospId} — ${med.medicamento} (${toDeduct} amp.)`,
+              created_by:    session?.nombre || 'Sistema',
+              hosp_id:       applyHospId,
+            });
+          }
+        }
+      }
+    }
+
     setApplyModal(false);
   };
 
@@ -743,6 +801,24 @@ export default function HospitalizationPage() {
                   <div style={{ marginTop: '0.5rem' }}>
                     <span style={{ fontSize: '0.65rem', fontWeight: 700, background: '#dc2626', color: '#fff', padding: '2px 8px', borderRadius: 999 }}>🦠 VIRAL</span>
                   </div>
+                )}
+
+                {/* Toggle inventario — solo administradores */}
+                {isAdmin && (
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginTop: '0.5rem', userSelect: 'none' }}>
+                    <input
+                      type="checkbox"
+                      checked={!!selected.conectar_inventario}
+                      onChange={e => editHosp(selected.id, { conectar_inventario: e.target.checked })}
+                      style={{ width: 16, height: 16, accentColor: '#2e5cbf', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: selected.conectar_inventario ? '#2e5cbf' : 'var(--color-text-muted)' }}>
+                      📦 Conectar inventario
+                    </span>
+                    {selected.conectar_inventario && (
+                      <span style={{ fontSize: '0.65rem', fontWeight: 700, background: '#2e5cbf', color: '#fff', padding: '1px 6px', borderRadius: 999 }}>ACTIVO</span>
+                    )}
+                  </label>
                 )}
               </div>
 
