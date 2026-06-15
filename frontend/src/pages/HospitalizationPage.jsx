@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
@@ -12,10 +12,100 @@ import { supabase } from '../utils/supabaseClient';
 
 const localDate = () => nowDate();
 
+const MEDICAMENTOS_LISTA = [
+  'ACIDO TRANEXAMICO AMPOLLA (5 ML)', 'ADRENALINA AMPOLLA (1 ML)', 'AMIKACINA AMPOLLA (2 ML)',
+  'AMINOLYTE X 500 ML', 'AMPICILINA AMPOLLA (5 ML)', 'AMPICILINA + SULBACTAM AMPOLLA (5 ML)',
+  'ASCORVEX X 20 ML', 'ATROPINA X 50 ML', 'BRONQUIVET', 'BROXICLIN X 100 ML',
+  'BUPIVACAINA X 10 ML', 'CEFALOTINA AMPOLLA (5 ML)', 'CERENIA X 20 ML',
+  'CEFTRIAXONA AMPOLLA (5 ML)', 'CIPROFLOXACINA X 10 ML', 'CLINDAMICINA AMPOLLA (4 ML)',
+  'CLORURO DE POTASIO X 10 ML', 'COLIVET (DIPIRONA) X 50 ML', 'COMPLELAND X 100 ML',
+  'DEXAMETASONA AMPOLLA (2 ML)', 'DEXMEDETOMIDINA AMPOLLA (2 ML)', 'DIAZEPAM AMPOLLA (2 ML)',
+  'DIURIVET X 50 ML', 'DOMOSYN X 120 ML', 'ENROFLOXACINA X 100 ML',
+  'ERITROPOYETINA AMPOLLA (2 ML)', 'EUTHANEX X 50 ML', 'FENTANILO X 10 ML',
+  'FLUIMUCIL AMPOLLA (3 ML)', 'GENTAMICINA AMPOLLA (2 ML)', 'GLUCONATO DE CALCIO 10% (10 ML)',
+  'HEPATOGAN X 250 ML', 'HIOSCINA AMPOLLA (1 ML)', 'INFLACOR X 20 ML',
+  'KAVITEX 20/20 X 20 ML', 'KETAMINA X 50 ML', 'KETOBEST X 50 ML', 'LIDOCAINA X 50 ML',
+  'MELOXICAM 0.5% X 10 ML', 'MELOXICAME 2% X 50 ML', 'METILPREDNISOLONA AMPOLLA (4 ML)',
+  'METOCLOPRAMIDA AMPOLLA (2 ML)', 'METRONIDAZOL X 100 ML', 'MIDAZOLAN AMPOLLA (5 ML)',
+  'NEODOXIL INYEC X 50 ML', 'OMEPRAZOL AMPOLLA (10 ML)', 'ONDANSETRON AMPOLLA (4 ML)',
+  'OXITETRACICLINA X 100 ML', 'PENTHAL X 20 ML', 'PROPOFOL X 20 ML', 'QUERCETOL X 50 ML',
+  'RANIDIN X 20 ML', 'REMIFENTANILO AMPOLLA (1 ML)', 'RESUPRAM X 10 ML',
+  'RESTADERM X 100 ML', 'ROXICAINA X 100 ML', 'SEDOLAX X 10 ML', 'TRAMADOL AMPOLLA (2 ML)',
+  'TRANQUILAN X 10 ML', 'TRISEPTIL X 100 ML', 'UNITRAL X 100 ML', 'VETHISTAM X 50 ML',
+  'XILACINA X 20 ML', 'ZOLETIL X 5 ML', 'GLOMAX X 50 ML',
+];
+const MEDS_SORTED = [...new Set(MEDICAMENTOS_LISTA)].sort();
+
+function MedAutoComplete({ value, isOtro, onChange, onOtroToggle }) {
+  const [search,   setSearch]   = useState('');
+  const [open,     setOpen]     = useState(false);
+  const [dropRect, setDropRect] = useState(null);
+  const containerRef = useRef(null);
+  const inputRef     = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = e => { if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false); };
+    const closeOnScroll = () => setOpen(false);
+    document.addEventListener('mousedown', close);
+    document.addEventListener('scroll', closeOnScroll, true);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('scroll', closeOnScroll, true); };
+  }, [open]);
+
+  const handleFocus = () => {
+    if (inputRef.current) setDropRect(inputRef.current.getBoundingClientRect());
+    setSearch('');
+    setOpen(true);
+  };
+
+  const filtered = MEDS_SORTED.filter(m => !search || m.toLowerCase().includes(search.toLowerCase()));
+
+  if (isOtro) {
+    return (
+      <div ref={containerRef}>
+        <button type="button" onClick={() => { onOtroToggle(false); onChange(''); }}
+          style={{ fontSize: '0.7rem', padding: '1px 6px', background: '#fff8e1', border: '1px solid #f5c842', borderRadius: 3, cursor: 'pointer', marginBottom: '0.3rem', color: '#92400e', fontWeight: 600 }}>
+          ← Catálogo
+        </button>
+        <input autoFocus value={value} onChange={e => onChange(e.target.value)}
+          placeholder="Escribir nombre del medicamento..."
+          style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid #f59e0b', borderRadius: 'var(--radius-sm)', outline: 'none' }} />
+      </div>
+    );
+  }
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative' }}>
+      <input ref={inputRef} value={open ? search : (value || '')} onChange={e => setSearch(e.target.value)}
+        onFocus={handleFocus} placeholder="Buscar medicamento..."
+        style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', outline: 'none' }} />
+      {open && dropRect && (
+        <div style={{ position: 'fixed', top: dropRect.bottom + 2, left: dropRect.left, width: Math.max(dropRect.width, 300), background: 'white', border: '1px solid #e5e7eb', borderRadius: 6, maxHeight: 240, overflowY: 'auto', zIndex: 9999, boxShadow: '0 8px 24px rgba(0,0,0,0.16)' }}>
+          {filtered.length === 0 && <div style={{ padding: '0.5rem 0.75rem', fontSize: '0.78rem', color: '#999' }}>Sin coincidencias</div>}
+          {filtered.map(med => (
+            <div key={med} onMouseDown={e => { e.preventDefault(); onChange(med); setSearch(''); setOpen(false); }}
+              onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
+              onMouseLeave={e => e.currentTarget.style.background = ''}
+              style={{ padding: '0.45rem 0.75rem', fontSize: '0.8rem', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', lineHeight: 1.35 }}>
+              {med}
+            </div>
+          ))}
+          <div onMouseDown={e => { e.preventDefault(); onOtroToggle(true); onChange(''); setSearch(''); setOpen(false); }}
+            onMouseEnter={e => e.currentTarget.style.background = '#fef3cd'}
+            onMouseLeave={e => e.currentTarget.style.background = '#fff8e1'}
+            style={{ padding: '0.45rem 0.75rem', fontSize: '0.78rem', cursor: 'pointer', background: '#fff8e1', color: '#92400e', fontWeight: 700, borderTop: '2px solid #f5c842', position: 'sticky', bottom: 0 }}>
+            ✏️ Otro (escribir manualmente)
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const UNIDADES    = ['ml', 'tabletas', 'paquetes', 'mg', 'comprimidos', 'gotas', 'otro'];
 const FRECUENCIAS = ['Cada 2 horas', 'Cada 4 horas', 'Cada 6 horas', 'Cada 8 horas', 'Cada 12 horas', 'Cada 24 horas', 'Una sola vez'];
 const VIAS        = ['IV', 'IM', 'VO', 'SC', 'Tópica', 'Inhalada', 'Oftálmica', 'Ótica'];
-const EMPTY_MED   = { medicamento: '', dosis: '', unidad: 'ml', via: 'IV', frecuencia: 'Cada 8 horas', observaciones: '' };
+const EMPTY_MED   = { medicamento: '', dosis: '', unidad: 'ml', via: 'IV', frecuencia: 'Cada 8 horas', observaciones: '', _isOtro: false };
 
 const INSUMOS_HOSPITAL = [
   'Lactato Ringer',
@@ -440,7 +530,10 @@ export default function HospitalizationPage() {
   // ── edit treatment ──────────────────────────────────────────────────────
   const openEditTx = (h) => {
     setEditTxHospId(h.id);
-    setEditTxMeds((h.tratamiento || []).map(t => ({ ...t })));
+    setEditTxMeds((h.tratamiento || []).map(t => ({
+      ...t,
+      _isOtro: !!t.medicamento && !MEDS_SORTED.includes(t.medicamento),
+    })));
     setEditTxModal(true);
   };
   const updateEditTxMed = (i, field, val) => setEditTxMeds(m => m.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
@@ -450,7 +543,10 @@ export default function HospitalizationPage() {
     setNewInsumo(''); setNewInsumoCant(1);
   };
   const handleSaveEditTx = () => {
-    editHosp(editTxHospId, { tratamiento: editTxMeds.filter(m => m.medicamento.trim()) });
+    const clean = editTxMeds
+      .filter(m => m.medicamento.trim())
+      .map(({ _isOtro, ...rest }) => rest);
+    editHosp(editTxHospId, { tratamiento: clean });
     setEditTxModal(false);
   };
 
@@ -1672,7 +1768,14 @@ export default function HospitalizationPage() {
                   <tbody>
                     {editTxMeds.map((m, i) => (
                       <tr key={i} style={{ borderBottom: i < editTxMeds.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
-                        <td style={{ padding: '0.4rem 0.5rem' }}><input value={m.medicamento} onChange={e => updateEditTxMed(i, 'medicamento', e.target.value)} placeholder="Nombre" style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }} /></td>
+                        <td style={{ padding: '0.4rem 0.5rem', minWidth: 220 }}>
+                          <MedAutoComplete
+                            value={m.medicamento}
+                            isOtro={!!m._isOtro}
+                            onChange={val => updateEditTxMed(i, 'medicamento', val)}
+                            onOtroToggle={flag => updateEditTxMed(i, '_isOtro', flag)}
+                          />
+                        </td>
                         <td style={{ padding: '0.4rem 0.5rem' }}><input value={m.dosis} onChange={e => updateEditTxMed(i, 'dosis', e.target.value.replace(',', '.'))} placeholder="0" style={{ width: 55, padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }} /></td>
                         <td style={{ padding: '0.4rem 0.5rem' }}><select value={m.unidad} onChange={e => updateEditTxMed(i, 'unidad', e.target.value)} style={{ padding: '0.4rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>{UNIDADES.map(u => <option key={u}>{u}</option>)}</select></td>
                         <td style={{ padding: '0.4rem 0.5rem' }}><select value={m.via || 'IV'} onChange={e => updateEditTxMed(i, 'via', e.target.value)} style={{ padding: '0.4rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>{VIAS.map(v => <option key={v}>{v}</option>)}</select></td>
