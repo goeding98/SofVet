@@ -79,15 +79,32 @@ const MEDICAMENTOS_LISTA = [
 const MEDS_SORTED = [...new Set(MEDICAMENTOS_LISTA)].sort();
 
 function MedAutoComplete({ value, isOtro, onChange, onOtroToggle }) {
-  const [search, setSearch] = useState('');
-  const [open,   setOpen]   = useState(false);
-  const ref = useRef(null);
+  const [search,   setSearch]   = useState('');
+  const [open,     setOpen]     = useState(false);
+  const [dropRect, setDropRect] = useState(null);
+  const containerRef = useRef(null);
+  const inputRef     = useRef(null);
 
   useEffect(() => {
-    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+    if (!open) return;
+    const close = e => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false);
+    };
+    // Cerrar si el usuario hace scroll (el input se mueve pero el dropdown fixed no)
+    const closeOnScroll = () => setOpen(false);
+    document.addEventListener('mousedown', close);
+    document.addEventListener('scroll', closeOnScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('scroll', closeOnScroll, true);
+    };
+  }, [open]);
+
+  const handleFocus = () => {
+    if (inputRef.current) setDropRect(inputRef.current.getBoundingClientRect());
+    setSearch('');
+    setOpen(true);
+  };
 
   const filtered = MEDS_SORTED.filter(m =>
     !search || m.toLowerCase().includes(search.toLowerCase())
@@ -95,7 +112,7 @@ function MedAutoComplete({ value, isOtro, onChange, onOtroToggle }) {
 
   if (isOtro) {
     return (
-      <div>
+      <div ref={containerRef}>
         <button
           type="button"
           onClick={() => { onOtroToggle(false); onChange(''); }}
@@ -115,16 +132,29 @@ function MedAutoComplete({ value, isOtro, onChange, onOtroToggle }) {
   }
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
+    <div ref={containerRef} style={{ position: 'relative' }}>
       <input
+        ref={inputRef}
         value={open ? search : (value || '')}
         onChange={e => setSearch(e.target.value)}
-        onFocus={() => { setSearch(''); setOpen(true); }}
+        onFocus={handleFocus}
         placeholder="Buscar medicamento..."
         style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', outline: 'none' }}
       />
-      {open && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, minWidth: '280px', background: 'white', border: '1px solid #e5e7eb', borderRadius: 4, maxHeight: 220, overflowY: 'auto', zIndex: 300, boxShadow: '0 6px 20px rgba(0,0,0,0.14)' }}>
+      {open && dropRect && (
+        <div style={{
+          position: 'fixed',
+          top:      dropRect.bottom + 2,
+          left:     dropRect.left,
+          width:    Math.max(dropRect.width, 300),
+          background: 'white',
+          border: '1px solid #e5e7eb',
+          borderRadius: 6,
+          maxHeight: 240,
+          overflowY: 'auto',
+          zIndex: 9999,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.16)',
+        }}>
           {filtered.length === 0 && (
             <div style={{ padding: '0.5rem 0.75rem', fontSize: '0.78rem', color: '#999' }}>Sin coincidencias</div>
           )}
@@ -134,7 +164,7 @@ function MedAutoComplete({ value, isOtro, onChange, onOtroToggle }) {
               onMouseDown={e => { e.preventDefault(); onChange(med); setSearch(''); setOpen(false); }}
               onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
               onMouseLeave={e => e.currentTarget.style.background = ''}
-              style={{ padding: '0.4rem 0.75rem', fontSize: '0.78rem', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', lineHeight: 1.35 }}
+              style={{ padding: '0.45rem 0.75rem', fontSize: '0.8rem', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', lineHeight: 1.35 }}
             >
               {med}
             </div>
