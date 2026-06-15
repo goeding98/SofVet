@@ -32,6 +32,7 @@ import ImagenesPage from './pages/ImagenesPage';
 import PedidosCompraPage from './pages/PedidosCompraPage';
 import FacturacionPage   from './pages/FacturacionPage';
 import ReportesPage      from './pages/ReportesPage';
+import InventarioPage    from './pages/InventarioPage';
 
 function ProtectedLayout({ children }) {
   const { session } = useAuth();
@@ -104,6 +105,7 @@ function AppRoutes() {
           <Route path="/pedidos-compra"        element={<ProtectedLayout><PedidosCompraPage /></ProtectedLayout>} />
           <Route path="/facturacion"           element={<ProtectedLayout><FacturacionPage /></ProtectedLayout>} />
           <Route path="/reportes"              element={<ProtectedLayout><ReportesPage /></ProtectedLayout>} />
+          <Route path="/inventario"            element={<ProtectedLayout><InventarioPage /></ProtectedLayout>} />
         </>
       )}
 

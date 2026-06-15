@@ -31,6 +31,7 @@ const TABLE_MAP = {
   permisos_empleados:      'permisos_empleados',
   imagenesPedidos:         'imagenes_pedidos',
   imagenes:                'imagenes',
+  inventario:              'inventario',
 };
 
 // ── Module-level cache (survives navigation, shared across all components) ──
