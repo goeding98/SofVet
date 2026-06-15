@@ -409,7 +409,7 @@ export default function HospitalizationPage() {
         if (!invItem) continue;
 
         if (invItem.tipo === 'ml') {
-          const newStock = Math.max(0, (invItem.stock || 0) - dosis);
+          const newStock = parseFloat(Math.max(0, (invItem.stock || 0) - dosis).toFixed(4));
           editInventario(invItem.id, { stock: newStock });
           supabase.from('inventario_movimientos').insert({
             inventario_id: invItem.id,

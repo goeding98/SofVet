@@ -8,6 +8,8 @@ const TIPO_LABEL  = { ml: 'ML', ampolla: 'Amp.' };
 const TIPO_COLOR  = { ml: '#1565c0', ampolla: '#7c3aed' };
 const TIPO_BG     = { ml: '#e8f0ff', ampolla: '#f3e8ff' };
 
+const fmt = n => parseFloat((n || 0).toFixed(4)).toString().replace('.', ',');
+
 function statusOf(item) {
   if (item.stock <= 0)              return 'agotado';
   if (item.stock <= item.stock_minimo) return 'bajo';
@@ -58,15 +60,15 @@ export default function InventarioPage() {
       return setModalError('Ingresa una cantidad válida mayor a 0.');
     }
     if (modal.accion === 'descargue' && cant > modal.item.stock) {
-      return setModalError(`Stock insuficiente. Disponible: ${modal.item.stock} ${unidad(modal.item)}`);
+      return setModalError(`Stock insuficiente. Disponible: ${fmt(modal.item.stock)} ${unidad(modal.item)}`);
     }
 
     setSaving(true);
     setModalError('');
 
-    const newStock = modal.accion === 'ingreso'
+    const newStock = parseFloat((modal.accion === 'ingreso'
       ? modal.item.stock + cant
-      : modal.item.stock - cant;
+      : modal.item.stock - cant).toFixed(4));
 
     editInventario(modal.item.id, { stock: newStock });
 
@@ -189,7 +191,7 @@ export default function InventarioPage() {
                     </span>
                   </td>
                   <td style={{ padding: '0.65rem 0.85rem', fontSize: '0.9rem', fontWeight: 700, color: st === 'agotado' ? '#dc2626' : st === 'bajo' ? '#a16207' : 'var(--color-text)' }}>
-                    {item.stock} <span style={{ fontSize: '0.72rem', fontWeight: 400, color: 'var(--color-text-muted)' }}>{unidad(item)}</span>
+                    {fmt(item.stock)} <span style={{ fontSize: '0.72rem', fontWeight: 400, color: 'var(--color-text-muted)' }}>{unidad(item)}</span>
                   </td>
                   <td style={{ padding: '0.65rem 0.85rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
                     {item.stock_minimo} {unidad(item)}
@@ -244,7 +246,7 @@ export default function InventarioPage() {
             {/* Body */}
             <div style={{ padding: '1.4rem' }}>
               <div style={{ background: 'var(--color-bg)', borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.9rem', fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
-                Stock actual: <strong style={{ color: 'var(--color-text)' }}>{modal.item.stock} {unidad(modal.item)}</strong>
+                Stock actual: <strong style={{ color: 'var(--color-text)' }}>{fmt(modal.item.stock)} {unidad(modal.item)}</strong>
                 {modal.item.tipo === 'ampolla' && (
                   <span style={{ marginLeft: '0.5rem' }}>· {modal.item.ml_por_ampolla} ml/amp</span>
                 )}
