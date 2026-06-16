@@ -4,9 +4,9 @@ import { useStore } from '../utils/useStore';
 import { supabase } from '../utils/supabaseClient';
 import { nowDate, nowTime } from '../utils/nowLocal';
 
-const TIPO_LABEL  = { ml: 'ML', ampolla: 'Amp.' };
-const TIPO_COLOR  = { ml: '#1565c0', ampolla: '#7c3aed' };
-const TIPO_BG     = { ml: '#e8f0ff', ampolla: '#f3e8ff' };
+const TIPO_LABEL  = { ml: 'ML', ampolla: 'Amp.', unidad: 'Und.' };
+const TIPO_COLOR  = { ml: '#1565c0', ampolla: '#7c3aed', unidad: '#065f46' };
+const TIPO_BG     = { ml: '#e8f0ff', ampolla: '#f3e8ff', unidad: '#d1fae5' };
 
 const fmt = n => parseFloat((n || 0).toFixed(4)).toString().replace('.', ',');
 
@@ -45,7 +45,7 @@ export default function InventarioPage() {
   const itemsBajo    = inventario.filter(i => statusOf(i) === 'bajo').length;
   const itemsAgotado = inventario.filter(i => statusOf(i) === 'agotado').length;
 
-  const unidad = (item) => item.tipo === 'ampolla' ? 'amp.' : 'ml';
+  const unidad = (item) => item.tipo === 'ampolla' ? 'amp.' : item.tipo === 'unidad' ? 'und.' : 'ml';
 
   const openModal = (accion, item) => {
     setModal({ accion, item });

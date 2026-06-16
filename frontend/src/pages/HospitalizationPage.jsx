@@ -452,6 +452,27 @@ export default function HospitalizationPage() {
       }
     }
 
+    // Descontar insumos del inventario si el flag está activo
+    if (applyHosp.conectar_inventario && editTxInsumos.length) {
+      for (const item of editTxInsumos) {
+        const cant = parseInt(item.cantidad) || 1;
+        const invItem = inventario.find(i =>
+          i.nombre.toLowerCase() === item.insumo.toLowerCase()
+        );
+        if (!invItem) continue;
+        const newStock = Math.max(0, (invItem.stock || 0) - cant);
+        editInventario(invItem.id, { stock: newStock });
+        supabase.from('inventario_movimientos').insert({
+          inventario_id: invItem.id,
+          tipo:          'descargue_hosp',
+          cantidad:      -cant,
+          motivo:        `Hosp #${applyHospId} — ${item.insumo}`,
+          created_by:    session?.nombre || 'Sistema',
+          hosp_id:       applyHospId,
+        });
+      }
+    }
+
     setApplyModal(false);
   };
 
