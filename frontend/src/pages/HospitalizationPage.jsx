@@ -920,23 +920,6 @@ export default function HospitalizationPage() {
                   </div>
                 )}
 
-                {/* Toggle inventario — solo administradores */}
-                {isAdmin && (
-                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginTop: '0.5rem', userSelect: 'none' }}>
-                    <input
-                      type="checkbox"
-                      checked={!!selected.conectar_inventario}
-                      onChange={e => editHosp(selected.id, { conectar_inventario: e.target.checked })}
-                      style={{ width: 16, height: 16, accentColor: '#2e5cbf', cursor: 'pointer' }}
-                    />
-                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: selected.conectar_inventario ? '#2e5cbf' : 'var(--color-text-muted)' }}>
-                      📦 Conectar inventario
-                    </span>
-                    {selected.conectar_inventario && (
-                      <span style={{ fontSize: '0.65rem', fontWeight: 700, background: '#2e5cbf', color: '#fff', padding: '1px 6px', borderRadius: 999 }}>ACTIVO</span>
-                    )}
-                  </label>
-                )}
               </div>
 
               {/* Plan de tratamiento */}
