@@ -279,6 +279,7 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
       aplicaciones:    [],
       tipo,
       ...(tipo !== 'semi' ? { viral } : {}),
+      conectar_inventario: sedeId === 2,
     });
 
     editPatient(pet.id, { status: 'hospitalizado' });
