@@ -38,6 +38,8 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, onEdit, pet
   const [existingArchivos,  setExistingArchivos] = useState([]);       // existing files in edit mode
   const [uploading,         setUploading]        = useState(false);
   const [error,             setError]            = useState('');
+  const [editFecha,         setEditFecha]        = useState('');
+  const [editHora,          setEditHora]         = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -51,6 +53,8 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, onEdit, pet
               ? [{ name: 'PDF adjunto', url: initialData.file_url }]
               : []
         );
+        setEditFecha(initialData.fecha || '');
+        setEditHora(initialData.hora_subida || '');
         setSelectedPedidoId('');
       } else {
         setResult('');
@@ -62,7 +66,7 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, onEdit, pet
 
   if (!isOpen || !pet) return null;
 
-  const reset = () => { setResult(''); setFiles([]); setExistingArchivos([]); setError(''); setUploading(false); setSelectedPedidoId(''); };
+  const reset = () => { setResult(''); setFiles([]); setExistingArchivos([]); setError(''); setUploading(false); setSelectedPedidoId(''); setEditFecha(''); setEditHora(''); };
   const handleClose = () => { reset(); onClose(); };
 
   const handleFiles = (e) => {
@@ -101,6 +105,8 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, onEdit, pet
       editado_por:   session?.nombre || null,
       hora_edicion:  nowTime(),
       fecha_edicion: nowDate(),
+      ...(session?.rol === 'Administrador' && editFecha   ? { fecha:       editFecha } : {}),
+      ...(session?.rol === 'Administrador' && editHora    ? { hora_subida: editHora  } : {}),
     });
     reset(); onClose();
   };
@@ -260,6 +266,23 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, onEdit, pet
               </div>
             )}
           </div>
+
+          {/* Fecha/hora de subida — solo admin en modo edición */}
+          {isEditMode && session?.rol === 'Administrador' && (
+            <div style={{ marginBottom:'1.25rem', background:'#fff8f0', border:'1px solid #f59e0b', borderRadius:'var(--radius-sm)', padding:'0.75rem 0.85rem' }}>
+              <label style={{ ...lSt, color:'#b45309', marginBottom:'0.5rem' }}>Editar fecha y hora de subida</label>
+              <div style={{ display:'flex', gap:'0.75rem' }}>
+                <div style={{ flex:1 }}>
+                  <label style={{ display:'block', fontSize:'0.72rem', color:'var(--color-text-muted)', marginBottom:'0.25rem' }}>Fecha</label>
+                  <input type="date" value={editFecha} onChange={e => setEditFecha(e.target.value)} style={iSt} />
+                </div>
+                <div style={{ flex:1 }}>
+                  <label style={{ display:'block', fontSize:'0.72rem', color:'var(--color-text-muted)', marginBottom:'0.25rem' }}>Hora</label>
+                  <input type="time" value={editHora} onChange={e => setEditHora(e.target.value)} style={iSt} />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div style={{ marginBottom:'1.25rem', background:'var(--color-bg)', borderRadius:'var(--radius-sm)', padding:'0.65rem 0.85rem', fontSize:'0.78rem', color:'var(--color-text-muted)' }}>
             👨‍⚕️ {isEditMode ? 'Editado' : 'Registrado'} por: <strong style={{ color:'var(--color-text)' }}>{session?.nombre || 'Desconocido'}</strong>
