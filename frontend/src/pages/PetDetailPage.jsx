@@ -165,7 +165,10 @@ export default function PetDetailPage() {
 
   const petImagenesResult = imagenesResult
     .filter(r => r.patient_id === petId)
-    .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+    .sort((a, b) => {
+                          const fc = (a.fecha || '').localeCompare(b.fecha || '');
+                          return fc !== 0 ? fc : (a.hora || '').localeCompare(b.hora || '');
+                        });
 
   const petNotas = notasClincias
     .filter(n => n.patient_id === petId)
@@ -618,7 +621,10 @@ export default function PetDetailPage() {
     });
     hospitalization.filter(h => h.patient_id === petId).forEach(h => {
       const meds = Array.isArray(h.tratamiento) ? h.tratamiento.filter(m => m.medicamento) : [];
-      const reps = hospReports.filter(r => r.hospitalization_id === h.id).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+      const reps = hospReports.filter(r => r.hospitalization_id === h.id).sort((a, b) => {
+                          const fc = (a.fecha || '').localeCompare(b.fecha || '');
+                          return fc !== 0 ? fc : (a.hora || '').localeCompare(b.hora || '');
+                        });
       const sortKey = h.alta_date ? `${h.alta_date}T${h.alta_time || '00:00'}` : `${h.ingreso_date || '0000'}T${h.ingreso_time || '00:00'}`;
       allEvents.push({ sortKey, type: 'hosp', h, meds, reps });
     });
@@ -772,7 +778,10 @@ export default function PetDetailPage() {
     });
     hospitalization.filter(h => h.patient_id === petId).forEach(h => {
       const meds = Array.isArray(h.tratamiento) ? h.tratamiento.filter(m => m.medicamento) : [];
-      const reps = hospReports.filter(r => r.hospitalization_id === h.id).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+      const reps = hospReports.filter(r => r.hospitalization_id === h.id).sort((a, b) => {
+                          const fc = (a.fecha || '').localeCompare(b.fecha || '');
+                          return fc !== 0 ? fc : (a.hora || '').localeCompare(b.hora || '');
+                        });
       const sortKey = h.alta_date ? `${h.alta_date}T${h.alta_time || '00:00'}` : `${h.ingreso_date || '0000'}T${h.ingreso_time || '00:00'}`;
       allEvents.push({ sortKey, type: 'hosp', h, meds, reps });
     });
@@ -1564,7 +1573,10 @@ export default function PetDetailPage() {
                     {(() => {
                       const reps = hospReports
                         .filter(r => r.hospitalization_id === h.id)
-                        .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+                        .sort((a, b) => {
+                          const fc = (a.fecha || '').localeCompare(b.fecha || '');
+                          return fc !== 0 ? fc : (a.hora || '').localeCompare(b.hora || '');
+                        });
                       if (!reps.length) return null;
                       return (
                         <div style={{ marginTop:'0.75rem', borderTop:`1px dashed ${isActive ? '#fca5a5' : 'var(--color-border)'}`, paddingTop:'0.65rem', display:'flex', flexDirection:'column', gap:'0.5rem' }}>
