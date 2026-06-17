@@ -178,6 +178,11 @@ export default function InventarioPage() {
                   style={{ borderBottom: idx < items.length - 1 ? '1px solid var(--color-border)' : 'none', background: st === 'agotado' ? '#fff8f8' : st === 'bajo' ? '#fffdf0' : 'white' }}
                 >
                   <td style={{ padding: '0.65rem 0.85rem', fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-text)' }}>
+                    {item.codigo && (
+                      <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#6b7280', background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 4, padding: '1px 5px', marginRight: '0.5rem', fontFamily: 'monospace', letterSpacing: '0.03em' }}>
+                        {item.codigo}
+                      </span>
+                    )}
                     {item.nombre}
                     {item.tipo === 'ampolla' && item.ml_por_ampolla && (
                       <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', fontWeight: 400, marginLeft: '0.4rem' }}>
