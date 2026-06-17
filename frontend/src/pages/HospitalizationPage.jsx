@@ -418,7 +418,7 @@ export default function HospitalizationPage() {
             motivo:        `Hosp #${applyHospId} — ${med.medicamento}`,
             created_by:    session?.nombre || 'Sistema',
             hosp_id:       applyHospId,
-          });
+          }).then(() => {});
 
         } else if (invItem.tipo === 'ampolla') {
           // Acumular ML previos para este paciente + medicamento en esta hospitalización
@@ -446,7 +446,7 @@ export default function HospitalizationPage() {
               motivo:        `Hosp #${applyHospId} — ${med.medicamento} (${toDeduct} amp.)`,
               created_by:    session?.nombre || 'Sistema',
               hosp_id:       applyHospId,
-            });
+            }).then(() => {});
           }
         }
       }
@@ -469,7 +469,7 @@ export default function HospitalizationPage() {
           motivo:        `Hosp #${applyHospId} — ${item.insumo}`,
           created_by:    session?.nombre || 'Sistema',
           hosp_id:       applyHospId,
-        });
+        }).then(() => {});
       }
     }
 
