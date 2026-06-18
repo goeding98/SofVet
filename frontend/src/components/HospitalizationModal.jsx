@@ -82,30 +82,31 @@ function MedAutoComplete({ value, isOtro, onChange, onOtroToggle }) {
   const [search,   setSearch]   = useState('');
   const [open,     setOpen]     = useState(false);
   const [dropRect, setDropRect] = useState(null);
-  const containerRef = useRef(null);
-  const inputRef     = useRef(null);
-  const dropRef      = useRef(null);
+  const containerRef  = useRef(null);
+  const inputRef      = useRef(null);
+  const dropRef       = useRef(null);
+  const mouseInDrop   = useRef(false);
 
   useEffect(() => {
     if (!open) return;
-    const close = e => {
-      const inContainer = containerRef.current?.contains(e.target);
-      const inDrop      = dropRef.current?.contains(e.target);
-      if (!inContainer && !inDrop) setOpen(false);
-    };
     const closeOnScroll = () => setOpen(false);
-    document.addEventListener('mousedown', close);
     document.addEventListener('scroll', closeOnScroll, true);
-    return () => {
-      document.removeEventListener('mousedown', close);
-      document.removeEventListener('scroll', closeOnScroll, true);
-    };
+    return () => document.removeEventListener('scroll', closeOnScroll, true);
   }, [open]);
 
   const handleFocus = () => {
     if (inputRef.current) setDropRect(inputRef.current.getBoundingClientRect());
     setSearch('');
     setOpen(true);
+  };
+
+  const handleBlur = () => {
+    if (mouseInDrop.current) {
+      mouseInDrop.current = false;
+      inputRef.current?.focus();
+      return;
+    }
+    setOpen(false);
   };
 
   const filtered = MEDS_SORTED.filter(m =>
@@ -140,6 +141,7 @@ function MedAutoComplete({ value, isOtro, onChange, onOtroToggle }) {
         value={open ? search : (value || '')}
         onChange={e => setSearch(e.target.value)}
         onFocus={handleFocus}
+        onBlur={handleBlur}
         placeholder="Buscar medicamento..."
         style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', outline: 'none' }}
       />
@@ -156,7 +158,7 @@ function MedAutoComplete({ value, isOtro, onChange, onOtroToggle }) {
           overflowY: 'auto',
           zIndex: 9999,
           boxShadow: '0 8px 24px rgba(0,0,0,0.16)',
-        }} ref={dropRef} onMouseDown={e => e.preventDefault()}>
+        }} ref={dropRef} onMouseDown={() => { mouseInDrop.current = true; }}>
           {filtered.length === 0 && (
             <div style={{ padding: '0.5rem 0.75rem', fontSize: '0.78rem', color: '#999' }}>Sin coincidencias</div>
           )}
