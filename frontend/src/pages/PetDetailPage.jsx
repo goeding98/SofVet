@@ -711,7 +711,8 @@ export default function PetDetailPage() {
       if (ev.type === 'nota') {
         const { n } = ev;
         const d = n.created_at ? n.created_at.split('T')[0] : '—';
-        return `<div style="margin-bottom:20px;border-left:4px solid #b8860b"><div style="background:#fff8e1;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#b8860b;font-size:12px">📝 NOTA CLÍNICA — ${d}</div><div style="font-size:10px;color:#555">${n.autor || n.created_by || ''}</div></div><div style="padding:10px 14px">${n.titulo ? `<div style="font-size:12px;font-weight:700;color:#b8860b;margin-bottom:6px">${n.titulo}</div>` : ''}${fld('Observaciones', n.observaciones)}${archivosHtml(n.archivos)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
+        const h = n.hora_creacion || (n.created_at ? n.created_at.split('T')[1]?.slice(0, 5) : '');
+        return `<div style="margin-bottom:20px;border-left:4px solid #b8860b"><div style="background:#fff8e1;padding:8px 12px;display:flex;justify-content:space-between"><div style="font-weight:700;color:#b8860b;font-size:12px">📝 NOTA CLÍNICA — ${d}${h ? ' · ' + h : ''}</div><div style="font-size:10px;color:#555">${n.autor || n.created_by || ''}</div></div><div style="padding:10px 14px">${n.titulo ? `<div style="font-size:12px;font-weight:700;color:#b8860b;margin-bottom:6px">${n.titulo}</div>` : ''}${fld('Observaciones', n.observaciones)}${archivosHtml(n.archivos)}</div></div><hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">`;
       }
       return '';
     };

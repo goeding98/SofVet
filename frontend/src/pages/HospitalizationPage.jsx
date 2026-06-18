@@ -80,7 +80,7 @@ function MedAutoComplete({ value, isOtro, onChange, onOtroToggle }) {
         onFocus={handleFocus} placeholder="Buscar medicamento..."
         style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', outline: 'none' }} />
       {open && dropRect && (
-        <div style={{ position: 'fixed', top: dropRect.bottom + 2, left: dropRect.left, width: Math.max(dropRect.width, 300), background: 'white', border: '1px solid #e5e7eb', borderRadius: 6, maxHeight: 240, overflowY: 'auto', zIndex: 9999, boxShadow: '0 8px 24px rgba(0,0,0,0.16)' }}>
+        <div onMouseDown={e => e.preventDefault()} style={{ position: 'fixed', top: dropRect.bottom + 2, left: dropRect.left, width: Math.max(dropRect.width, 300), background: 'white', border: '1px solid #e5e7eb', borderRadius: 6, maxHeight: 240, overflowY: 'auto', zIndex: 9999, boxShadow: '0 8px 24px rgba(0,0,0,0.16)' }}>
           {filtered.length === 0 && <div style={{ padding: '0.5rem 0.75rem', fontSize: '0.78rem', color: '#999' }}>Sin coincidencias</div>}
           {filtered.map(med => (
             <div key={med} onMouseDown={e => { e.preventDefault(); onChange(med); setSearch(''); setOpen(false); }}
@@ -1735,69 +1735,116 @@ export default function HospitalizationPage() {
 
       {/* ══════════════ MODAL: EDITAR TRATAMIENTO (Médico) ══════════════ */}
       {editTxModal && editTxHosp && (
-        <div onClick={() => setEditTxModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', backdropFilter: 'blur(2px)', overflowY: 'auto' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 700, overflow: 'hidden', margin: 'auto' }}>
-            <div style={{ padding: '1.1rem 1.5rem', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div onClick={() => setEditTxModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '1.5rem 1rem', backdropFilter: 'blur(2px)', overflowY: 'auto' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--color-white)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 900, overflow: 'hidden', margin: 'auto' }}>
+
+            {/* Header */}
+            <div style={{ padding: '1.25rem 1.75rem', borderBottom: '2px solid var(--color-border)', background: 'linear-gradient(135deg, #f0f4ff 0%, #e8f5ee 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-primary)', fontSize: '1rem', margin: '0 0 0.1rem' }}>✏️ Editar plan de tratamiento</h3>
-                <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>{editTxHosp.patient_name}</p>
+                <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-primary)', fontSize: '1.15rem', margin: '0 0 0.2rem' }}>✏️ Editar plan de tratamiento</h3>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>{editTxHosp.patient_name}</p>
               </div>
-              <button onClick={() => setEditTxModal(false)} style={{ width: 30, height: 30, background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)' }}>×</button>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                {isAdmin && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>📍 Sede:</label>
+                    <select
+                      value={editTxHosp.sede_id || ''}
+                      onChange={e => editHosp(editTxHospId, { sede_id: parseInt(e.target.value) })}
+                      style={{ padding: '0.4rem 0.6rem', fontSize: '0.82rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', background: 'white' }}
+                    >
+                      {SEDES.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                    </select>
+                  </div>
+                )}
+                <button onClick={() => setEditTxModal(false)} style={{ width: 34, height: 34, background: 'white', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)', flexShrink: 0 }}>×</button>
+              </div>
             </div>
-            <div style={{ padding: '1.25rem 1.5rem' }}>
-              {isAdmin && (
-                <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text)', whiteSpace: 'nowrap' }}>📍 Sede:</label>
-                  <select
-                    value={editTxHosp.sede_id || ''}
-                    onChange={e => editHosp(editTxHospId, { sede_id: parseInt(e.target.value) })}
-                    style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)' }}
-                  >
-                    {SEDES.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                  </select>
-                </div>
-              )}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
-                <button onClick={() => setEditTxMeds(m => [...m, { ...EMPTY_MED }])} style={{ padding: '0.35rem 0.85rem', background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.78rem', fontWeight: 600 }}>+ Agregar fila</button>
+
+            {/* Body */}
+            <div style={{ padding: '1.5rem 1.75rem', maxHeight: '70vh', overflowY: 'auto' }}>
+
+              {/* Medication cards */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {editTxMeds.length === 0 && (
+                  <div style={{ padding: '2rem', textAlign: 'center', fontSize: '0.9rem', color: 'var(--color-text-muted)', background: 'var(--color-bg)', borderRadius: 'var(--radius-md)', border: '2px dashed var(--color-border)' }}>
+                    Sin medicamentos en el plan. Agrega uno con el botón de abajo.
+                  </div>
+                )}
+                {editTxMeds.map((m, i) => (
+                  <div key={i} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '1rem 1.25rem', background: 'var(--color-bg)', position: 'relative' }}>
+                    <button
+                      onClick={() => setEditTxMeds(m2 => m2.filter((_, idx) => idx !== i))}
+                      style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', background: 'var(--color-danger-bg)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '0.2rem 0.55rem', fontSize: '0.75rem', fontWeight: 700, lineHeight: 1.4 }}
+                    >✕</button>
+
+                    {/* Row 1: Medicamento */}
+                    <div style={{ marginBottom: '0.75rem', paddingRight: '2.5rem' }}>
+                      <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: '0.3rem', letterSpacing: '0.04em' }}>Medicamento</label>
+                      <MedAutoComplete
+                        value={m.medicamento}
+                        isOtro={!!m._isOtro}
+                        onChange={val => updateEditTxMed(i, 'medicamento', val)}
+                        onOtroToggle={flag => updateEditTxMed(i, '_isOtro', flag)}
+                      />
+                    </div>
+
+                    {/* Row 2: Dosis / Unidad / Vía / Frecuencia / Observaciones */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '90px 100px 100px 1fr 1fr', gap: '0.75rem', alignItems: 'end' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: '0.3rem' }}>Dosis</label>
+                        <input
+                          value={m.dosis}
+                          onChange={e => updateEditTxMed(i, 'dosis', e.target.value.replace(',', '.'))}
+                          placeholder="0"
+                          style={{ width: '100%', padding: '0.5rem 0.6rem', fontSize: '0.9rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: '0.3rem' }}>Unidad</label>
+                        <select value={m.unidad} onChange={e => updateEditTxMed(i, 'unidad', e.target.value)} style={{ width: '100%', padding: '0.5rem 0.4rem', fontSize: '0.85rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', boxSizing: 'border-box' }}>
+                          {UNIDADES.map(u => <option key={u}>{u}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: '0.3rem' }}>Vía</label>
+                        <select value={m.via || 'IV'} onChange={e => updateEditTxMed(i, 'via', e.target.value)} style={{ width: '100%', padding: '0.5rem 0.4rem', fontSize: '0.85rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', boxSizing: 'border-box' }}>
+                          {VIAS.map(v => <option key={v}>{v}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: '0.3rem' }}>Frecuencia</label>
+                        <select value={m.frecuencia} onChange={e => updateEditTxMed(i, 'frecuencia', e.target.value)} style={{ width: '100%', padding: '0.5rem 0.4rem', fontSize: '0.85rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', boxSizing: 'border-box' }}>
+                          {FRECUENCIAS.map(f => <option key={f}>{f}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: '0.3rem' }}>Observaciones</label>
+                        <input
+                          value={m.observaciones}
+                          onChange={e => updateEditTxMed(i, 'observaciones', e.target.value)}
+                          placeholder="Notas adicionales..."
+                          style={{ width: '100%', padding: '0.5rem 0.6rem', fontSize: '0.85rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div style={{ overflowX: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 660 }}>
-                  <thead>
-                    <tr style={{ background: 'var(--color-bg)', borderBottom: '1px solid var(--color-border)' }}>
-                      {['Medicamento', 'Dosis', 'Unidad', 'Vía', 'Frecuencia', 'Observaciones', ''].map(h => (
-                        <th key={h} style={{ padding: '0.5rem 0.6rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {editTxMeds.map((m, i) => (
-                      <tr key={i} style={{ borderBottom: i < editTxMeds.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
-                        <td style={{ padding: '0.4rem 0.5rem', minWidth: 220 }}>
-                          <MedAutoComplete
-                            value={m.medicamento}
-                            isOtro={!!m._isOtro}
-                            onChange={val => updateEditTxMed(i, 'medicamento', val)}
-                            onOtroToggle={flag => updateEditTxMed(i, '_isOtro', flag)}
-                          />
-                        </td>
-                        <td style={{ padding: '0.4rem 0.5rem' }}><input value={m.dosis} onChange={e => updateEditTxMed(i, 'dosis', e.target.value.replace(',', '.'))} placeholder="0" style={{ width: 55, padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }} /></td>
-                        <td style={{ padding: '0.4rem 0.5rem' }}><select value={m.unidad} onChange={e => updateEditTxMed(i, 'unidad', e.target.value)} style={{ padding: '0.4rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>{UNIDADES.map(u => <option key={u}>{u}</option>)}</select></td>
-                        <td style={{ padding: '0.4rem 0.5rem' }}><select value={m.via || 'IV'} onChange={e => updateEditTxMed(i, 'via', e.target.value)} style={{ padding: '0.4rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>{VIAS.map(v => <option key={v}>{v}</option>)}</select></td>
-                        <td style={{ padding: '0.4rem 0.5rem' }}><select value={m.frecuencia} onChange={e => updateEditTxMed(i, 'frecuencia', e.target.value)} style={{ padding: '0.4rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>{FRECUENCIAS.map(f => <option key={f}>{f}</option>)}</select></td>
-                        <td style={{ padding: '0.4rem 0.5rem' }}><input value={m.observaciones} onChange={e => updateEditTxMed(i, 'observaciones', e.target.value)} placeholder="Notas" style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }} /></td>
-                        <td style={{ padding: '0.4rem 0.5rem' }}><button onClick={() => setEditTxMeds(m2 => m2.filter((_, idx) => idx !== i))} style={{ background: 'var(--color-danger-bg)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '0.25rem 0.5rem', fontSize: '0.72rem' }}>✕</button></td>
-                      </tr>
-                    ))}
-                    {editTxMeds.length === 0 && (
-                      <tr><td colSpan={7} style={{ padding: '1.25rem', textAlign: 'center', fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>Sin medicamentos. Agrega una fila.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.25rem' }}>
-                <button onClick={() => setEditTxModal(false)} style={{ padding: '0.55rem 1.1rem', background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Cancelar</button>
-                <button onClick={handleSaveEditTx} style={{ padding: '0.55rem 1.25rem', background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600 }}>💾 Guardar cambios</button>
-              </div>
+
+              {/* Add row button */}
+              <button
+                onClick={() => setEditTxMeds(m => [...m, { ...EMPTY_MED }])}
+                style={{ marginTop: '1rem', width: '100%', padding: '0.7rem', background: 'white', border: '2px dashed var(--color-primary)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-primary)' }}
+              >
+                + Agregar medicamento
+              </button>
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '1rem 1.75rem', borderTop: '1px solid var(--color-border)', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', background: 'var(--color-bg)' }}>
+              <button onClick={() => setEditTxModal(false)} style={{ padding: '0.65rem 1.5rem', background: 'white', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.9rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>Cancelar</button>
+              <button onClick={handleSaveEditTx} style={{ padding: '0.65rem 1.75rem', background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.9rem', fontWeight: 700 }}>💾 Guardar cambios</button>
             </div>
           </div>
         </div>

@@ -154,7 +154,7 @@ function MedAutoComplete({ value, isOtro, onChange, onOtroToggle }) {
           overflowY: 'auto',
           zIndex: 9999,
           boxShadow: '0 8px 24px rgba(0,0,0,0.16)',
-        }}>
+        }} onMouseDown={e => e.preventDefault()}>
           {filtered.length === 0 && (
             <div style={{ padding: '0.5rem 0.75rem', fontSize: '0.78rem', color: '#999' }}>Sin coincidencias</div>
           )}
