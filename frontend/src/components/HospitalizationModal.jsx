@@ -84,13 +84,15 @@ function MedAutoComplete({ value, isOtro, onChange, onOtroToggle }) {
   const [dropRect, setDropRect] = useState(null);
   const containerRef = useRef(null);
   const inputRef     = useRef(null);
+  const dropRef      = useRef(null);
 
   useEffect(() => {
     if (!open) return;
     const close = e => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false);
+      const inContainer = containerRef.current?.contains(e.target);
+      const inDrop      = dropRef.current?.contains(e.target);
+      if (!inContainer && !inDrop) setOpen(false);
     };
-    // Cerrar si el usuario hace scroll (el input se mueve pero el dropdown fixed no)
     const closeOnScroll = () => setOpen(false);
     document.addEventListener('mousedown', close);
     document.addEventListener('scroll', closeOnScroll, true);
@@ -154,7 +156,7 @@ function MedAutoComplete({ value, isOtro, onChange, onOtroToggle }) {
           overflowY: 'auto',
           zIndex: 9999,
           boxShadow: '0 8px 24px rgba(0,0,0,0.16)',
-        }} onMouseDown={e => e.preventDefault()}>
+        }} ref={dropRef} onMouseDown={e => e.preventDefault()}>
           {filtered.length === 0 && (
             <div style={{ padding: '0.5rem 0.75rem', fontSize: '0.78rem', color: '#999' }}>Sin coincidencias</div>
           )}

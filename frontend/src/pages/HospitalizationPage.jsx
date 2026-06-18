@@ -42,10 +42,15 @@ function MedAutoComplete({ value, isOtro, onChange, onOtroToggle }) {
   const [dropRect, setDropRect] = useState(null);
   const containerRef = useRef(null);
   const inputRef     = useRef(null);
+  const dropRef      = useRef(null);
 
   useEffect(() => {
     if (!open) return;
-    const close = e => { if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false); };
+    const close = e => {
+      const inContainer = containerRef.current?.contains(e.target);
+      const inDrop      = dropRef.current?.contains(e.target);
+      if (!inContainer && !inDrop) setOpen(false);
+    };
     const closeOnScroll = () => setOpen(false);
     document.addEventListener('mousedown', close);
     document.addEventListener('scroll', closeOnScroll, true);
@@ -80,7 +85,7 @@ function MedAutoComplete({ value, isOtro, onChange, onOtroToggle }) {
         onFocus={handleFocus} placeholder="Buscar medicamento..."
         style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', outline: 'none' }} />
       {open && dropRect && (
-        <div onMouseDown={e => e.preventDefault()} style={{ position: 'fixed', top: dropRect.bottom + 2, left: dropRect.left, width: Math.max(dropRect.width, 300), background: 'white', border: '1px solid #e5e7eb', borderRadius: 6, maxHeight: 240, overflowY: 'auto', zIndex: 9999, boxShadow: '0 8px 24px rgba(0,0,0,0.16)' }}>
+        <div ref={dropRef} onMouseDown={e => e.preventDefault()} style={{ position: 'fixed', top: dropRect.bottom + 2, left: dropRect.left, width: Math.max(dropRect.width, 300), background: 'white', border: '1px solid #e5e7eb', borderRadius: 6, maxHeight: 240, overflowY: 'auto', zIndex: 9999, boxShadow: '0 8px 24px rgba(0,0,0,0.16)' }}>
           {filtered.length === 0 && <div style={{ padding: '0.5rem 0.75rem', fontSize: '0.78rem', color: '#999' }}>Sin coincidencias</div>}
           {filtered.map(med => (
             <div key={med} onMouseDown={e => { e.preventDefault(); onChange(med); setSearch(''); setOpen(false); }}
