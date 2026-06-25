@@ -133,9 +133,6 @@ export default function LoginPage() {
             {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
           </button>
 
-          <p style={{ textAlign: 'center', marginTop: '1.1rem', fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
-            Usuario: <strong>goeding</strong> · Contraseña: <strong>petspets123</strong>
-          </p>
         </form>
       </div>
     </div>
