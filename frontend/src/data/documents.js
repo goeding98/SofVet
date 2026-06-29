@@ -272,6 +272,34 @@ const documents = [
   </div>
 </div>`,
   },
+  /* ── 9. Vacunación ───────────────────────────────────────────────────────── */
+  {
+    id: 9,
+    nombre: 'Autorización Vacunación',
+    icono: '💊',
+    descripcion: 'Autorización para procedimiento de inmunización y protocolo de vacunación.',
+    template: `<div style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:30px;color:#1a1a1a;">
+  <div style="text-align:center;border-bottom:3px solid #316d74;padding-bottom:16px;margin-bottom:24px;">
+    <h1 style="font-size:20px;color:#316d74;margin:0 0 4px;">AUTORIZACIÓN PARA PROCEDIMIENTO DE VACUNACIÓN</h1>
+    <p style="margin:0;font-size:13px;color:#666;">Fecha: <strong>{{fecha}}</strong></p>
+  </div>
+  <p>Yo <strong>{{nombre_cliente}}</strong>, C.C. <strong>{{cedula_cliente}}</strong>, domiciliado en <strong>{{direccion_cliente}}</strong>, tel. <strong>{{telefono_cliente}}</strong>, propietario/responsable del paciente <strong>{{nombre_mascota}}</strong>, especie <strong>{{especie}}</strong>, raza <strong>{{raza}}</strong>, sexo <strong>{{sexo}}</strong>, edad <strong>{{edad}}</strong>, peso <strong>{{peso}}</strong> kg, esterilizado: <strong>{{esterilizado}}</strong>, carácter: <strong>{{caracter}}</strong>, historia clínica <strong>{{numero_historia}}</strong>, autorizo voluntariamente al equipo médico veterinario a realizar el procedimiento de inmunización indicado.</p>
+  <h3 style="color:#316d74;border-bottom:1px solid #dde8e6;padding-bottom:6px;">Declaración del Propietario</h3>
+  <p>1. He sido informado sobre la naturaleza, alcance y propósito del protocolo de vacunación programado, los beneficios esperados en la prevención de enfermedades infecciosas y los riesgos potenciales que este procedimiento biológico conlleva.</p>
+  <p>2. Entiendo que los riesgos incluyen:</p>
+  <ul>
+    <li>Reacciones locales leves como dolor, sensibilidad, letargo temporal o inflamación en la zona de aplicación.</li>
+    <li>Formación de pequeños nódulos asépticos en el sitio de la inyección que suelen desaparecer de forma gradual.</li>
+    <li>Reacciones alérgicas severas o anafilácticas de carácter impredecible que cursan con disnea, angioedema, vómitos, shock o colapso.</li>
+    <li>Complicaciones por hipersensibilidad aguda que constituyen una emergencia médica y requieren atención veterinaria de urgencia inmediata.</li>
+  </ul>
+  <p>3. Comprendo y acepto que para mitigar estos riesgos imprevistos y garantizar un soporte médico inmediato ante una reacción adversa severa, la clínica maneja horarios estrictos para la aplicación de vacunas, comprometiéndome a mantener al paciente bajo supervisión en las horas posteriores.</p>
+  <p>4. Certifico que el paciente se encuentra en óptimo estado de salud aparente, sin signos de enfermedad reciente (vómitos, diarrea o decaimiento) ni tratamientos médicos vigentes que alteren su respuesta inmunitaria.</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;">
+    <div style="text-align:center;"><div style="border-bottom:1px solid #333;height:50px;margin-bottom:8px;"></div><p style="margin:0;font-size:13px;"><strong>{{nombre_cliente}}</strong><br>C.C. {{cedula_cliente}}<br>Firma del Propietario</p></div>
+    <div style="text-align:center;"><div style="border-bottom:1px solid #333;height:50px;margin-bottom:8px;"></div><p style="margin:0;font-size:13px;"><strong>Médico Veterinario</strong><br>T.P. _______________<br>Firma y Sello</p></div>
+  </div></div>`,
+  },
 ];
 
 export default documents;
