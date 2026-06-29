@@ -155,26 +155,31 @@ export function useStore(key) {
 
   // ── Optimistic edit ───────────────────────────────────────────────────────
   const edit = useCallback(async (id, changes) => {
-    if (!table) return;
+    if (!table) return false;
     const prev = cache[key] || [];
     const optimistic = prev.map(i => i.id === id ? { ...i, ...changes } : i);
     cache[key] = optimistic;
     notify(key, optimistic);
 
     const { id: _discard, ...rest } = changes;
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from(table)
       .update(rest)
-      .eq('id', id);
+      .eq('id', id)
+      .select();
 
-    if (error) {
-      console.error(`[useStore] edit ${table}:`, error.message);
-      // Reload this table from Supabase to restore correct state
-      fetchAll(table).then(data => {
-        cache[key] = data;
-        notify(key, data);
-      });
+    if (error || !data || data.length === 0) {
+      console.error(`[useStore] edit ${table}:`, error?.message || 'No rows updated (RLS or not found)');
+      // Restore previous state without reloading the whole table
+      cache[key] = prev;
+      notify(key, prev);
+      return false;
     }
+    // Confirm cache with server-returned data (catches server-side defaults)
+    const confirmed = prev.map(i => i.id === id ? data[0] : i);
+    cache[key] = confirmed;
+    notify(key, confirmed);
+    return true;
   }, [key, table]);
 
   // ── Optimistic remove ─────────────────────────────────────────────────────

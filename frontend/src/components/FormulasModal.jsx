@@ -197,12 +197,11 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
       return;
     }
     setSaving(true);
-    const now = new Date();
     const horaAhora = nowTime();
     const hoy = nowDate();
     if (editingFormula) {
       const editorName = session?.nombre || null;
-      await editFormula(editingFormula.id, {
+      const ok = await editFormula(editingFormula.id, {
         fecha:         createDate || editingFormula.fecha,
         productos:     prods,
         observaciones: createObs.trim() || null,
@@ -210,8 +209,9 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
         hora_edicion:  horaAhora,
         fecha_edicion: hoy,
       });
+      if (!ok) { setSaving(false); alert('❌ Error al guardar la fórmula. Intenta de nuevo.'); return; }
     } else {
-      await addFormula({
+      const result = await addFormula({
         patient_id:    pet.id,
         patient_name:  pet.name,
         fecha:         createDate || hoy,
@@ -221,6 +221,7 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
         observaciones: createObs.trim() || null,
         hora_creacion: horaAhora,
       });
+      if (!result) { setSaving(false); alert('❌ Error al guardar la fórmula. Intenta de nuevo.'); return; }
     }
     setSaving(false);
     setShowCreate(false);

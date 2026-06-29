@@ -313,14 +313,15 @@ export default function PetDetailPage() {
     if (editingConsult) {
       // Editing existing consultation
       const changes = { ...cleaned, estado: 'completada' };
-      editConsultation(editingConsult.id, changes);
+      const ok = await editConsultation(editingConsult.id, changes);
+      if (!ok) { alert('❌ Error al guardar la consulta. Intenta de nuevo.'); return; }
       setPatientConsults(prev => prev.map(c => c.id === editingConsult.id ? { ...c, ...changes } : c));
       // Always handle formula when editing: create if new, update if already exists
       const hasFormulaData = formula_productos.length > 0 || data.observaciones?.trim();
       if (hasFormulaData) {
         const existingFormula = formulas.find(f => f.patient_id === petId && f.fecha === data.date);
         if (existingFormula) {
-          editFormula(existingFormula.id, { productos: formula_productos, observaciones: data.observaciones || null, veterinario: existingFormula.veterinario || session?.nombre || null });
+          await editFormula(existingFormula.id, { productos: formula_productos, observaciones: data.observaciones || null, veterinario: existingFormula.veterinario || session?.nombre || null });
         } else {
           await _createFormulaAndLabs({ ...data, formula_productos, labs_pedidos: [] }, petId, pet);
         }
@@ -375,7 +376,8 @@ export default function PetDetailPage() {
     const cleaned = Object.fromEntries(Object.entries(consultData).map(([k, v]) => [k, v === '' ? null : v]));
     if (editingConsult) {
       const changes = { ...cleaned, estado: 'incompleta' };
-      editConsultation(editingConsult.id, changes);
+      const ok = await editConsultation(editingConsult.id, changes);
+      if (!ok) { alert('❌ Error al guardar borrador. Intenta de nuevo.'); return; }
       setPatientConsults(prev => prev.map(c => c.id === editingConsult.id ? { ...c, ...changes } : c));
     } else {
       let saveError = null;
