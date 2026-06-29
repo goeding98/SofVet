@@ -7,6 +7,7 @@ import Table from '../components/Table';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { nowDate } from '../utils/nowLocal';
+import { ageLabel } from '../utils/ageLabel';
 
 const EMPTY_PET = { name: '', species: 'Perro', breed: '', age: '', weight: '', sex: 'Macho', esterilizado: 'No', caracter: 'Dócil', status: 'activo', client_id: '', owner: '', owner_phone: '', owner_email: '', ultima_vacuna: null };
 
@@ -165,7 +166,7 @@ export default function PatientsPage() {
       </div>
     )},
     { key: 'species', label: 'Especie' },
-    { key: 'age',     label: 'Edad',   render: v => `${v} años` },
+    { key: 'age',     label: 'Edad',   render: (v, row) => ageLabel(row.fecha_nacimiento, v) },
     { key: 'weight',  label: 'Peso',   render: v => `${v} kg`   },
     { key: 'owner',   label: 'Propietario', render: (v, row) => (
       <div>
