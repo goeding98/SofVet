@@ -92,6 +92,43 @@ export default function PortalPage() {
   const [solModal,  setSolModal]  = useState(false);
   const [solPet,    setSolPet]    = useState(null);
 
+  // ── Visita de hospitalización ─────────────────────────────────────────────
+  const [vNombre,  setVNombre]  = useState('');
+  const [vPhone,   setVPhone]   = useState('');
+  const [vMascota, setVMascota] = useState('');
+  const [vSede,    setVSede]    = useState(null);
+  const [vDate,    setVDate]    = useState('');
+  const [vTime,    setVTime]    = useState('');
+  const [vTimeEnd, setVTimeEnd] = useState('');
+  const [vNotas,   setVNotas]   = useState('');
+  const [vSaving,  setVSaving]  = useState(false);
+  const [vOk,      setVOk]      = useState(false);
+  const [vErr,     setVErr]     = useState('');
+
+  const resetVisita = () => { setVNombre(''); setVPhone(''); setVMascota(''); setVSede(null); setVDate(''); setVTime(''); setVTimeEnd(''); setVNotas(''); setVSaving(false); setVOk(false); setVErr(''); };
+
+  const handleVisitaSubmit = async () => {
+    if (!vNombre.trim() || !vMascota.trim() || !vSede || !vDate || !vTime)
+      return setVErr('Por favor completa tutor, mascota, sede, fecha y hora de entrada.');
+    setVSaving(true); setVErr('');
+    const { error } = await supabase.from('visitas_hospitalizacion').insert({
+      patient_name: vMascota.trim(),
+      owner:        vNombre.trim(),
+      owner_phone:  vPhone.trim(),
+      sede_id:      vSede,
+      date:         vDate,
+      time:         vTime,
+      time_end:     vTimeEnd || null,
+      notas:        vNotas.trim() || null,
+      status:       'pendiente',
+      agendado_por: 'portal',
+      created_at:   today(),
+    });
+    setVSaving(false);
+    if (error) return setVErr('Error al registrar la visita. Intenta de nuevo.');
+    setVOk(true);
+  };
+
   // ── Certificado de viaje ──────────────────────────────────────────────────
   const [cvCedula,   setCvCedula]   = useState('');
   const [cvNombre,   setCvNombre]   = useState('');
@@ -475,7 +512,15 @@ export default function PortalPage() {
               </button>
             </div>
 
-            <div style={{ textAlign:'center', marginTop:'1.25rem' }}>
+            <div style={{ textAlign:'center', marginTop:'1.25rem', display:'flex', flexDirection:'column', gap:'0.6rem', alignItems:'center' }}>
+              <button
+                onClick={() => { resetVisita(); setPortalView('visita'); }}
+                style={{ background:'#7c3aed', border:'none', borderRadius:999, padding:'0.55rem 1.4rem', cursor:'pointer', fontFamily:'inherit', color:'white', fontSize:'0.82rem', fontWeight:700, transition:'all 0.15s', boxShadow:'0 2px 10px rgba(124,58,237,0.25)' }}
+                onMouseEnter={e => { e.currentTarget.style.background='#6d28d9'; e.currentTarget.style.boxShadow='0 4px 16px rgba(124,58,237,0.35)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background='#7c3aed'; e.currentTarget.style.boxShadow='0 2px 10px rgba(124,58,237,0.25)'; }}
+              >
+                🏥 Agendar visita de hospitalización
+              </button>
               <button
                 onClick={() => { resetCert(); setPortalView('cert'); }}
                 style={{ background:'#b91c1c', border:'none', borderRadius:999, padding:'0.55rem 1.4rem', cursor:'pointer', fontFamily:'inherit', color:'white', fontSize:'0.82rem', fontWeight:700, transition:'all 0.15s', boxShadow:'0 2px 10px rgba(185,28,28,0.25)' }}
@@ -675,6 +720,96 @@ export default function PortalPage() {
           </div>
         );
       })()}
+
+      {/* ── VISITA DE HOSPITALIZACIÓN SCREEN ── */}
+      {!client && portalView === 'visita' && (
+        <div style={{ maxWidth:560, margin:'0 auto', padding:'2rem 1rem 3rem' }}>
+          <button onClick={() => setPortalView('choice')} style={{ background:'none', border:'none', color:C.teal, cursor:'pointer', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:600, marginBottom:'1rem', display:'flex', alignItems:'center', gap:'0.3rem' }}>
+            ← Volver
+          </button>
+
+          {vOk ? (
+            <div style={{ background:'white', borderRadius:20, boxShadow:'0 4px 40px rgba(0,0,0,0.08)', padding:'2.5rem', textAlign:'center' }}>
+              <div style={{ fontSize:'4rem', marginBottom:'1rem' }}>🎉</div>
+              <h2 style={{ fontWeight:900, color:'#7c3aed', margin:'0 0 0.5rem' }}>¡Visita registrada!</h2>
+              <p style={{ color:C.muted, fontSize:'0.9rem', lineHeight:1.6, marginBottom:'1.5rem' }}>
+                Hemos registrado tu visita para <strong>{vMascota}</strong> el <strong>{vDate}</strong> a las <strong>{vTime}</strong>.<br/><br/>
+                Nuestro equipo estará esperándote. Recuerda llegar puntual.
+              </p>
+              <button onClick={() => setPortalView('choice')} style={{ background:'linear-gradient(135deg,#7c3aed,#6d28d9)', color:'white', border:'none', borderRadius:12, padding:'0.85rem 2rem', fontWeight:700, fontSize:'0.92rem', cursor:'pointer', fontFamily:'inherit' }}>
+                Volver al inicio
+              </button>
+            </div>
+          ) : (
+            <div style={{ background:'white', borderRadius:20, boxShadow:'0 4px 40px rgba(124,58,237,0.1)', overflow:'hidden' }}>
+              {/* Header */}
+              <div style={{ background:'linear-gradient(135deg,#7c3aed,#6d28d9)', padding:'1.5rem 2rem', color:'white' }}>
+                <div style={{ fontSize:'2rem', marginBottom:'0.5rem' }}>🏥</div>
+                <h2 style={{ fontWeight:800, fontSize:'1.2rem', margin:'0 0 0.35rem' }}>Visita de Hospitalización</h2>
+                <p style={{ fontSize:'0.82rem', opacity:0.85, margin:0, lineHeight:1.5 }}>Registra tu visita a un paciente hospitalizado en Pets &amp; Pets</p>
+              </div>
+
+              {/* Info */}
+              <div style={{ background:'#f5f3ff', borderBottom:'1px solid #e0d9ff', padding:'0.9rem 1.5rem', fontSize:'0.8rem', color:'#5b21b6', lineHeight:1.7 }}>
+                ⏰ Horario de visitas: <strong>Lunes a Sábado · 10:00 AM – 6:00 PM</strong><br/>
+                📍 Visitas en sede únicamente. Consulta disponibilidad con nuestro equipo.
+              </div>
+
+              {/* Form */}
+              <div style={{ padding:'1.5rem' }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.85rem' }}>
+                  <div style={{ gridColumn:'1/-1' }}>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Paciente hospitalizado *</label>
+                    <input value={vMascota} onChange={e=>setVMascota(e.target.value)} placeholder="Nombre de la mascota" style={inp} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Tu nombre completo *</label>
+                    <input value={vNombre} onChange={e=>setVNombre(e.target.value)} placeholder="Nombre y apellido" style={inp} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Teléfono de contacto</label>
+                    <input value={vPhone} onChange={e=>setVPhone(e.target.value)} placeholder="3XX XXX XXXX" inputMode="tel" style={inp} />
+                  </div>
+                  <div style={{ gridColumn:'1/-1' }}>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.4rem' }}>Sede *</label>
+                    <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
+                      {BOOKING_SEDES.map(s => (
+                        <button key={s.id} onClick={() => setVSede(s.id)}
+                          style={{ padding:'0.5rem 1.1rem', borderRadius:999, fontSize:'0.82rem', fontWeight:600, cursor:'pointer', fontFamily:'inherit', border:`2px solid ${vSede===s.id ? '#7c3aed' : C.border}`, background: vSede===s.id ? '#f5f3ff' : 'white', color: vSede===s.id ? '#7c3aed' : C.text, transition:'all 0.15s' }}>
+                          📍 {s.nombre}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Fecha de la visita *</label>
+                    <input type="date" min={today()} value={vDate} onChange={e=>setVDate(e.target.value)} style={inp} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Hora de entrada *</label>
+                    <input type="time" min="10:00" max="18:00" value={vTime} onChange={e=>setVTime(e.target.value)} style={inp} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Hora de salida aproximada</label>
+                    <input type="time" min="10:00" max="18:30" value={vTimeEnd} onChange={e=>setVTimeEnd(e.target.value)} style={inp} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Notas (opcional)</label>
+                    <input value={vNotas} onChange={e=>setVNotas(e.target.value)} placeholder="Alguna observación..." style={inp} />
+                  </div>
+                </div>
+
+                {vErr && <p style={{ color:C.danger, fontSize:'0.8rem', margin:'0.75rem 0 0', fontWeight:600 }}>⚠️ {vErr}</p>}
+
+                <button onClick={handleVisitaSubmit} disabled={vSaving}
+                  style={{ width:'100%', marginTop:'1.25rem', padding:'0.9rem', background:vSaving?'#aaa':'linear-gradient(135deg,#7c3aed,#6d28d9)', color:'white', border:'none', borderRadius:12, cursor:vSaving?'not-allowed':'pointer', fontWeight:800, fontSize:'0.95rem', fontFamily:'inherit', boxShadow:'0 4px 16px rgba(124,58,237,0.3)' }}>
+                  {vSaving ? 'Registrando…' : '🏥 Confirmar visita'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── CERTIFICADO DE VIAJE SCREEN ── */}
       {!client && portalView === 'cert' && (

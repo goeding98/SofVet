@@ -13,6 +13,7 @@ const serviciosItems = [
   { path: '/appointments',    label: 'Agenda',          icon: '📅'  },
   { path: '/grooming',        label: 'Peluquería',      icon: '✂️'  },
   { path: '/hospitalization', label: 'Hospitalización', icon: '🏥'  },
+  { path: '/visitas-hospitalizacion', label: 'Visitas Hosp.', icon: '👥' },
   { path: '/laboratorios',    label: 'Laboratorios',    icon: '🧪'  },
   { path: '/imagenes',        label: 'Imágenes',        icon: '🔬'  },
 ];

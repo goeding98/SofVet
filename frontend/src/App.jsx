@@ -33,6 +33,7 @@ import PedidosCompraPage from './pages/PedidosCompraPage';
 import FacturacionPage   from './pages/FacturacionPage';
 import ReportesPage      from './pages/ReportesPage';
 import InventarioPage    from './pages/InventarioPage';
+import VisitasPage       from './pages/VisitasPage';
 
 function ProtectedLayout({ children }) {
   const { session } = useAuth();
@@ -81,7 +82,8 @@ function AppRoutes() {
       <Route path="/clinical-history"  element={<ProtectedLayout><ClinicalHistoryPage /></ProtectedLayout>} />
       <Route path="/vaccines"          element={<ProtectedLayout><VaccinesPage /></ProtectedLayout>} />
       <Route path="/petguardianship"   element={<ProtectedLayout><PetGuardianshipPage /></ProtectedLayout>} />
-      <Route path="/grooming"          element={<ProtectedLayout><GroomingPage /></ProtectedLayout>} />
+      <Route path="/grooming"                    element={<ProtectedLayout><GroomingPage /></ProtectedLayout>} />
+      <Route path="/visitas-hospitalizacion"    element={<ProtectedLayout><VisitasPage /></ProtectedLayout>} />
       <Route path="/hospitalization"   element={<ProtectedLayout><HospitalizationPage /></ProtectedLayout>} />
       <Route path="/laboratorios"      element={<ProtectedLayout><LaboratoriosPage /></ProtectedLayout>} />
       <Route path="/imagenes"           element={<ProtectedLayout><ImagenesPage /></ProtectedLayout>} />
