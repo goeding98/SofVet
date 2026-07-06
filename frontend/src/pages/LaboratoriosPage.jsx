@@ -256,21 +256,23 @@ export default function LaboratoriosPage() {
                             onClick={() => toggleExpand(p.id)}
                             style={{
                               padding:'0.35rem 0.85rem',
-                              background: isOpen ? '#fff3e0' : hasPDF ? '#e8f5ee' : 'var(--color-bg)',
-                              color: isOpen ? '#b45309' : hasPDF ? '#2e7d50' : 'var(--color-text-muted)',
-                              border: `1px solid ${isOpen ? '#f59e0b' : hasPDF ? '#2e7d50' : 'var(--color-border)'}`,
+                              background: isOpen ? '#fff3e0' : hasPDF ? '#e8f5ee' : lab ? '#fff8e1' : 'var(--color-bg)',
+                              color: isOpen ? '#b45309' : hasPDF ? '#2e7d50' : lab ? '#b45309' : 'var(--color-text-muted)',
+                              border: `1px solid ${isOpen ? '#f59e0b' : hasPDF ? '#2e7d50' : lab ? '#f59e0b' : 'var(--color-border)'}`,
                               borderRadius:'var(--radius-sm)',
-                              cursor: hasPDF ? 'pointer' : 'default',
+                              cursor: (hasPDF || lab) ? 'pointer' : 'default',
                               fontSize:'0.78rem',
                               fontWeight:700,
                               whiteSpace:'nowrap',
                             }}
-                            disabled={!hasPDF}
-                            title={hasPDF ? 'Ver resultados y reportar' : 'Sin PDF adjunto aún'}
+                            disabled={!hasPDF && !lab}
+                            title={hasPDF ? 'Ver resultados y reportar' : lab ? 'Resultado sin PDF — clic para agregar' : 'Sin PDF adjunto aún'}
                           >
                             {hasPDF
                               ? (isOpen ? '▲ Cerrar' : `👁 Ver laboratorios${labFiles.length > 1 ? ` (${labFiles.length})` : ''}`)
-                              : '⏳ Sin PDF'}
+                              : lab
+                                ? (isOpen ? '▲ Cerrar' : '⚠️ Sin PDF — agregar')
+                                : '⏳ Sin PDF'}
                           </button>
                         </td>
                         <td style={{ ...tdSt, textAlign:'center' }}>
@@ -287,6 +289,23 @@ export default function LaboratoriosPage() {
                         <tr>
                           <td colSpan={10} style={{ padding:0, borderTop:'none' }}>
                             <div style={{ padding:'1.25rem 1.5rem', background:'#fffbf0', borderTop:'2px solid #f59e0b', borderBottom:'1px solid #fde68a' }}>
+
+                              {/* Aviso sin PDF */}
+                              {!hasPDF && lab && (
+                                <div style={{ background:'#fef3c7', border:'2px solid #f59e0b', borderRadius:'var(--radius-md)', padding:'0.85rem 1.1rem', marginBottom:'1rem', display:'flex', alignItems:'center', gap:'0.75rem' }}>
+                                  <span style={{ fontSize:'1.4rem', flexShrink:0 }}>⚠️</span>
+                                  <div style={{ flex:1 }}>
+                                    <div style={{ fontWeight:700, color:'#92400e', fontSize:'0.85rem' }}>Resultado guardado sin PDF</div>
+                                    <div style={{ fontSize:'0.78rem', color:'#b45309', marginTop:'0.15rem' }}>El resultado fue guardado sin adjuntar el archivo. Usa "Editar resultado" para agregar el PDF.</div>
+                                  </div>
+                                  <button
+                                    onClick={() => { setEditingLab({ lab, pedido: p }); setEditModal(true); }}
+                                    style={{ padding:'0.45rem 1rem', background:'#f59e0b', color:'white', border:'none', borderRadius:'var(--radius-sm)', cursor:'pointer', fontSize:'0.78rem', fontWeight:700, fontFamily:'var(--font-body)', whiteSpace:'nowrap', flexShrink:0 }}
+                                  >
+                                    📎 Agregar PDF ahora
+                                  </button>
+                                </div>
+                              )}
 
                               {/* Meta info */}
                               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem', flexWrap:'wrap', gap:'0.5rem' }}>

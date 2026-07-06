@@ -115,6 +115,10 @@ export default function LaboratoriosModal({ isOpen, onClose, onSave, onEdit, pet
   const handleNewSave = async () => {
     if (solicitados.length === 0) return;
     if (solicitados.length > 1 && !selectedPedidoId) { setError('Selecciona a qué pedido corresponde este resultado.'); return; }
+    if (files.length === 0) {
+      const ok = window.confirm('⚠️ No seleccionaste ningún PDF.\n\n¿Guardar de todas formas sin archivo adjunto?\n\nEl resultado quedará incompleto y mostrará "Sin PDF" en laboratorios.');
+      if (!ok) return;
+    }
     setError('');
     let archivos = [];
     if (files.length > 0) {
