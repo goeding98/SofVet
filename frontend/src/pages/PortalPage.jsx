@@ -27,7 +27,8 @@ const icon = (sp) => {
   const s = (sp||'').toLowerCase();
   return s.includes('perro')||s.includes('canino') ? '🐶' : s.includes('gato')||s.includes('felino') ? '🐱' : '🐾';
 };
-const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const today    = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const tomorrow = () => { const d = new Date(); d.setDate(d.getDate()+1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 
 // ── Booking helpers ───────────────────────────────────────────────────────────
 const BOOKING_SEDES = [
@@ -38,6 +39,7 @@ const BOOKING_SEDES = [
 const SLOTS_GEN = [10,11,12,13,14,15,16,17,18].map(h=>`${String(h).padStart(2,'0')}:00`);
 const SLOTS_CTL = [10,11,12,13,14,15,16,17].map(h=>`${String(h).padStart(2,'0')}:40`);
 const DUR = { 'Consulta General': 40, 'Control': 20 };
+const VISIT_SLOTS = ['13:00','13:15','13:30','13:45','14:00','14:15','14:30','14:45','15:00','15:15','15:30','15:45'];
 
 const tmins = t => { const [h,m]=t.split(':').map(Number); return h*60+m; };
 const addMin = (t, m) => { const tot=tmins(t)+m; return `${String(Math.floor(tot/60)%24).padStart(2,'0')}:${String(tot%60).padStart(2,'0')}`; };
@@ -93,23 +95,45 @@ export default function PortalPage() {
   const [solPet,    setSolPet]    = useState(null);
 
   // ── Visita de hospitalización ─────────────────────────────────────────────
-  const [vNombre,  setVNombre]  = useState('');
-  const [vPhone,   setVPhone]   = useState('');
-  const [vMascota, setVMascota] = useState('');
-  const [vSede,    setVSede]    = useState(null);
-  const [vDate,    setVDate]    = useState('');
-  const [vTime,    setVTime]    = useState('');
-  const [vTimeEnd, setVTimeEnd] = useState('');
-  const [vNotas,   setVNotas]   = useState('');
-  const [vSaving,  setVSaving]  = useState(false);
-  const [vOk,      setVOk]      = useState(false);
-  const [vErr,     setVErr]     = useState('');
+  const [vNombre,   setVNombre]   = useState('');
+  const [vPhone,    setVPhone]    = useState('');
+  const [vMascota,  setVMascota]  = useState('');
+  const [vSede,     setVSede]     = useState(null);
+  const [vDate,     setVDate]     = useState('');
+  const [vTime,     setVTime]     = useState('');
+  const [vNotas,    setVNotas]    = useState('');
+  const [vSlots,    setVSlots]    = useState(null);   // array of taken time strings for date+sede
+  const [v9pm,      setV9pm]      = useState(false);
+  const [vSloading, setVSloading] = useState(false);
+  const [vSaving,   setVSaving]   = useState(false);
+  const [vOk,       setVOk]       = useState(false);
+  const [vErr,      setVErr]      = useState('');
 
-  const resetVisita = () => { setVNombre(''); setVPhone(''); setVMascota(''); setVSede(null); setVDate(''); setVTime(''); setVTimeEnd(''); setVNotas(''); setVSaving(false); setVOk(false); setVErr(''); };
+  const resetVisita = () => {
+    setVNombre(''); setVPhone(''); setVMascota(''); setVSede(null);
+    setVDate(''); setVTime(''); setVNotas('');
+    setVSlots(null); setV9pm(false); setVSloading(false);
+    setVSaving(false); setVOk(false); setVErr('');
+  };
+
+  const loadVisitSlots = async (date, sedeId) => {
+    setVSloading(true); setVSlots(null); setVTime(''); setV9pm(false);
+    const { data: taken } = await supabase
+      .from('visitas_hospitalizacion')
+      .select('time')
+      .eq('date', date)
+      .eq('sede_id', sedeId)
+      .neq('status', 'cancelada')
+      .not('time', 'is', null);
+    setVSlots((taken || []).map(r => r.time?.slice(0, 5)));
+    setVSloading(false);
+  };
 
   const handleVisitaSubmit = async () => {
-    if (!vNombre.trim() || !vMascota.trim() || !vSede || !vDate || !vTime)
-      return setVErr('Por favor completa tutor, mascota, sede, fecha y hora de entrada.');
+    if (!vNombre.trim() || !vMascota.trim() || !vSede || !vDate)
+      return setVErr('Por favor completa tutor, mascota, sede y fecha.');
+    if (!v9pm && !vTime)
+      return setVErr('Selecciona una hora disponible o marca "Iré a partir de las 9pm".');
     setVSaving(true); setVErr('');
     const { error } = await supabase.from('visitas_hospitalizacion').insert({
       patient_name: vMascota.trim(),
@@ -117,10 +141,11 @@ export default function PortalPage() {
       owner_phone:  vPhone.trim(),
       sede_id:      vSede,
       date:         vDate,
-      time:         vTime,
-      time_end:     vTimeEnd || null,
+      time:         v9pm ? null : vTime,
+      time_end:     null,
       notas:        vNotas.trim() || null,
       status:       'pendiente',
+      despues_9pm:  v9pm,
       agendado_por: 'portal',
       created_at:   today(),
     });
@@ -724,7 +749,7 @@ export default function PortalPage() {
       {/* ── VISITA DE HOSPITALIZACIÓN SCREEN ── */}
       {!client && portalView === 'visita' && (
         <div style={{ maxWidth:560, margin:'0 auto', padding:'2rem 1rem 3rem' }}>
-          <button onClick={() => setPortalView('choice')} style={{ background:'none', border:'none', color:C.teal, cursor:'pointer', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:600, marginBottom:'1rem', display:'flex', alignItems:'center', gap:'0.3rem' }}>
+          <button onClick={() => { resetVisita(); setPortalView('choice'); }} style={{ background:'none', border:'none', color:C.teal, cursor:'pointer', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:600, marginBottom:'1rem', display:'flex', alignItems:'center', gap:'0.3rem' }}>
             ← Volver
           </button>
 
@@ -733,10 +758,16 @@ export default function PortalPage() {
               <div style={{ fontSize:'4rem', marginBottom:'1rem' }}>🎉</div>
               <h2 style={{ fontWeight:900, color:'#7c3aed', margin:'0 0 0.5rem' }}>¡Visita registrada!</h2>
               <p style={{ color:C.muted, fontSize:'0.9rem', lineHeight:1.6, marginBottom:'1.5rem' }}>
-                Hemos registrado tu visita para <strong>{vMascota}</strong> el <strong>{vDate}</strong> a las <strong>{vTime}</strong>.<br/><br/>
-                Nuestro equipo estará esperándote. Recuerda llegar puntual.
+                {v9pm ? (
+                  <>Hemos registrado tu visita nocturna para <strong>{vMascota}</strong> el <strong>{vDate}</strong>.<br/><br/>
+                  Llegarás después de las <strong>9:00 PM</strong>. El equipo te estará esperando.<br/>
+                  Recuerda: <strong>máximo 2 personas</strong> pueden ingresar a las instalaciones.</>
+                ) : (
+                  <>Hemos registrado tu visita para <strong>{vMascota}</strong> el <strong>{vDate}</strong> a las <strong>{fmt12h(vTime)}</strong>.<br/><br/>
+                  Nuestro equipo estará esperándote. Recuerda llegar puntual y que <strong>máximo 2 personas</strong> pueden ingresar.</>
+                )}
               </p>
-              <button onClick={() => setPortalView('choice')} style={{ background:'linear-gradient(135deg,#7c3aed,#6d28d9)', color:'white', border:'none', borderRadius:12, padding:'0.85rem 2rem', fontWeight:700, fontSize:'0.92rem', cursor:'pointer', fontFamily:'inherit' }}>
+              <button onClick={() => { resetVisita(); setPortalView('choice'); }} style={{ background:'linear-gradient(135deg,#7c3aed,#6d28d9)', color:'white', border:'none', borderRadius:12, padding:'0.85rem 2rem', fontWeight:700, fontSize:'0.92rem', cursor:'pointer', fontFamily:'inherit' }}>
                 Volver al inicio
               </button>
             </div>
@@ -749,15 +780,16 @@ export default function PortalPage() {
                 <p style={{ fontSize:'0.82rem', opacity:0.85, margin:0, lineHeight:1.5 }}>Registra tu visita a un paciente hospitalizado en Pets &amp; Pets</p>
               </div>
 
-              {/* Info */}
-              <div style={{ background:'#f5f3ff', borderBottom:'1px solid #e0d9ff', padding:'0.9rem 1.5rem', fontSize:'0.8rem', color:'#5b21b6', lineHeight:1.7 }}>
-                ⏰ Horario de visitas: <strong>Lunes a Sábado · 10:00 AM – 6:00 PM</strong><br/>
-                📍 Visitas en sede únicamente. Consulta disponibilidad con nuestro equipo.
+              {/* Security warning */}
+              <div style={{ background:'#fffbeb', borderBottom:'1px solid #fde68a', padding:'0.9rem 1.5rem', fontSize:'0.8rem', color:'#92400e', lineHeight:1.6 }}>
+                🔒 <strong>Aviso de seguridad:</strong> Por protocolo institucional, <strong>máximo 2 personas</strong> pueden ingresar a las instalaciones por visita. Sin excepciones.
               </div>
 
               {/* Form */}
-              <div style={{ padding:'1.5rem' }}>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.85rem' }}>
+              <div style={{ padding:'1.5rem', display:'flex', flexDirection:'column', gap:'1rem' }}>
+
+                {/* Paciente y tutor */}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>
                   <div style={{ gridColumn:'1/-1' }}>
                     <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Paciente hospitalizado *</label>
                     <input value={vMascota} onChange={e=>setVMascota(e.target.value)} placeholder="Nombre de la mascota" style={inp} />
@@ -770,39 +802,82 @@ export default function PortalPage() {
                     <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Teléfono de contacto</label>
                     <input value={vPhone} onChange={e=>setVPhone(e.target.value)} placeholder="3XX XXX XXXX" inputMode="tel" style={inp} />
                   </div>
-                  <div style={{ gridColumn:'1/-1' }}>
-                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.4rem' }}>Sede *</label>
-                    <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
-                      {BOOKING_SEDES.map(s => (
-                        <button key={s.id} onClick={() => setVSede(s.id)}
-                          style={{ padding:'0.5rem 1.1rem', borderRadius:999, fontSize:'0.82rem', fontWeight:600, cursor:'pointer', fontFamily:'inherit', border:`2px solid ${vSede===s.id ? '#7c3aed' : C.border}`, background: vSede===s.id ? '#f5f3ff' : 'white', color: vSede===s.id ? '#7c3aed' : C.text, transition:'all 0.15s' }}>
-                          📍 {s.nombre}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Fecha de la visita *</label>
-                    <input type="date" min={today()} value={vDate} onChange={e=>setVDate(e.target.value)} style={inp} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Hora de entrada *</label>
-                    <input type="time" min="10:00" max="18:00" value={vTime} onChange={e=>setVTime(e.target.value)} style={inp} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Hora de salida aproximada</label>
-                    <input type="time" min="10:00" max="18:30" value={vTimeEnd} onChange={e=>setVTimeEnd(e.target.value)} style={inp} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Notas (opcional)</label>
-                    <input value={vNotas} onChange={e=>setVNotas(e.target.value)} placeholder="Alguna observación..." style={inp} />
+                </div>
+
+                {/* Sede */}
+                <div>
+                  <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.4rem' }}>Sede *</label>
+                  <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
+                    {BOOKING_SEDES.map(s => (
+                      <button key={s.id} onClick={() => { setVSede(s.id); if (vDate) loadVisitSlots(vDate, s.id); }}
+                        style={{ padding:'0.5rem 1.1rem', borderRadius:999, fontSize:'0.82rem', fontWeight:600, cursor:'pointer', fontFamily:'inherit', border:`2px solid ${vSede===s.id ? '#7c3aed' : C.border}`, background: vSede===s.id ? '#f5f3ff' : 'white', color: vSede===s.id ? '#7c3aed' : C.text, transition:'all 0.15s' }}>
+                        📍 {s.nombre}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {vErr && <p style={{ color:C.danger, fontSize:'0.8rem', margin:'0.75rem 0 0', fontWeight:600 }}>⚠️ {vErr}</p>}
+                {/* Fecha — solo hoy o mañana */}
+                <div>
+                  <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.4rem' }}>Fecha de la visita *</label>
+                  <div style={{ display:'flex', gap:'0.5rem' }}>
+                    {[{ label:'Hoy', val:today() }, { label:'Mañana', val:tomorrow() }].map(opt => (
+                      <button key={opt.val} onClick={() => { setVDate(opt.val); if (vSede) loadVisitSlots(opt.val, vSede); }}
+                        style={{ flex:1, padding:'0.7rem', borderRadius:12, fontSize:'0.9rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit', border:`2px solid ${vDate===opt.val ? '#7c3aed' : C.border}`, background: vDate===opt.val ? '#f5f3ff' : 'white', color: vDate===opt.val ? '#7c3aed' : C.text, transition:'all 0.15s' }}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Horarios — visible solo cuando hay sede y fecha */}
+                {vDate && vSede && (
+                  <div>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.4rem' }}>
+                      Hora de entrada * <span style={{ fontWeight:400, fontSize:'0.72rem' }}>(1:00–3:45 PM · slots de 15 min)</span>
+                    </label>
+                    {vSloading ? (
+                      <p style={{ fontSize:'0.82rem', color:C.muted, margin:'0.5rem 0' }}>Cargando disponibilidad…</p>
+                    ) : (
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'0.4rem' }}>
+                        {VISIT_SLOTS.map(slot => {
+                          const taken  = vSlots ? vSlots.includes(slot) : false;
+                          const active = vTime === slot && !v9pm;
+                          return (
+                            <button key={slot} onClick={() => { if (!taken) { setVTime(slot); setV9pm(false); } }}
+                              disabled={taken}
+                              style={{ padding:'0.55rem 0.2rem', borderRadius:10, fontSize:'0.78rem', fontWeight:active?700:500, cursor:taken?'not-allowed':'pointer', fontFamily:'inherit', border:`2px solid ${active ? '#7c3aed' : taken ? '#e5e7eb' : C.border}`, background: active ? '#7c3aed' : taken ? '#f3f4f6' : 'white', color: active ? 'white' : taken ? '#9ca3af' : C.text, transition:'all 0.12s', textDecoration: taken ? 'line-through' : 'none' }}>
+                              {fmt12h(slot)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Opción 9pm */}
+                    <label style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginTop:'0.85rem', cursor:'pointer', fontSize:'0.85rem', color: v9pm ? '#7c3aed' : C.text, fontWeight: v9pm ? 700 : 400, userSelect:'none' }}>
+                      <input type="checkbox" checked={v9pm} onChange={e => { setV9pm(e.target.checked); if (e.target.checked) setVTime(''); }}
+                        style={{ width:17, height:17, accentColor:'#7c3aed', cursor:'pointer', flexShrink:0 }} />
+                      🌙 Iré a partir de las 9:00 PM (sin hora exacta — disponibilidad libre)
+                    </label>
+                    {v9pm && (
+                      <div style={{ marginTop:'0.5rem', background:'#f5f3ff', border:'1px solid #ddd6fe', borderRadius:10, padding:'0.65rem 0.9rem', fontSize:'0.78rem', color:'#5b21b6' }}>
+                        ℹ️ Tu visita quedará registrada sin hora fija. El equipo te atenderá al llegar después de las 9:00 PM.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Notas */}
+                <div>
+                  <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Notas (opcional)</label>
+                  <input value={vNotas} onChange={e=>setVNotas(e.target.value)} placeholder="Alguna observación..." style={inp} />
+                </div>
+
+                {vErr && <p style={{ color:C.danger, fontSize:'0.8rem', margin:0, fontWeight:600 }}>⚠️ {vErr}</p>}
 
                 <button onClick={handleVisitaSubmit} disabled={vSaving}
-                  style={{ width:'100%', marginTop:'1.25rem', padding:'0.9rem', background:vSaving?'#aaa':'linear-gradient(135deg,#7c3aed,#6d28d9)', color:'white', border:'none', borderRadius:12, cursor:vSaving?'not-allowed':'pointer', fontWeight:800, fontSize:'0.95rem', fontFamily:'inherit', boxShadow:'0 4px 16px rgba(124,58,237,0.3)' }}>
+                  style={{ width:'100%', padding:'0.9rem', background:vSaving?'#aaa':'linear-gradient(135deg,#7c3aed,#6d28d9)', color:'white', border:'none', borderRadius:12, cursor:vSaving?'not-allowed':'pointer', fontWeight:800, fontSize:'0.95rem', fontFamily:'inherit', boxShadow:'0 4px 16px rgba(124,58,237,0.3)' }}>
                   {vSaving ? 'Registrando…' : '🏥 Confirmar visita'}
                 </button>
               </div>

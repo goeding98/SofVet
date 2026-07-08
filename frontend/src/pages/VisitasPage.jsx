@@ -35,9 +35,9 @@ const STATUS_CFG = {
 
 const mkForm = (date, time) => ({
   patient_name: '', owner: '', owner_phone: '',
-  date: date || '', time: time || '10:00',
-  time_end: addMins(time || '10:00', 60),
-  sede_id: null, notas: '', status: 'pendiente',
+  date: date || '', time: time || '13:00',
+  time_end: addMins(time || '13:00', 60),
+  sede_id: null, notas: '', status: 'pendiente', despues_9pm: false,
 });
 
 const labelSt = { display: 'block', fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text)' };
@@ -45,6 +45,7 @@ const inputSt = { width: '100%', padding: '0.55rem 0.75rem', fontFamily: 'var(--
 
 // ── Visit block in grid ───────────────────────────────────────────────────────
 function VisitBlock({ item, onEdit }) {
+  if (item.despues_9pm) return null;   // shown separately, not in time grid
   const startMins = timeToMins(item.time);
   if (startMins === null) return null;
   const endMins  = item.time_end ? timeToMins(item.time_end) : startMins + 60;
@@ -125,8 +126,11 @@ export default function VisitasPage() {
   };
 
   const handleSave = async () => {
-    if (!form.patient_name.trim() || !form.owner.trim() || !form.date || !form.time) {
-      return alert('Completa paciente, tutor, fecha y hora.');
+    if (!form.patient_name.trim() || !form.owner.trim() || !form.date) {
+      return alert('Completa paciente, tutor y fecha.');
+    }
+    if (!form.despues_9pm && !form.time) {
+      return alert('Completa la hora de entrada o marca "Después de 9pm".');
     }
     setSaving(true);
     const payload = { ...form, sede_id: Number(form.sede_id) || null, agendado_por: session?.nombre || null };
@@ -206,8 +210,10 @@ export default function VisitasPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '52px repeat(7, 1fr)', borderBottom: '2px solid var(--color-border)' }}>
           <div style={{ borderRight: '1px solid var(--color-border)' }} />
           {days.map(ds => {
-            const isToday  = ds === today;
-            const count    = forDay(ds).length;
+            const isToday   = ds === today;
+            const dayAll    = forDay(ds);
+            const count     = dayAll.length;
+            const count9pm  = dayAll.filter(v => v.despues_9pm).length;
             return (
               <div key={ds}
                 onClick={() => { setDayDate(ds); setView('day'); }}
@@ -218,6 +224,7 @@ export default function VisitasPage() {
                 <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{fmtDay(ds).split(' ')[0]}</div>
                 <div style={{ fontWeight: isToday ? 900 : 700, fontSize: '1rem', color: isToday ? 'var(--color-primary)' : 'var(--color-text)' }}>{fmtDay(ds).split(' ')[1]}</div>
                 {count > 0 && <div style={{ fontSize: '0.65rem', color: 'var(--color-primary)', fontWeight: 700 }}>{count} visita{count !== 1 ? 's' : ''}</div>}
+                {count9pm > 0 && <div style={{ fontSize: '0.6rem', color: '#7c3aed', fontWeight: 700 }}>🌙 {count9pm} nocturna{count9pm !== 1 ? 's' : ''}</div>}
               </div>
             );
           })}
@@ -268,36 +275,50 @@ export default function VisitasPage() {
           </div>
           {forDayView.length === 0 ? (
             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', margin: 0 }}>No hay visitas agendadas para este día.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-              {[...forDayView].sort((a, b) => (a.time || '').localeCompare(b.time || '')).map(v => {
-                const st = STATUS_CFG[v.status] || STATUS_CFG.pendiente;
-                return (
-                  <div key={v.id} style={{ border: '1px solid var(--color-border)', borderLeft: `5px solid ${st.color}`, borderRadius: 8, padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>🏥 {v.patient_name}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{v.owner} · {v.owner_phone}</div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{fmt12h(v.time)} – {fmt12h(v.time_end)}</div>
-                      {v.notas && <div style={{ fontSize: '0.75rem', color: '#666', marginTop: 2, fontStyle: 'italic' }}>📝 {v.notas}</div>}
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexShrink: 0 }}>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: st.bg, color: st.color }}>{st.label}</span>
-                      {v.status === 'pendiente' && (
-                        <button onClick={() => handleStatusChange(v, 'completada')}
-                          style={{ fontSize: '0.72rem', padding: '3px 8px', background: '#e8f5ee', color: '#2e7d50', border: '1px solid #2e7d50', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>
-                          ✓ Completar
-                        </button>
-                      )}
-                      <button onClick={() => openEdit(v)}
-                        style={{ fontSize: '0.72rem', padding: '3px 8px', background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 6, cursor: 'pointer' }}>
-                        Editar
-                      </button>
-                    </div>
+          ) : (() => {
+            const timed  = [...forDayView].filter(v => !v.despues_9pm).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+            const night  = [...forDayView].filter(v => v.despues_9pm);
+            const VisitRow = (v) => {
+              const st = STATUS_CFG[v.status] || STATUS_CFG.pendiente;
+              return (
+                <div key={v.id} style={{ border: '1px solid var(--color-border)', borderLeft: `5px solid ${st.color}`, borderRadius: 8, padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>🏥 {v.patient_name}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{v.owner}{v.owner_phone ? ` · ${v.owner_phone}` : ''}</div>
+                    {!v.despues_9pm && <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{fmt12h(v.time)}{v.time_end ? ` – ${fmt12h(v.time_end)}` : ''}</div>}
+                    {v.despues_9pm  && <div style={{ fontSize: '0.78rem', color: '#7c3aed', fontWeight: 600, marginTop: 2 }}>🌙 Llega después de las 9:00 PM</div>}
+                    {v.notas && <div style={{ fontSize: '0.75rem', color: '#666', marginTop: 2, fontStyle: 'italic' }}>📝 {v.notas}</div>}
                   </div>
-                );
-              })}
-            </div>
-          )}
+                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexShrink: 0 }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: st.bg, color: st.color }}>{st.label}</span>
+                    {v.status === 'pendiente' && (
+                      <button onClick={() => handleStatusChange(v, 'completada')}
+                        style={{ fontSize: '0.72rem', padding: '3px 8px', background: '#e8f5ee', color: '#2e7d50', border: '1px solid #2e7d50', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>
+                        ✓ Completar
+                      </button>
+                    )}
+                    <button onClick={() => openEdit(v)}
+                      style={{ fontSize: '0.72rem', padding: '3px 8px', background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 6, cursor: 'pointer' }}>
+                      Editar
+                    </button>
+                  </div>
+                </div>
+              );
+            };
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {timed.map(v => VisitRow(v))}
+                {night.length > 0 && (
+                  <>
+                    <div style={{ marginTop: timed.length ? '0.5rem' : 0, padding: '0.4rem 0.75rem', background: '#f5f3ff', borderRadius: 8, fontSize: '0.78rem', fontWeight: 700, color: '#7c3aed' }}>
+                      🌙 Visitas después de 9:00 PM ({night.length})
+                    </div>
+                    {night.map(v => VisitRow(v))}
+                  </>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -334,14 +355,25 @@ export default function VisitasPage() {
                 <label style={labelSt}>Fecha *</label>
                 <input type="date" style={inputSt} value={form.date} onChange={e => f('date', e.target.value)} />
               </div>
-              <div>
-                <label style={labelSt}>Hora entrada *</label>
-                <input type="time" style={inputSt} value={form.time} onChange={e => f('time', e.target.value)} />
+              <div style={{ gridColumn: '1/-1' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: form.despues_9pm ? 700 : 400, color: form.despues_9pm ? '#7c3aed' : 'var(--color-text)', userSelect: 'none' }}>
+                  <input type="checkbox" checked={!!form.despues_9pm} onChange={e => f('despues_9pm', e.target.checked)}
+                    style={{ width: 16, height: 16, accentColor: '#7c3aed', cursor: 'pointer' }} />
+                  🌙 Llegará después de las 9:00 PM (sin hora exacta)
+                </label>
               </div>
-              <div>
-                <label style={labelSt}>Hora salida</label>
-                <input type="time" style={inputSt} value={form.time_end} onChange={e => f('time_end', e.target.value)} />
-              </div>
+              {!form.despues_9pm && (
+                <>
+                  <div>
+                    <label style={labelSt}>Hora entrada *</label>
+                    <input type="time" style={inputSt} value={form.time} onChange={e => f('time', e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={labelSt}>Hora salida</label>
+                    <input type="time" style={inputSt} value={form.time_end} onChange={e => f('time_end', e.target.value)} />
+                  </div>
+                </>
+              )}
               {editing && (
                 <div>
                   <label style={labelSt}>Estado</label>
