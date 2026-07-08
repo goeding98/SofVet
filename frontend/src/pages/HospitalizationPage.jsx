@@ -889,7 +889,7 @@ export default function HospitalizationPage() {
               <div>
                 <div style={{ marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                   {sedeBadge(selected.sede_id)}
-                  {isAdmin && selected.status === 'activo' && (
+                  {(isAdmin || isMedico) && selected.status === 'activo' && (
                     <button
                       onClick={() => openTraslado(selected)}
                       style={{ padding: '3px 12px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 600, background: 'transparent', border: '1px solid #b8860b', color: '#b8860b', cursor: 'pointer', fontFamily: 'var(--font-body)' }}

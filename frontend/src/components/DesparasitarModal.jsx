@@ -28,6 +28,7 @@ export default function DesparasitarModal({ isOpen, onClose, onSave, pet, initia
   const isEditing = !!initialData?.id;
 
   const [selected, setSelected] = useState(null);
+  const [otroTexto, setOtroTexto] = useState('');
   const [fecha,    setFecha]    = useState('');
   const [proxima,  setProxima]  = useState('');
   const [lote,     setLote]     = useState('');
@@ -38,7 +39,9 @@ export default function DesparasitarModal({ isOpen, onClose, onSave, pet, initia
     if (isOpen) {
       if (initialData) {
         const productName = initialData.vaccine_name?.replace('Desparasitación - ', '') || null;
-        setSelected(productName);
+        const isKnown = productName && opciones.includes(productName);
+        setSelected(isKnown ? productName : (productName ? 'Otro' : null));
+        setOtroTexto(!isKnown && productName ? productName : '');
         setFecha(initialData.date_applied || nowDate());
         setProxima(initialData.next_dose || '');
         setLote(initialData.batch || '');
@@ -46,6 +49,7 @@ export default function DesparasitarModal({ isOpen, onClose, onSave, pet, initia
         setSedeId(initialData.sede_id || sedeActual || 1);
       } else {
         setSelected(null);
+        setOtroTexto('');
         setFecha(nowDate());
         setProxima('');
         setLote('');
@@ -57,13 +61,14 @@ export default function DesparasitarModal({ isOpen, onClose, onSave, pet, initia
 
   const handleSave = () => {
     if (!selected) return alert('Selecciona un producto.');
+    if (selected === 'Otro' && !otroTexto.trim()) return alert('Escribe el nombre del producto en "Otro".');
     if (!fecha)    return alert('La fecha es requerida.');
-    const now = new Date();
+    const productoFinal = selected === 'Otro' ? otroTexto.trim() : selected;
     const horaAhora = nowTime();
     const hoy = nowDate();
     onSave({
       ...(isEditing ? { id: initialData.id } : {}),
-      vaccine_name:  `Desparasitación - ${selected}`,
+      vaccine_name:  `Desparasitación - ${productoFinal}`,
       date_applied:  fecha,
       next_dose:     proxima || null,
       batch:         lote    || null,
@@ -113,6 +118,34 @@ export default function DesparasitarModal({ isOpen, onClose, onSave, pet, initia
               {selected === v ? '✓ ' : ''}{v}
             </button>
           ))}
+          {/* Otro */}
+          <button
+            onClick={() => setSelected('Otro')}
+            style={{
+              padding: '0.65rem 1rem',
+              border: `2px solid ${selected === 'Otro' ? 'var(--color-primary)' : 'var(--color-border)'}`,
+              borderRadius: 'var(--radius-md)',
+              background: selected === 'Otro' ? 'var(--color-info-bg)' : 'var(--color-white)',
+              color: selected === 'Otro' ? 'var(--color-primary)' : 'var(--color-text)',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.875rem',
+              fontWeight: selected === 'Otro' ? 700 : 400,
+              textAlign: 'left',
+              transition: 'var(--transition)',
+            }}
+          >
+            {selected === 'Otro' ? '✓ ' : ''}Otro
+          </button>
+          {selected === 'Otro' && (
+            <input
+              autoFocus
+              value={otroTexto}
+              onChange={e => setOtroTexto(e.target.value)}
+              placeholder="Escribe el nombre del producto..."
+              style={{ ...iSt, borderColor: 'var(--color-primary)', marginTop: '0.1rem' }}
+            />
+          )}
         </div>
       </div>
 
