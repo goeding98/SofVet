@@ -63,6 +63,32 @@ const mkForm = (date, time, sedeId, service='Consulta General') => {
 const labelSt = { display:'block', fontSize:'0.72rem', fontWeight:700, marginBottom:'0.3rem', textTransform:'uppercase', letterSpacing:'0.05em', color:'var(--color-text)' };
 const inputSt = { width:'100%', padding:'0.55rem 0.75rem', fontFamily:'var(--font-body)', fontSize:'0.875rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)' };
 
+// ── Overlap layout (Google Calendar–style columns) ───────────────────────────
+function layoutApts(apts) {
+  if (!apts.length) return [];
+  const items = apts.map(a => {
+    const s = timeToMins(a.time) ?? 0;
+    const dur = a.time_end ? Math.max(15, timeToMins(a.time_end) - s) : defaultDuration(a.service);
+    return { ...a, _s: s, _e: s + dur };
+  }).sort((a, b) => a._s - b._s);
+
+  // Greedy column assignment
+  const colEnds = [];
+  for (const apt of items) {
+    let col = colEnds.findIndex(e => e <= apt._s);
+    if (col === -1) { col = colEnds.length; colEnds.push(apt._e); }
+    else colEnds[col] = apt._e;
+    apt._col = col;
+  }
+
+  // Total columns = max col+1 among all events that overlap this one
+  for (const apt of items) {
+    const peers = items.filter(o => o._s < apt._e && apt._s < o._e);
+    apt._totalCols = Math.max(...peers.map(o => o._col + 1));
+  }
+  return items;
+}
+
 // ── Appointment block (positioned in grid) ───────────────────────────────────
 const SOURCE_LABEL = { portal: '🌐 Portal', app: '📱 App' };
 
@@ -77,13 +103,17 @@ function AptBlock({ apt, isAdmin, onEdit, onDelete, onView }) {
     ? { color: '#6d28d9', bg: '#ede9fe' }
     : sc(apt.sede_id);
 
+  const col       = apt._col ?? 0;
+  const totalCols = apt._totalCols ?? 1;
+  const pct       = 100 / totalCols;
+
   const top    = minsToTop(startMins);
   const height = (duration / 60) * ROW_H - 2;
   return (
     <div
       onClick={e => { e.stopPropagation(); isAdmin ? onEdit(apt) : onView?.(apt); }}
       title={`${apt.time}${apt.time_end ? '–'+apt.time_end : ''} · ${apt.patient_name} · ${apt.service}${apt.consultorio ? ' · '+apt.consultorio : ''}${isExternal ? ' · '+SOURCE_LABEL[apt.source] : ''}`}
-      style={{ position:'absolute', top:top+1, left:2, right:2, height, background:bg, borderLeft:`3px solid ${color}`, borderRadius:4, padding:'3px 5px 3px 6px', overflow:'hidden', cursor:'pointer', zIndex:2, boxShadow:'0 1px 3px rgba(0,0,0,0.1)' }}
+      style={{ position:'absolute', top:top+1, left:`calc(${col*pct}% + 2px)`, width:`calc(${pct}% - 4px)`, height, background:bg, borderLeft:`3px solid ${color}`, borderRadius:4, padding:'3px 5px 3px 6px', overflow:'hidden', cursor:'pointer', zIndex:2, boxShadow:'0 1px 3px rgba(0,0,0,0.1)' }}
     >
       <div style={{ fontSize:'0.68rem', fontWeight:700, color, lineHeight:1.3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
         {apt.time}{apt.time_end ? `–${apt.time_end}` : ''} {apt.patient_name}
@@ -178,8 +208,8 @@ function TimeGrid({ days, aptsByDate, todayStr, isAdmin, onCellClick, onEdit, on
                   </div>
                 ))}
 
-                {/* Appointment blocks */}
-                {dayItems.map(apt => (
+                {/* Appointment blocks — side by side when overlapping */}
+                {layoutApts(dayItems).map(apt => (
                   <AptBlock key={apt.id} apt={apt} isAdmin={isAdmin} onEdit={onEdit} onDelete={onDelete} onView={onView} />
                 ))}
 
