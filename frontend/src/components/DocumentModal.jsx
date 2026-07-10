@@ -92,7 +92,7 @@ export default function DocumentModal({
     esterilizado:      patient?.esterilizado || '___________',
     caracter:          patient?.caracter    || '___________',
     microchip:         microchip            || '___________',
-    numero_historia:   patient ? `#${patient.id}` : '___________',
+    numero_historia:   patient ? `#${patient.no_historia || patient.id}` : '___________',
   };
 
   const filledHtml = doc ? fillTemplate(doc.template, data) : '';
