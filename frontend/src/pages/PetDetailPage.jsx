@@ -245,6 +245,15 @@ export default function PetDetailPage() {
     setFallMotivo('');
   };
 
+  const handleRevivir = async () => {
+    if (!confirm(`¿Revertir el estado de ${pet.name} a "activo"?\n\nUsa esto solo si el fallecimiento fue registrado por error.`)) return;
+    await editPatient(pet.id, {
+      status:               'activo',
+      motivo_fallecimiento: null,
+      fecha_fallecimiento:  null,
+    });
+  };
+
   const handleSaveVacuna = async (data) => {
     if (Array.isArray(data)) {
       for (const vac of data) {
@@ -907,6 +916,11 @@ export default function PetDetailPage() {
                 {pet.status !== 'fallecido' && (
                   <button onClick={() => setFallModal(true)} style={{ marginLeft:'auto', padding:'0.25rem 0.75rem', background:'#fef2f2', border:'1px solid #c0392b', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.7rem', fontWeight:700, color:'#c0392b', whiteSpace:'nowrap', flexShrink:0 }}>
                     ✕ Fallecido
+                  </button>
+                )}
+                {pet.status === 'fallecido' && isAdminUser && (
+                  <button onClick={handleRevivir} style={{ marginLeft:'auto', padding:'0.25rem 0.75rem', background:'#e8f5ee', border:'1px solid #2e7d50', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.7rem', fontWeight:700, color:'#2e7d50', whiteSpace:'nowrap', flexShrink:0 }}>
+                    ↩ Revertir fallecimiento
                   </button>
                 )}
               </div>
