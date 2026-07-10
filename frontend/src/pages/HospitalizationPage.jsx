@@ -343,7 +343,7 @@ export default function HospitalizationPage() {
     if (!confirm(`⚠️ ¿Registrar fallecimiento de ${h.patient_name}? Esta acción no se puede deshacer.`)) return;
     const now = new Date();
     editHosp(h.id, { status: 'fallecido', alta_date: localDate(now), alta_time: nowTime(), duration_days: calcDuration(h.ingreso_date, localDate(now)) });
-    editPatient(h.patient_id, { status: 'inactivo' });
+    editPatient(h.patient_id, { status: 'fallecido', fecha_fallecimiento: localDate(now) });
     if (selectedId === h.id) setSelectedId(null);
   };
 
