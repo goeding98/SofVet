@@ -341,7 +341,8 @@ export default function AppointmentsPage() {
   const openEdit = (apt) => {
     if (!canManageApts) return;
     setCedula(''); setFoundClient(null); setCedulaMsg('');
-    setForm({...apt}); setEditId(apt.id); setModal(true);
+    const { _col, _totalCols, _s, _e, ...cleanApt } = apt;
+    setForm(cleanApt); setEditId(apt.id); setModal(true);
   };
   const handleSave = () => {
     if (!form.patient_name?.trim()||!form.date||!form.time) { alert('Paciente, fecha y hora son requeridos'); return; }
