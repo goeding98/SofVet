@@ -63,6 +63,16 @@ export default function ClientsPage() {
     if (!clientForm.document.trim()) return alert('La cédula / documento es requerida.');
     if (!clientForm.phone.trim())    return alert('El teléfono es requerido.');
 
+    // Validar cédula duplicada (solo en creación, o si se cambió el documento en edición)
+    const docNorm = clientForm.document.trim();
+    const duplicate = clients.find(c =>
+      c.id !== editId &&
+      (c.document || c.cedula || '').trim() === docNorm
+    );
+    if (duplicate) {
+      return alert(`⚠️ Ya existe un cliente registrado con ese número de documento:\n\n${duplicate.name}\n\nVerifica si ya está en el sistema antes de crear uno nuevo.`);
+    }
+
     const payload = {
       ...clientForm,
       cedula:     clientForm.document || null,
