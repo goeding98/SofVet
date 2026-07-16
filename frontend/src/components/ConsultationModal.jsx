@@ -3,8 +3,10 @@ import Modal from './Modal';
 import Button from './Button';
 import { useSede, SEDES } from '../utils/useSede';
 import { useAuth } from '../utils/useAuth';
+import { useStore } from '../utils/useStore';
+import { supabase } from '../utils/supabaseClient';
 
-const EMPTY_MED    = { medicamento: '', dosis: '', via: 'VO' };
+const EMPTY_MED    = { medicamento: '', dosis: '', via: 'VO', inventario_id: null, cantidad_usada: '' };
 const EMPTY_FORMULA = { producto: '', cantidad: '', instrucciones: '' };
 const VIAS = ['VO','IM','IV','SC','Tópica','Inhalada','Oftálmica','Ótica'];
 const MUCOSAS_OPTS = ['Rosadas húmedas','Pálidas','Congestivas','Cianóticas','Ictéricas','Secas'];
@@ -63,6 +65,7 @@ const SectionHeader = ({ icon, title, color='var(--color-primary)' }) => (
 export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft, onDelete, pet, initialData = null, mode = 'new' }) {
   const { sedeActual, isAdmin } = useSede();
   const { session } = useAuth();
+  const { items: inventario, edit: editInventario } = useStore('inventario');
   const canChooseSede = isAdmin || session?.sede_id === 4;
   const [form, setForm] = useState(makeEmpty);
   const [sedeId, setSedeId] = useState(sedeActual || 1);
@@ -92,13 +95,32 @@ export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft
   const handleSave = () => {
     if (!form.date) return alert('La fecha es requerida.');
     if (!form.diagnostico_final?.trim()) return alert('El diagnóstico final es requerido.');
-    const now = new Date();
     const hoy = nowDate();
     const horaAhora = nowTime();
     if (mode === 'edit') {
       onSave({ ...form, sede_id: sedeId || null, editado_por: session?.nombre || null, hora_edicion: horaAhora, fecha_edicion: hoy });
     } else {
       onSave({ ...form, sede_id: sedeId || null, veterinario: session?.nombre || null });
+      // Descontar inventario para medicamentos con ítem vinculado
+      for (const med of form.medicamentos_aplicados) {
+        if (!med.inventario_id) continue;
+        const qty = parseFloat(String(med.cantidad_usada || '').replace(',', '.')) || 0;
+        if (qty <= 0) continue;
+        const invItem = inventario.find(i => i.id === med.inventario_id);
+        if (!invItem) continue;
+        const toDeduct = invItem.tipo === 'ampolla'
+          ? Math.ceil(qty / (invItem.ml_por_ampolla || 1))
+          : qty;
+        const newStock = parseFloat(Math.max(0, (invItem.stock || 0) - toDeduct).toFixed(4));
+        editInventario(invItem.id, { stock: newStock });
+        supabase.from('inventario_movimientos').insert({
+          inventario_id: invItem.id,
+          tipo:          'descargue_consulta',
+          cantidad:      -toDeduct,
+          motivo:        `Consulta${pet ? ' — ' + pet.name : ''} — ${med.medicamento}`,
+          created_by:    session?.nombre || 'Sistema',
+        }).then(() => {});
+      }
     }
   };
 
@@ -278,26 +300,74 @@ export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft
               <thead>
                 <tr>
                   <th style={thSt}>Producto</th>
-                  <th style={{ ...thSt, width:110 }}>Dosis</th>
-                  <th style={{ ...thSt, width:110 }}>Vía</th>
+                  <th style={{ ...thSt, width:90 }}>Cantidad usada</th>
+                  <th style={{ ...thSt, width:100 }}>Dosis</th>
+                  <th style={{ ...thSt, width:100 }}>Vía</th>
                   <th style={{ width:32 }}></th>
                 </tr>
               </thead>
               <tbody>
-                {form.medicamentos_aplicados.map((m,i) => (
-                  <tr key={i} style={{ borderTop:'1px solid var(--color-border)' }}>
-                    <td style={tdSt}><input value={m.medicamento} onChange={e=>updMed(i,'medicamento',e.target.value)} style={inl} placeholder="Ej: Dipirona" /></td>
-                    <td style={tdSt}><input value={m.dosis} onChange={e=>updMed(i,'dosis',e.target.value)} style={inl} placeholder="28mg/kg" /></td>
-                    <td style={tdSt}>
-                      <select value={m.via} onChange={e=>updMed(i,'via',e.target.value)} style={inl}>
-                        {VIAS.map(v=><option key={v}>{v}</option>)}
-                      </select>
-                    </td>
-                    <td style={{ padding:'0.3rem', textAlign:'center' }}>
-                      <button onClick={()=>removeMed(i)} style={{ color:'var(--color-danger)', background:'none', border:'none', cursor:'pointer', fontSize:'1.1rem', lineHeight:1 }}>×</button>
-                    </td>
-                  </tr>
-                ))}
+                {form.medicamentos_aplicados.map((m,i) => {
+                  const invItem = inventario.find(x => x.id === m.inventario_id);
+                  const esOtro = !m.inventario_id;
+                  return (
+                    <tr key={i} style={{ borderTop:'1px solid var(--color-border)' }}>
+                      <td style={tdSt}>
+                        <select
+                          value={m.inventario_id ?? 'otro'}
+                          onChange={e => {
+                            if (e.target.value === 'otro') {
+                              updMed(i, 'inventario_id', null);
+                              updMed(i, 'medicamento', '');
+                            } else {
+                              const item = inventario.find(x => x.id === parseInt(e.target.value));
+                              updMed(i, 'inventario_id', parseInt(e.target.value));
+                              updMed(i, 'medicamento', item?.nombre || '');
+                            }
+                          }}
+                          style={inl}
+                        >
+                          <option value="">— Seleccionar del inventario —</option>
+                          {[...inventario].sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(item => (
+                            <option key={item.id} value={item.id}>
+                              {item.nombre} (stock: {item.stock} {item.tipo})
+                            </option>
+                          ))}
+                          <option value="otro">✏️ Otro (no en inventario)</option>
+                        </select>
+                        {esOtro && (
+                          <input
+                            value={m.medicamento}
+                            onChange={e => updMed(i, 'medicamento', e.target.value)}
+                            style={{ ...inl, marginTop:'0.25rem' }}
+                            placeholder="Nombre del medicamento"
+                          />
+                        )}
+                      </td>
+                      <td style={tdSt}>
+                        {!esOtro ? (
+                          <input
+                            value={m.cantidad_usada}
+                            onChange={e => updMed(i, 'cantidad_usada', e.target.value)}
+                            style={{ ...inl, borderColor: m.cantidad_usada ? 'var(--color-primary)' : 'var(--color-border)' }}
+                            placeholder={invItem?.tipo || 'cant.'}
+                          />
+                        ) : (
+                          <span style={{ fontSize:'0.7rem', color:'var(--color-text-muted)', paddingLeft:'0.3rem' }}>—</span>
+                        )}
+                      </td>
+                      <td style={tdSt}><input value={m.dosis} onChange={e=>updMed(i,'dosis',e.target.value)} style={inl} placeholder="28mg/kg" /></td>
+                      <td style={tdSt}>
+                        <select value={m.via} onChange={e=>updMed(i,'via',e.target.value)} style={inl}>
+                          {VIAS.map(v=><option key={v}>{v}</option>)}
+                        </select>
+                      </td>
+                      <td style={{ padding:'0.3rem', textAlign:'center' }}>
+                        <button onClick={()=>removeMed(i)} style={{ color:'var(--color-danger)', background:'none', border:'none', cursor:'pointer', fontSize:'1.1rem', lineHeight:1 }}>×</button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
