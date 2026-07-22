@@ -5,8 +5,8 @@ import { useSede, SEDES } from '../utils/useSede';
 import { nowDate, localDateStr } from '../utils/nowLocal';
 
 // ── Grid ─────────────────────────────────────────────────────────────────────
-const START_HOUR = 6;
-const END_HOUR   = 22;
+const START_HOUR = 13;
+const END_HOUR   = 21;
 const ROW_H      = 56;
 const HOURS      = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => i + START_HOUR);
 
@@ -116,6 +116,12 @@ export default function VisitasPage() {
   const openNew = (date, time) => {
     setEditing(null);
     setForm(mkForm(date, time));
+    setModal(true);
+  };
+
+  const openNewNight = (date) => {
+    setEditing(null);
+    setForm({ ...mkForm(date, ''), time: '', time_end: '', despues_9pm: true });
     setModal(true);
   };
 
@@ -257,6 +263,36 @@ export default function VisitasPage() {
                     />
                   ))}
                   {dayVisitas.map(v => <VisitBlock key={v.id} item={v} onEdit={openEdit} />)}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Franja nocturna: 9:00 PM – 11:00 PM (sin hora exacta) */}
+        <div style={{ borderTop: '2px solid var(--color-border)', background: '#faf8ff' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '52px repeat(7, 1fr)' }}>
+            <div style={{ padding: '0.4rem 4px', borderRight: '1px solid var(--color-border)', fontSize: '0.56rem', color: '#7c3aed', fontWeight: 700, textAlign: 'right', lineHeight: 1.25 }}>
+              🌙<br/>9–11PM
+            </div>
+            {days.map(ds => {
+              const night = forDay(ds).filter(v => v.despues_9pm);
+              return (
+                <div key={ds}
+                  onClick={() => openNewNight(ds)}
+                  title="Agregar visita nocturna (sin hora exacta)"
+                  style={{ borderRight: '1px solid var(--color-border)', padding: '4px', minHeight: 44, display: 'flex', flexDirection: 'column', gap: 2, cursor: 'pointer' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f0ebff'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  {night.map(v => (
+                    <div key={v.id}
+                      onClick={e => { e.stopPropagation(); openEdit(v); }}
+                      title={`${v.patient_name} — ${v.owner}`}
+                      style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderLeft: '3px solid #7c3aed', borderRadius: 6, padding: '2px 6px', fontSize: '0.68rem', color: '#5b21b6', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      🌙 {v.patient_name}
+                    </div>
+                  ))}
                 </div>
               );
             })}
