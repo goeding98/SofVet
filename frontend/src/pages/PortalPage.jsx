@@ -760,8 +760,8 @@ export default function PortalPage() {
               <p style={{ color:C.muted, fontSize:'0.9rem', lineHeight:1.6, marginBottom:'1.5rem' }}>
                 {v9pm ? (
                   <>Hemos registrado tu visita nocturna para <strong>{vMascota}</strong> el <strong>{vDate}</strong>.<br/><br/>
-                  Llegarás después de las <strong>9:00 PM</strong>. El equipo te estará esperando.<br/>
-                  Recuerda: <strong>máximo 2 personas</strong> pueden ingresar a las instalaciones.</>
+                  Llegarás después de las <strong>9:00 PM</strong>, así que será sin hora exacta y según disponibilidad del equipo — si esa noche hay urgencias, puede que debas esperar un poco. Gracias por tu paciencia.<br/><br/>
+                  Recuerda: por seguridad, en este horario <strong>solo puede ingresar 1 persona</strong> a las instalaciones.</>
                 ) : (
                   <>Hemos registrado tu visita para <strong>{vMascota}</strong> el <strong>{vDate}</strong> a las <strong>{fmt12h(vTime)}</strong>.<br/><br/>
                   Nuestro equipo estará esperándote. Recuerda llegar puntual y que <strong>máximo 2 personas</strong> pueden ingresar.</>
@@ -861,8 +861,9 @@ export default function PortalPage() {
                       🌙 Iré a partir de las 9:00 PM (sin hora exacta — disponibilidad libre)
                     </label>
                     {v9pm && (
-                      <div style={{ marginTop:'0.5rem', background:'#f5f3ff', border:'1px solid #ddd6fe', borderRadius:10, padding:'0.65rem 0.9rem', fontSize:'0.78rem', color:'#5b21b6' }}>
-                        ℹ️ Tu visita quedará registrada sin hora fija. El equipo te atenderá al llegar después de las 9:00 PM.
+                      <div style={{ marginTop:'0.5rem', background:'#f5f3ff', border:'1px solid #ddd6fe', borderRadius:10, padding:'0.65rem 0.9rem', fontSize:'0.78rem', color:'#5b21b6', lineHeight:1.55 }}>
+                        ℹ️ A partir de las 9:00 PM las visitas son sin hora exacta y según la disponibilidad del equipo. Si la noche está tranquila la espera será cortica, pero si hay urgencias o varios pacientes hospitalizados, tu visita puede tardar un poco más porque priorizamos la atención de los pacientes. Gracias por tu paciencia 🙏<br/><br/>
+                        🔒 Por seguridad, en este horario <strong>solo puede ingresar 1 persona</strong> a las instalaciones.
                       </div>
                     )}
                   </div>
