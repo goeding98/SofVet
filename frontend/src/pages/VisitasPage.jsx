@@ -43,31 +43,83 @@ const mkForm = (date, time) => ({
 const labelSt = { display: 'block', fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text)' };
 const inputSt = { width: '100%', padding: '0.55rem 0.75rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', boxSizing: 'border-box' };
 
+// ── Overlap layout: assign side-by-side columns to visits that share a time slot ──
+const DEFAULT_VISIT_MINS = 20;   // duración asumida cuando no hay hora de salida (ej. agendadas desde el portal)
+
+function computeDayLayout(items) {
+  const withTimes = items
+    .filter(v => !v.despues_9pm && v.time)
+    .map(v => {
+      const s = timeToMins(v.time);
+      const e = Math.max(v.time_end ? timeToMins(v.time_end) : s + DEFAULT_VISIT_MINS, s + 15);
+      return { ...v, _s: s, _e: e };
+    })
+    .sort((a, b) => a._s - b._s);
+
+  const result = [];
+  let cluster = [];
+  let clusterEnd = -Infinity;
+
+  const flushCluster = () => {
+    if (!cluster.length) return;
+    const columns = [];   // end time of last item placed in each column
+    cluster.forEach(v => {
+      let idx = columns.findIndex(end => end <= v._s);
+      if (idx === -1) { idx = columns.length; columns.push(v._e); }
+      else columns[idx] = v._e;
+      result.push({ ...v, _col: idx, _totalCols: 0 });
+    });
+    const totalCols = columns.length;
+    for (let i = result.length - cluster.length; i < result.length; i++) result[i]._totalCols = totalCols;
+    cluster = [];
+  };
+
+  withTimes.forEach(v => {
+    if (cluster.length === 0 || v._s < clusterEnd) {
+      cluster.push(v);
+      clusterEnd = Math.max(clusterEnd, v._e);
+    } else {
+      flushCluster();
+      cluster.push(v);
+      clusterEnd = v._e;
+    }
+  });
+  flushCluster();
+
+  return result;
+}
+
 // ── Visit block in grid ───────────────────────────────────────────────────────
-function VisitBlock({ item, onEdit }) {
+function VisitBlock({ item, onEdit, col = 0, totalCols = 1 }) {
   if (item.despues_9pm) return null;   // shown separately, not in time grid
   const startMins = timeToMins(item.time);
   if (startMins === null) return null;
-  const endMins  = item.time_end ? timeToMins(item.time_end) : startMins + 60;
+  const endMins  = item.time_end ? timeToMins(item.time_end) : startMins + DEFAULT_VISIT_MINS;
   const duration = Math.max(15, endMins - startMins);
   const top      = minsToTop(startMins);
   const height   = (duration / 60) * ROW_H - 2;
   const st       = STATUS_CFG[item.status] || STATUS_CFG.pendiente;
+  const gap      = 2;
+  const leftPct  = (col / totalCols) * 100;
+  const widthPct = 100 / totalCols;
 
   return (
     <div
       onClick={() => onEdit(item)}
       title={`${item.patient_name} — ${item.owner}`}
       style={{
-        position: 'absolute', left: 2, right: 2,
-        top, height: Math.max(height, 20),
+        position: 'absolute',
+        left: `calc(${leftPct}% + ${gap}px)`,
+        width: `calc(${widthPct}% - ${gap * 2}px)`,
+        top, height: Math.max(height, 18),
         background: st.bg, border: `1.5px solid ${st.color}`,
         borderLeft: `4px solid ${st.color}`,
-        borderRadius: 6, padding: '3px 6px',
+        borderRadius: 6, padding: '2px 5px',
         overflow: 'hidden', cursor: 'pointer',
-        fontSize: '0.72rem', lineHeight: 1.3,
+        fontSize: totalCols > 1 ? '0.64rem' : '0.72rem', lineHeight: 1.25,
         boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
         transition: 'opacity 0.15s',
+        zIndex: 1,
       }}
       onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
       onMouseLeave={e => e.currentTarget.style.opacity = '1'}
@@ -75,12 +127,12 @@ function VisitBlock({ item, onEdit }) {
       <div style={{ fontWeight: 700, color: st.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         🏥 {item.patient_name}
       </div>
-      {height > 28 && (
+      {height > 30 && (
         <div style={{ color: '#555', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {item.owner}
         </div>
       )}
-      {height > 42 && (
+      {height > 44 && (
         <div style={{ color: '#888' }}>{fmt12h(item.time)} – {fmt12h(item.time_end)}</div>
       )}
     </div>
@@ -262,7 +314,9 @@ export default function VisitasPage() {
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     />
                   ))}
-                  {dayVisitas.map(v => <VisitBlock key={v.id} item={v} onEdit={openEdit} />)}
+                  {computeDayLayout(dayVisitas).map(v => (
+                    <VisitBlock key={v.id} item={v} onEdit={openEdit} col={v._col} totalCols={v._totalCols} />
+                  ))}
                 </div>
               );
             })}

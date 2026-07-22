@@ -39,7 +39,7 @@ const BOOKING_SEDES = [
 const SLOTS_GEN = [10,11,12,13,14,15,16,17,18].map(h=>`${String(h).padStart(2,'0')}:00`);
 const SLOTS_CTL = [10,11,12,13,14,15,16,17].map(h=>`${String(h).padStart(2,'0')}:40`);
 const DUR = { 'Consulta General': 40, 'Control': 20 };
-const VISIT_SLOTS = ['13:00','13:15','13:30','13:45','14:00','14:15','14:30','14:45','15:00','15:15','15:30','15:45'];
+const VISIT_SLOTS = ['13:00','13:20','13:40','14:00','14:20','14:40','15:00','15:20','15:40'];
 
 const tmins = t => { const [h,m]=t.split(':').map(Number); return h*60+m; };
 const addMin = (t, m) => { const tot=tmins(t)+m; return `${String(Math.floor(tot/60)%24).padStart(2,'0')}:${String(tot%60).padStart(2,'0')}`; };
@@ -834,12 +834,12 @@ export default function PortalPage() {
                 {vDate && vSede && (
                   <div>
                     <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.4rem' }}>
-                      Hora de entrada * <span style={{ fontWeight:400, fontSize:'0.72rem' }}>(1:00–3:45 PM · slots de 15 min)</span>
+                      Hora de entrada * <span style={{ fontWeight:400, fontSize:'0.72rem' }}>(1:00–4:00 PM · slots de 20 min)</span>
                     </label>
                     {vSloading ? (
                       <p style={{ fontSize:'0.82rem', color:C.muted, margin:'0.5rem 0' }}>Cargando disponibilidad…</p>
                     ) : (
-                      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'0.4rem' }}>
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'0.4rem' }}>
                         {VISIT_SLOTS.map(slot => {
                           const taken  = vSlots ? vSlots.includes(slot) : false;
                           const active = vTime === slot && !v9pm;
