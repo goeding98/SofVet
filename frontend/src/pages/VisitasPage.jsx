@@ -190,6 +190,26 @@ export default function VisitasPage() {
     if (!form.despues_9pm && !form.time) {
       return alert('Completa la hora de entrada o marca "Después de 9pm".');
     }
+    if (!form.despues_9pm && form.sede_id) {
+      const newStart = timeToMins(form.time);
+      const newEnd   = form.time_end ? timeToMins(form.time_end) : newStart + DEFAULT_VISIT_MINS;
+      const conflict = visitas.find(v =>
+        v.id !== editing?.id &&
+        !v.despues_9pm &&
+        v.status !== 'cancelada' &&
+        v.date === form.date &&
+        Number(v.sede_id) === Number(form.sede_id) &&
+        v.time &&
+        (() => {
+          const s = timeToMins(v.time);
+          const e = v.time_end ? timeToMins(v.time_end) : s + DEFAULT_VISIT_MINS;
+          return newStart < e && s < newEnd;
+        })()
+      );
+      if (conflict) {
+        return alert(`Ya hay una visita en ese horario: ${conflict.patient_name} (${conflict.owner}) a las ${fmt12h(conflict.time)}. No pueden quedar visitas simultáneas — elige otra hora.`);
+      }
+    }
     setSaving(true);
     const payload = { ...form, sede_id: Number(form.sede_id) || null, agendado_por: session?.nombre || null };
     if (editing) {

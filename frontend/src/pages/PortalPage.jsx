@@ -120,13 +120,23 @@ export default function PortalPage() {
     setVSloading(true); setVSlots(null); setVTime(''); setV9pm(false);
     const { data: taken } = await supabase
       .from('visitas_hospitalizacion')
-      .select('time')
+      .select('time, time_end')
       .eq('date', date)
       .eq('sede_id', sedeId)
       .neq('status', 'cancelada')
       .not('time', 'is', null);
-    setVSlots((taken || []).map(r => r.time?.slice(0, 5)));
+    setVSlots(taken || []);
     setVSloading(false);
+  };
+
+  // ¿el slot [t, t+20min) choca con alguna visita ya reservada ese día/sede?
+  const visitSlotTaken = (slot, taken) => {
+    const s = tmins(slot), e = s + 20;
+    return (taken || []).some(v => {
+      const vs = tmins(v.time);
+      const ve = v.time_end ? tmins(v.time_end) : vs + 20;
+      return s < ve && vs < e;
+    });
   };
 
   const handleVisitaSubmit = async () => {
@@ -135,6 +145,24 @@ export default function PortalPage() {
     if (!v9pm && !vTime)
       return setVErr('Selecciona una hora disponible o marca "Iré a partir de las 9pm".');
     setVSaving(true); setVErr('');
+
+    // Revalidar disponibilidad justo antes de guardar: nunca pueden quedar dos visitas en el mismo horario.
+    if (!v9pm) {
+      const { data: freshTaken } = await supabase
+        .from('visitas_hospitalizacion')
+        .select('time, time_end')
+        .eq('date', vDate)
+        .eq('sede_id', vSede)
+        .neq('status', 'cancelada')
+        .not('time', 'is', null);
+      if (visitSlotTaken(vTime, freshTaken)) {
+        setVSaving(false);
+        setVErr('Justo se ocupó ese horario. Elige otra hora disponible.');
+        loadVisitSlots(vDate, vSede);
+        return;
+      }
+    }
+
     const { error } = await supabase.from('visitas_hospitalizacion').insert({
       patient_name: vMascota.trim(),
       owner:        vNombre.trim(),
@@ -841,7 +869,7 @@ export default function PortalPage() {
                     ) : (
                       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'0.4rem' }}>
                         {VISIT_SLOTS.map(slot => {
-                          const taken  = vSlots ? vSlots.includes(slot) : false;
+                          const taken  = visitSlotTaken(slot, vSlots);
                           const active = vTime === slot && !v9pm;
                           return (
                             <button key={slot} onClick={() => { if (!taken) { setVTime(slot); setV9pm(false); } }}
