@@ -312,7 +312,7 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
                 : (tipo === 'semi' ? '🏥 Nueva Semi-hospitalización' : '🏥 Nueva Hospitalización')}
             </h3>
             <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-              {pet.name} · {pet.species} {pet.breed ? `(${pet.breed})` : ''} · {pet.weight} kg · {ageLabel(pet.birth_date || pet.fecha_nacimiento, pet.age)}
+              {pet.name} · {pet.species} {pet.breed ? `(${pet.breed})` : ''} · {pet.weight} kg · {ageLabel(pet.birth_date, pet.age, pet.fecha_nacimiento)}
             </p>
             <div style={{ marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>📍 Sede:</span>

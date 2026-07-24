@@ -87,7 +87,7 @@ export default function DocumentModal({
     especie:           patient?.species     || '___________',
     raza:              patient?.breed       || '___________',
     sexo:              patient?.sex         || '___________',
-    edad:              patient ? ageLabel(patient.birth_date || patient.fecha_nacimiento, patient.age) : '___________',
+    edad:              patient ? ageLabel(patient.birth_date, patient.age, patient.fecha_nacimiento) : '___________',
     peso:              patient?.weight      || '___________',
     esterilizado:      patient?.esterilizado || '___________',
     caracter:          patient?.caracter    || '___________',

@@ -877,7 +877,7 @@ export default function HospitalizationPage() {
                   {speciesIcon(selected.species)} {selected.patient_name}
                 </h3>
                 <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                  {selected.species}{selected.breed ? ` · ${selected.breed}` : ''}{selected.weight ? ` · ${selected.weight} kg` : ''}{(selected.birth_date || selected.fecha_nacimiento || selected.age) ? ` · ${ageLabel(selected.birth_date || selected.fecha_nacimiento, selected.age)}` : ''}
+                  {selected.species}{selected.breed ? ` · ${selected.breed}` : ''}{selected.weight ? ` · ${selected.weight} kg` : ''}{(selected.birth_date || selected.fecha_nacimiento || selected.age) ? ` · ${ageLabel(selected.birth_date, selected.age, selected.fecha_nacimiento)}` : ''}
                 </p>
               </div>
               <button onClick={() => setSelectedId(null)} style={{ width: 32, height: 32, background: 'var(--color-white)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)' }}>×</button>

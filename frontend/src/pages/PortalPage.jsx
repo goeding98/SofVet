@@ -1132,7 +1132,7 @@ export default function PortalPage() {
                     <div>
                       <div style={{ fontWeight:800, fontSize:'1.05rem', color:C.tealDark }}>{pet.name}</div>
                       <div style={{ fontSize:'0.75rem', color:C.muted }}>
-                        {[pet.species, pet.breed, (pet.birth_date || pet.fecha_nacimiento || pet.age) && ageLabel(pet.birth_date || pet.fecha_nacimiento, pet.age), pet.weight&&`${pet.weight} kg`].filter(Boolean).join(' · ')}
+                        {[pet.species, pet.breed, (pet.birth_date || pet.fecha_nacimiento || pet.age) && ageLabel(pet.birth_date, pet.age, pet.fecha_nacimiento), pet.weight&&`${pet.weight} kg`].filter(Boolean).join(' · ')}
                       </div>
                     </div>
                   </div>
