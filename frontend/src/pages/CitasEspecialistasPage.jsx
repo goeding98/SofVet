@@ -79,20 +79,22 @@ function CitaCard({ cita, draggedId, onDragStart, onClick, showSede }) {
 
 export default function CitasEspecialistasPage() {
   const { session } = useAuth();
-  const { sedeActual, isAdmin } = useSede();
+  const { isAdmin } = useSede();
   const { items: citas, add, edit, remove } = useStore('citas_especialistas');
 
   const canSeeAllSedes = isAdmin || session?.rol === 'Laboratorio';
   const misSedeId = session?.sede_id || null;
 
+  const [filterSede, setFilterSede] = useState('all');
+
   const visibles = useMemo(() => {
     if (canSeeAllSedes) {
-      return sedeActual === null ? citas : citas.filter(c => Number(c.sede_id) === Number(sedeActual));
+      return filterSede === 'all' ? citas : citas.filter(c => Number(c.sede_id) === Number(filterSede));
     }
     return citas.filter(c => Number(c.sede_id) === Number(misSedeId));
-  }, [citas, canSeeAllSedes, sedeActual, misSedeId]);
+  }, [citas, canSeeAllSedes, filterSede, misSedeId]);
 
-  const showSedeBadge = canSeeAllSedes && sedeActual === null;
+  const showSedeBadge = canSeeAllSedes && filterSede === 'all';
 
   // ── drag state ──────────────────────────────────────────────────────────
   const [draggedId, setDraggedId] = useState(null);
@@ -114,7 +116,7 @@ export default function CitasEspecialistasPage() {
   const openNueva = () => {
     setForm({
       ...EMPTY_FORM,
-      sede_id: canSeeAllSedes ? (sedeActual || SEDES[0].id) : misSedeId,
+      sede_id: canSeeAllSedes ? (filterSede !== 'all' ? filterSede : SEDES[0].id) : misSedeId,
       medico_remitente: session?.nombre || '',
     });
     setModalNueva(true);
@@ -245,7 +247,16 @@ export default function CitasEspecialistasPage() {
           <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--color-primary)', margin: 0 }}>👨‍⚕️ Cita con Especialistas</h1>
           <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Coordina remisiones a especialistas sin depender de WhatsApp</p>
         </div>
-        <Button onClick={openNueva} icon="+">Nueva solicitud</Button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {canSeeAllSedes && (
+            <select value={filterSede} onChange={e => setFilterSede(e.target.value)}
+              style={{ padding: '0.5rem 0.75rem', fontSize: '0.82rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', cursor: 'pointer' }}>
+              <option value="all">Todas las sedes</option>
+              {SEDES.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+            </select>
+          )}
+          <Button onClick={openNueva} icon="+">Nueva solicitud</Button>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', alignItems: 'start' }}>
