@@ -14,6 +14,7 @@ const serviciosItems = [
   { path: '/grooming',        label: 'Peluquería',      icon: '✂️'  },
   { path: '/hospitalization', label: 'Hospitalización', icon: '🏥'  },
   { path: '/visitas-hospitalizacion', label: 'Visitas Hosp.', icon: '👥' },
+  { path: '/citas-especialistas', label: 'Cita Especialistas', icon: '👨‍⚕️' },
   { path: '/laboratorios',    label: 'Laboratorios',    icon: '🧪'  },
   { path: '/imagenes',        label: 'Imágenes',        icon: '🔬'  },
 ];
