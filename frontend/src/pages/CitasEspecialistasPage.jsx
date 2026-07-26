@@ -9,12 +9,15 @@ import Button from '../components/Button';
 const ESPECIALIDADES = ['Cardiología', 'Dermatología', 'Gastroenterología', 'Neurología', 'Oftalmología', 'Oncología', 'Ortopedia', 'Otra'];
 
 const COLUMNS = [
-  { key: 'solicitada', label: 'Solicitada', color: '#b8860b', bg: '#fff8e1' },
-  { key: 'confirmada', label: 'Confirmada por tutor y especialista', color: '#2e5cbf', bg: '#e8f0ff' },
-  { key: 'programada', label: 'Pagada y programada', color: '#2e7d50', bg: 'var(--color-success-bg)' },
+  { key: 'solicitada',     label: 'Solicitada',                          color: '#b8860b', bg: '#fff8e1' },
+  { key: 'confirmada',     label: 'Confirmada por tutor y especialista', color: '#2e5cbf', bg: '#e8f0ff' },
+  { key: 'programada',     label: 'Pagada y programada',                 color: '#2e7d50', bg: 'var(--color-success-bg)' },
+  { key: 'desestimiento',  label: 'Desestimiento',                       color: '#c0392b', bg: '#fdecea' },
 ];
 
-const MAX_PROGRAMADA_VISIBLE = 15;
+// Columnas "finales" que solo pintan las N más recientes en pantalla (nada se borra de la BD)
+const HISTORIAL_COLS = ['programada', 'desestimiento'];
+const MAX_HISTORIAL_VISIBLE = 15;
 
 const EMPTY_FORM = {
   sede_id: null,
@@ -171,6 +174,11 @@ export default function CitasEspecialistasPage() {
       changes.programada_hora = nowTime();
       changes.programada_por = session?.nombre || null;
     }
+    if (newStatus === 'desestimiento') {
+      changes.desestimiento_fecha = nowDate();
+      changes.desestimiento_hora = nowTime();
+      changes.desestimiento_por = session?.nombre || null;
+    }
     await edit(cita.id, changes);
     if (newStatus === 'programada') {
       alert('📅 Recuerda que debes agendar la cita en la sección de Agenda.');
@@ -184,7 +192,8 @@ export default function CitasEspecialistasPage() {
     setDraggedId(null);
     if (!cita || cita.status === newStatus) return;
 
-    if (newStatus !== 'solicitada' && !cita.especialista_confirmado) {
+    const requiereEspecialista = (newStatus === 'confirmada' || newStatus === 'programada') && !cita.especialista_confirmado;
+    if (requiereEspecialista) {
       setEspecialistaInput('');
       setPendingDrop({ cita, newStatus });
       return;
@@ -230,10 +239,10 @@ export default function CitasEspecialistasPage() {
   };
 
   const columnCitas = (key) => {
-    if (key === 'programada') {
-      const all = visibles.filter(c => c.status === 'programada');
-      const sorted = [...all].sort((a, b) => stageKey(b, 'programada').localeCompare(stageKey(a, 'programada')));
-      return { list: sorted.slice(0, MAX_PROGRAMADA_VISIBLE), extra: Math.max(0, sorted.length - MAX_PROGRAMADA_VISIBLE) };
+    if (HISTORIAL_COLS.includes(key)) {
+      const all = visibles.filter(c => c.status === key);
+      const sorted = [...all].sort((a, b) => stageKey(b, key).localeCompare(stageKey(a, key)));
+      return { list: sorted.slice(0, MAX_HISTORIAL_VISIBLE), extra: Math.max(0, sorted.length - MAX_HISTORIAL_VISIBLE) };
     }
     const list = visibles.filter(c => c.status === key)
       .sort((a, b) => stageKey(a, key).localeCompare(stageKey(b, key)));
@@ -259,7 +268,7 @@ export default function CitasEspecialistasPage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', alignItems: 'start' }}>
         {COLUMNS.map(col => {
           const { list, extra } = columnCitas(col.key);
           const isOver = dragOver === col.key;
@@ -420,6 +429,7 @@ export default function CitasEspecialistasPage() {
                 <span>📅 Solicitada: {detalle.solicitada_fecha} {detalle.solicitada_hora} — {detalle.solicitada_por || '—'}</span>
                 {detalle.confirmada_fecha && <span>✓ Confirmada: {detalle.confirmada_fecha} {detalle.confirmada_hora} — {detalle.confirmada_por || '—'} ({detalle.especialista_confirmado})</span>}
                 {detalle.programada_fecha && <span>💰 Programada: {detalle.programada_fecha} {detalle.programada_hora} — {detalle.programada_por || '—'}</span>}
+                {detalle.desestimiento_fecha && <span>✕ Desestimiento: {detalle.desestimiento_fecha} {detalle.desestimiento_hora} — {detalle.desestimiento_por || '—'}</span>}
               </div>
             </div>
           </div>
