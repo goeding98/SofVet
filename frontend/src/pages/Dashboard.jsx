@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
 import { StatCard } from '../components/Card';
 import Card from '../components/Card';
+import { SEDES, sedeBadge } from '../utils/useSede';
 
 const speciesIcon = s => ({ Perro: '🐶', Gato: '🐱', Conejo: '🐰', Ave: '🐦' }[s] || '🐾');
 
@@ -21,6 +23,16 @@ export default function Dashboard() {
   const _now = new Date();
   const todayStr  = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
   const todayApts = appointments.filter(a => a.date === todayStr);
+
+  // Administrador y Laboratorio no tienen sede fija → ven todas las sedes
+  const canSeeAllSedes = session?.sede_id == null;
+  const [altaSedeFilter, setAltaSedeFilter] = useState(canSeeAllSedes ? null : session?.sede_id || null);
+
+  const ultimasAltas = hospitalized
+    .filter(h => h.status === 'cobrada' || h.status === 'no_cobrada')
+    .filter(h => canSeeAllSedes ? (altaSedeFilter === null || h.sede_id === altaSedeFilter) : h.sede_id === session?.sede_id)
+    .sort((a, b) => `${b.alta_date || ''}T${b.alta_time || ''}`.localeCompare(`${a.alta_date || ''}T${a.alta_time || ''}`))
+    .slice(0, 20);
 
   return (
     <div>
@@ -70,29 +82,42 @@ export default function Dashboard() {
           )}
         </Card>
 
-        {/* Últimas mascotas */}
-        <Card title="Últimas mascotas registradas">
-          {patients.length === 0 ? (
+        {/* Últimas altas de hospitalización */}
+        <Card
+          title="Últimas altas de hospitalización"
+          action={canSeeAllSedes && (
+            <select
+              value={altaSedeFilter ?? ''}
+              onChange={e => setAltaSedeFilter(e.target.value === '' ? null : parseInt(e.target.value))}
+              style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', cursor: 'pointer' }}
+            >
+              <option value="">Todas las sedes</option>
+              {SEDES.filter(s => !s.domicilio).map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+            </select>
+          )}
+        >
+          {ultimasAltas.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--color-text-muted)' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🐾</div>
-              <p style={{ fontSize: '0.875rem' }}>Sin mascotas aún.</p>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🏥</div>
+              <p style={{ fontSize: '0.875rem' }}>Sin altas registradas todavía.</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-              {[...patients].slice(-5).reverse().map(p => (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              {ultimasAltas.map(h => (
+                <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                   <div style={{
                     width: 38, height: 38,
                     background: 'var(--color-cream)', borderRadius: 'var(--radius-md)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem',
-                  }}>{speciesIcon(p.species)}</div>
+                  }}>{speciesIcon(h.species)}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>
-                      {p.name} <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>· {p.breed || p.species}</span>
+                      {h.patient_name} <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>· {h.breed || h.species}</span>
                     </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>{p.owner}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>{h.client_name}</div>
                   </div>
-                  <div style={{ fontSize: '0.67rem', color: 'var(--color-text-muted)' }}>{p.created_at}</div>
+                  {canSeeAllSedes && sedeBadge(h.sede_id)}
+                  <div style={{ fontSize: '0.67rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{h.alta_date}</div>
                 </div>
               ))}
             </div>
