@@ -109,11 +109,66 @@ export default function PortalPage() {
   const [vOk,       setVOk]       = useState(false);
   const [vErr,      setVErr]      = useState('');
 
+  // Verificación de cédula → paciente hospitalizado
+  const [vCedula,        setVCedula]        = useState('');
+  const [vClient,        setVClient]        = useState(null);   // { id, name }
+  const [vPatientId,     setVPatientId]     = useState(null);
+  const [vHospOptions,   setVHospOptions]   = useState(null);    // >1 paciente hospitalizado, a elegir
+  const [vLookupLoading, setVLookupLoading] = useState(false);
+  const [vLookupErr,     setVLookupErr]     = useState('');
+
   const resetVisita = () => {
     setVNombre(''); setVPhone(''); setVMascota(''); setVSede(null);
     setVDate(''); setVTime(''); setVNotas('');
     setVSlots(null); setV9pm(false); setVSloading(false);
     setVSaving(false); setVOk(false); setVErr('');
+    setVCedula(''); setVClient(null); setVPatientId(null);
+    setVHospOptions(null); setVLookupLoading(false); setVLookupErr('');
+  };
+
+  const resetVisitaLookup = () => {
+    setVCedula(''); setVClient(null); setVPatientId(null);
+    setVMascota(''); setVHospOptions(null); setVLookupErr('');
+  };
+
+  const handleCedulaLookup = async () => {
+    const doc = vCedula.trim();
+    if (!doc || !vSede) return;
+    setVLookupLoading(true); setVLookupErr('');
+    setVClient(null); setVPatientId(null); setVMascota(''); setVHospOptions(null);
+
+    const { data: cls } = await supabase.from('clients').select('id,name').eq('document', doc);
+    if (!cls?.length) {
+      setVLookupLoading(false);
+      setVLookupErr('No encontramos ningún tutor registrado con esa cédula. Recuerda revisar bajo qué cédula quedó registrado el paciente — a veces lo deja hospitalizado un familiar distinto al que viene a la visita.');
+      return;
+    }
+    const cl = cls[0];
+
+    const { data: hosps } = await supabase.from('hospitalization')
+      .select('patient_id,patient_name,sede_id')
+      .eq('client_id', cl.id)
+      .eq('status', 'activo');
+
+    setVLookupLoading(false);
+    const enEstaSede = (hosps || []).filter(h => h.sede_id === vSede);
+
+    if (!enEstaSede.length) {
+      setVLookupErr(
+        (hosps && hosps.length)
+          ? `${cl.name} tiene un paciente hospitalizado, pero en otra sede — verifica que elegiste la sede correcta.`
+          : 'Esa cédula no tiene ningún paciente hospitalizado en este momento. Recuerda revisar bajo qué cédula quedó registrado el paciente.'
+      );
+      return;
+    }
+
+    setVClient(cl);
+    if (enEstaSede.length === 1) {
+      setVPatientId(enEstaSede[0].patient_id);
+      setVMascota(enEstaSede[0].patient_name);
+    } else {
+      setVHospOptions(enEstaSede);
+    }
   };
 
   const loadVisitSlots = async (date, sedeId) => {
@@ -140,11 +195,25 @@ export default function PortalPage() {
   };
 
   const handleVisitaSubmit = async () => {
-    if (!vNombre.trim() || !vMascota.trim() || !vSede || !vDate)
-      return setVErr('Por favor completa tutor, mascota, sede y fecha.');
+    if (!vPatientId)
+      return setVErr('Primero verifica la cédula del tutor registrado para confirmar a qué paciente vas a visitar.');
+    if (!vNombre.trim() || !vSede || !vDate)
+      return setVErr('Por favor completa tu nombre, sede y fecha.');
     if (!v9pm && !vTime)
       return setVErr('Selecciona una hora disponible o marca "Iré a partir de las 9pm".');
     setVSaving(true); setVErr('');
+
+    // No puede quedar más de una visita para el mismo paciente el mismo día.
+    const { data: dupCheck } = await supabase
+      .from('visitas_hospitalizacion')
+      .select('id')
+      .eq('patient_id', vPatientId)
+      .eq('date', vDate)
+      .neq('status', 'cancelada');
+    if (dupCheck?.length) {
+      setVSaving(false);
+      return setVErr(`Ya hay una visita registrada hoy para ${vMascota}. Por protocolo, solo se permite una visita por paciente al día.`);
+    }
 
     // Revalidar disponibilidad justo antes de guardar: nunca pueden quedar dos visitas en el mismo horario.
     if (!v9pm) {
@@ -164,6 +233,8 @@ export default function PortalPage() {
     }
 
     const { error } = await supabase.from('visitas_hospitalizacion').insert({
+      patient_id:   vPatientId,
+      client_id:    vClient?.id || null,
       patient_name: vMascota.trim(),
       owner:        vNombre.trim(),
       owner_phone:  vPhone.trim(),
@@ -816,28 +887,12 @@ export default function PortalPage() {
               {/* Form */}
               <div style={{ padding:'1.5rem', display:'flex', flexDirection:'column', gap:'1rem' }}>
 
-                {/* Paciente y tutor */}
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>
-                  <div style={{ gridColumn:'1/-1' }}>
-                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Paciente hospitalizado *</label>
-                    <input value={vMascota} onChange={e=>setVMascota(e.target.value)} placeholder="Nombre de la mascota" style={inp} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Tu nombre completo *</label>
-                    <input value={vNombre} onChange={e=>setVNombre(e.target.value)} placeholder="Nombre y apellido" style={inp} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Teléfono de contacto</label>
-                    <input value={vPhone} onChange={e=>setVPhone(e.target.value)} placeholder="3XX XXX XXXX" inputMode="tel" style={inp} />
-                  </div>
-                </div>
-
                 {/* Sede */}
                 <div>
                   <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.4rem' }}>Sede *</label>
                   <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
                     {BOOKING_SEDES.map(s => (
-                      <button key={s.id} onClick={() => { setVSede(s.id); if (vDate) loadVisitSlots(vDate, s.id); }}
+                      <button key={s.id} onClick={() => { setVSede(s.id); resetVisitaLookup(); if (vDate) loadVisitSlots(vDate, s.id); }}
                         style={{ padding:'0.5rem 1.1rem', borderRadius:999, fontSize:'0.82rem', fontWeight:600, cursor:'pointer', fontFamily:'inherit', border:`2px solid ${vSede===s.id ? '#7c3aed' : C.border}`, background: vSede===s.id ? '#f5f3ff' : 'white', color: vSede===s.id ? '#7c3aed' : C.text, transition:'all 0.15s' }}>
                         📍 {s.nombre}
                       </button>
@@ -845,18 +900,85 @@ export default function PortalPage() {
                   </div>
                 </div>
 
-                {/* Fecha — solo hoy o mañana */}
-                <div>
-                  <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.4rem' }}>Fecha de la visita *</label>
-                  <div style={{ display:'flex', gap:'0.5rem' }}>
-                    {[{ label:'Hoy', val:today() }, { label:'Mañana', val:tomorrow() }].map(opt => (
-                      <button key={opt.val} onClick={() => { setVDate(opt.val); if (vSede) loadVisitSlots(opt.val, vSede); }}
-                        style={{ flex:1, padding:'0.7rem', borderRadius:12, fontSize:'0.9rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit', border:`2px solid ${vDate===opt.val ? '#7c3aed' : C.border}`, background: vDate===opt.val ? '#f5f3ff' : 'white', color: vDate===opt.val ? '#7c3aed' : C.text, transition:'all 0.15s' }}>
-                        {opt.label}
+                {/* Cédula del tutor registrado → verifica paciente hospitalizado */}
+                {vSede && (
+                  <div>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>
+                      Cédula del tutor registrado *
+                    </label>
+                    <p style={{ fontSize:'0.75rem', color:C.muted, margin:'0 0 0.4rem', lineHeight:1.5 }}>
+                      Digita la cédula del tutor bajo la cual quedó registrado el paciente hospitalizado.
+                    </p>
+                    <div style={{ display:'flex', gap:'0.5rem' }}>
+                      <input
+                        value={vCedula}
+                        onChange={e => setVCedula(e.target.value)}
+                        onBlur={handleCedulaLookup}
+                        onKeyDown={e => e.key === 'Enter' && handleCedulaLookup()}
+                        placeholder="Ej: 16662784"
+                        inputMode="numeric"
+                        style={{ ...inp, borderColor: vPatientId ? '#22c55e' : vLookupErr ? C.danger : C.border }}
+                      />
+                      <button onClick={handleCedulaLookup} disabled={vLookupLoading || !vCedula.trim()}
+                        style={{ padding:'0 1.1rem', borderRadius:12, border:'none', background:'#7c3aed', color:'white', fontWeight:700, fontSize:'0.85rem', cursor:vLookupLoading?'not-allowed':'pointer', fontFamily:'inherit', flexShrink:0 }}>
+                        {vLookupLoading ? '...' : 'Verificar'}
                       </button>
-                    ))}
+                    </div>
+
+                    {vLookupErr && (
+                      <p style={{ color:C.danger, fontSize:'0.8rem', margin:'0.5rem 0 0', lineHeight:1.5, fontWeight:600 }}>⚠️ {vLookupErr}</p>
+                    )}
+
+                    {vHospOptions && (
+                      <div style={{ marginTop:'0.6rem' }}>
+                        <p style={{ fontSize:'0.78rem', color:C.muted, margin:'0 0 0.4rem' }}>{vClient?.name} tiene varios pacientes hospitalizados aquí — ¿a cuál vas a visitar?</p>
+                        <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
+                          {vHospOptions.map(h => (
+                            <button key={h.patient_id} onClick={() => { setVPatientId(h.patient_id); setVMascota(h.patient_name); }}
+                              style={{ padding:'0.5rem 1rem', borderRadius:999, fontSize:'0.82rem', fontWeight:600, cursor:'pointer', fontFamily:'inherit', border:`2px solid ${vPatientId===h.patient_id ? '#22c55e' : C.border}`, background: vPatientId===h.patient_id ? '#f0fdf4' : 'white', color: vPatientId===h.patient_id ? '#15803d' : C.text }}>
+                              🐾 {h.patient_name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {vPatientId && (
+                      <div style={{ marginTop:'0.6rem', background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:10, padding:'0.65rem 0.9rem', fontSize:'0.85rem', color:'#15803d', fontWeight:700 }}>
+                        ✅ Vas a visitar a: {vMascota} {vClient?.name ? `(tutor: ${vClient.name})` : ''}
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
+
+                {/* Tutor que visita */}
+                {vPatientId && (
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>
+                    <div>
+                      <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Tu nombre completo *</label>
+                      <input value={vNombre} onChange={e=>setVNombre(e.target.value)} placeholder="Nombre y apellido" style={inp} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Teléfono de contacto</label>
+                      <input value={vPhone} onChange={e=>setVPhone(e.target.value)} placeholder="3XX XXX XXXX" inputMode="tel" style={inp} />
+                    </div>
+                  </div>
+                )}
+
+                {/* Fecha — solo hoy o mañana */}
+                {vPatientId && (
+                  <div>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.4rem' }}>Fecha de la visita *</label>
+                    <div style={{ display:'flex', gap:'0.5rem' }}>
+                      {[{ label:'Hoy', val:today() }, { label:'Mañana', val:tomorrow() }].map(opt => (
+                        <button key={opt.val} onClick={() => { setVDate(opt.val); if (vSede) loadVisitSlots(opt.val, vSede); }}
+                          style={{ flex:1, padding:'0.7rem', borderRadius:12, fontSize:'0.9rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit', border:`2px solid ${vDate===opt.val ? '#7c3aed' : C.border}`, background: vDate===opt.val ? '#f5f3ff' : 'white', color: vDate===opt.val ? '#7c3aed' : C.text, transition:'all 0.15s' }}>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Horarios — visible solo cuando hay sede y fecha */}
                 {vDate && vSede && (
@@ -898,15 +1020,17 @@ export default function PortalPage() {
                 )}
 
                 {/* Notas */}
-                <div>
-                  <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Notas (opcional)</label>
-                  <input value={vNotas} onChange={e=>setVNotas(e.target.value)} placeholder="Alguna observación..." style={inp} />
-                </div>
+                {vPatientId && (
+                  <div>
+                    <label style={{ fontSize:'0.75rem', fontWeight:600, color:C.muted, display:'block', marginBottom:'0.35rem' }}>Notas (opcional)</label>
+                    <input value={vNotas} onChange={e=>setVNotas(e.target.value)} placeholder="Alguna observación..." style={inp} />
+                  </div>
+                )}
 
                 {vErr && <p style={{ color:C.danger, fontSize:'0.8rem', margin:0, fontWeight:600 }}>⚠️ {vErr}</p>}
 
-                <button onClick={handleVisitaSubmit} disabled={vSaving}
-                  style={{ width:'100%', padding:'0.9rem', background:vSaving?'#aaa':'linear-gradient(135deg,#7c3aed,#6d28d9)', color:'white', border:'none', borderRadius:12, cursor:vSaving?'not-allowed':'pointer', fontWeight:800, fontSize:'0.95rem', fontFamily:'inherit', boxShadow:'0 4px 16px rgba(124,58,237,0.3)' }}>
+                <button onClick={handleVisitaSubmit} disabled={vSaving || !vPatientId}
+                  style={{ width:'100%', padding:'0.9rem', background:(vSaving || !vPatientId)?'#ccc':'linear-gradient(135deg,#7c3aed,#6d28d9)', color:'white', border:'none', borderRadius:12, cursor:(vSaving || !vPatientId)?'not-allowed':'pointer', fontWeight:800, fontSize:'0.95rem', fontFamily:'inherit', boxShadow:'0 4px 16px rgba(124,58,237,0.3)' }}>
                   {vSaving ? 'Registrando…' : '🏥 Confirmar visita'}
                 </button>
               </div>
