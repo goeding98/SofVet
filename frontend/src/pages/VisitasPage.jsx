@@ -36,7 +36,7 @@ const STATUS_CFG = {
 const mkForm = (date, time) => ({
   patient_name: '', owner: '', owner_phone: '',
   date: date || '', time: time || '13:00',
-  time_end: addMins(time || '13:00', 60),
+  time_end: addMins(time || '13:00', 20),
   sede_id: null, notas: '', status: 'pendiente', despues_9pm: false,
 });
 
