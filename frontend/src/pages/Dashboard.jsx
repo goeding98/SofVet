@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
 import { StatCard } from '../components/Card';
@@ -14,6 +15,7 @@ const statusStyle = {
 };
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { session } = useAuth();
   const { items: clients }      = useStore('clients');
   const { items: patients }     = useStore('patients');
@@ -104,7 +106,13 @@ export default function Dashboard() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
               {ultimasAltas.map(h => (
-                <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <div
+                  key={h.id}
+                  onClick={() => navigate(`/patients/${h.patient_id}`)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'pointer', padding: '0.3rem', margin: '-0.3rem', borderRadius: 'var(--radius-md)', transition: 'background 0.15s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
                   <div style={{
                     width: 38, height: 38,
                     background: 'var(--color-cream)', borderRadius: 'var(--radius-md)',
