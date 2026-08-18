@@ -47,9 +47,15 @@ function MedAutoComplete({ value, isOtro, onChange, onOtroToggle }) {
 
   useEffect(() => {
     if (!open) return;
-    const closeOnScroll = () => setOpen(false);
-    document.addEventListener('scroll', closeOnScroll, true);
-    return () => document.removeEventListener('scroll', closeOnScroll, true);
+    const reposition = () => {
+      if (inputRef.current) setDropRect(inputRef.current.getBoundingClientRect());
+    };
+    document.addEventListener('scroll', reposition, true);
+    window.addEventListener('resize', reposition);
+    return () => {
+      document.removeEventListener('scroll', reposition, true);
+      window.removeEventListener('resize', reposition);
+    };
   }, [open]);
 
   const handleFocus = () => {
@@ -504,6 +510,13 @@ export default function HospitalizationPage() {
       editHosp(hospId, { aplicaciones: apps });
     }
     setPendingDeleteApp(null);
+  };
+
+  const handleEditAppHora = (hospId, appIdx, newHora) => {
+    const hosp = hosps.find(h => h.id === hospId);
+    if (!hosp) return;
+    const apps = (hosp.aplicaciones || []).map((a, i) => i === appIdx ? { ...a, hora: newHora } : a);
+    editHosp(hospId, { aplicaciones: apps });
   };
 
   // ── traslado ─────────────────────────────────────────────────────────────
@@ -981,7 +994,7 @@ export default function HospitalizationPage() {
                         onClick={() => setEditAppHostId(editAppHostId === selected.id ? null : selected.id)}
                         style={{ padding: '0.3rem 0.75rem', background: editAppHostId === selected.id ? '#fdecea' : 'var(--color-white)', border: `1px solid ${editAppHostId === selected.id ? 'var(--color-danger)' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', color: editAppHostId === selected.id ? 'var(--color-danger)' : 'var(--color-text-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600 }}
                       >
-                        {editAppHostId === selected.id ? '✕ Salir de edición' : '🗑️ Eliminar aplicación'}
+                        {editAppHostId === selected.id ? '✕ Salir de edición' : '✏️ Editar aplicaciones'}
                       </button>
                     )}
                     {selected.status === 'activo' && (isAuxiliar || isMedico) && (
@@ -1005,7 +1018,18 @@ export default function HospitalizationPage() {
                               <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>💊 Aplicación</span>
                               {a.sede_id && a.sede_id !== selected.sede_id && sedeBadge(a.sede_id)}
                             </div>
-                            <span style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{a.fecha} {a.hora} · Por: <strong><VetName name={a.aplicado_por} /></strong></span>
+                            <span style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                              {a.fecha}{' '}
+                              {inEditMode ? (
+                                <input
+                                  type="time"
+                                  value={a.hora || ''}
+                                  onChange={e => handleEditAppHora(selected.id, origIdx, e.target.value)}
+                                  style={{ padding: '0.1rem 0.3rem', fontSize: '0.72rem', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', background: 'var(--color-white)' }}
+                                />
+                              ) : a.hora}
+                              {' '}· Por: <strong><VetName name={a.aplicado_por} /></strong>
+                            </span>
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                             {a.medicamentos?.map((m, mi) => (
