@@ -65,6 +65,7 @@ const SectionHeader = ({ icon, title, color='var(--color-primary)' }) => (
 export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft, onDelete, pet, initialData = null, mode = 'new' }) {
   const { sedeActual, isAdmin } = useSede();
   const { session } = useAuth();
+  const canEditFormula = session?.rol === 'Administrador' || session?.rol === 'Médico';
   const { items: inventario, edit: editInventario } = useStore('inventario');
   const canChooseSede = isAdmin || session?.sede_id === 4;
   const [form, setForm] = useState(makeEmpty);
@@ -377,11 +378,15 @@ export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft
       {/* ── Fórmula médica ── */}
       <SectionHeader icon="💊" title="Fórmula médica (para llevar a casa)" color="#a6785b" />
       <div style={{ marginBottom:'1rem' }}>
-        <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:'0.5rem' }}>
-          <Button size="sm" variant="secondary" onClick={addFx}>+ Agregar producto</Button>
-        </div>
+        {canEditFormula && (
+          <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:'0.5rem' }}>
+            <Button size="sm" variant="secondary" onClick={addFx}>+ Agregar producto</Button>
+          </div>
+        )}
         {form.formula_productos.length === 0 ? (
-          <p style={{ fontSize:'0.78rem', color:'var(--color-text-muted)', fontStyle:'italic', margin:0 }}>Sin productos en fórmula.</p>
+          <p style={{ fontSize:'0.78rem', color:'var(--color-text-muted)', fontStyle:'italic', margin:0 }}>
+            {canEditFormula ? 'Sin productos en fórmula.' : 'Sin productos en fórmula. Solo Administrador o Médico pueden formular.'}
+          </p>
         ) : (
           <div style={{ border:'1px solid #e5c4aa', borderRadius:'var(--radius-md)', overflow:'hidden', background:'#fdf8f5' }}>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.82rem' }}>
@@ -390,18 +395,20 @@ export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft
                   <th style={{ ...thSt, background:'#f9ede3' }}>Producto</th>
                   <th style={{ ...thSt, width:110, background:'#f9ede3' }}>Cantidad</th>
                   <th style={{ ...thSt, background:'#f9ede3' }}>Instrucciones</th>
-                  <th style={{ width:32, background:'#f9ede3' }}></th>
+                  {canEditFormula && <th style={{ width:32, background:'#f9ede3' }}></th>}
                 </tr>
               </thead>
               <tbody>
                 {form.formula_productos.map((m,i) => (
                   <tr key={i} style={{ borderTop:'1px solid #e5c4aa' }}>
-                    <td style={tdSt}><input value={m.producto} onChange={e=>updFx(i,'producto',e.target.value)} style={inl} placeholder="Ej: Ciprovet oft." /></td>
-                    <td style={tdSt}><input value={m.cantidad} onChange={e=>updFx(i,'cantidad',e.target.value)} style={inl} placeholder="1 frasco" /></td>
-                    <td style={tdSt}><input value={m.instrucciones} onChange={e=>updFx(i,'instrucciones',e.target.value)} style={inl} placeholder="1 gota c/12h x 5 días" /></td>
-                    <td style={{ padding:'0.3rem', textAlign:'center' }}>
-                      <button onClick={()=>removeFx(i)} style={{ color:'var(--color-danger)', background:'none', border:'none', cursor:'pointer', fontSize:'1.1rem', lineHeight:1 }}>×</button>
-                    </td>
+                    <td style={tdSt}><input value={m.producto} onChange={e=>updFx(i,'producto',e.target.value)} style={inl} placeholder="Ej: Ciprovet oft." disabled={!canEditFormula} /></td>
+                    <td style={tdSt}><input value={m.cantidad} onChange={e=>updFx(i,'cantidad',e.target.value)} style={inl} placeholder="1 frasco" disabled={!canEditFormula} /></td>
+                    <td style={tdSt}><input value={m.instrucciones} onChange={e=>updFx(i,'instrucciones',e.target.value)} style={inl} placeholder="1 gota c/12h x 5 días" disabled={!canEditFormula} /></td>
+                    {canEditFormula && (
+                      <td style={{ padding:'0.3rem', textAlign:'center' }}>
+                        <button onClick={()=>removeFx(i)} style={{ color:'var(--color-danger)', background:'none', border:'none', cursor:'pointer', fontSize:'1.1rem', lineHeight:1 }}>×</button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

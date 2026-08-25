@@ -132,6 +132,7 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
   const { add: addFormula, edit: editFormula, remove: removeFormula } = useStore('formulas_medicas');
   const { session } = useAuth();
   const isAdmin = session?.rol === 'Administrador';
+  const canEdit = session?.rol === 'Administrador' || session?.rol === 'Médico';
 
   const [showCreate, setShowCreate] = useState(false);
   const [editingFormula, setEditingFormula] = useState(null); // null = crear, obj = editar
@@ -253,12 +254,14 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
                 🖨️ Imprimir todo
               </button>
             )}
-            <button
-              onClick={showCreate ? () => { setShowCreate(false); setEditingFormula(null); } : openCreate}
-              style={{ padding:'0.4rem 0.85rem', background: showCreate ? 'var(--color-bg)' : BRAND.teal, color: showCreate ? 'var(--color-text-muted)' : '#fff', border:`1px solid ${showCreate ? 'var(--color-border)' : BRAND.teal}`, borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600 }}
-            >
-              {showCreate ? '✕ Cancelar' : '+ Nueva Fórmula'}
-            </button>
+            {canEdit && (
+              <button
+                onClick={showCreate ? () => { setShowCreate(false); setEditingFormula(null); } : openCreate}
+                style={{ padding:'0.4rem 0.85rem', background: showCreate ? 'var(--color-bg)' : BRAND.teal, color: showCreate ? 'var(--color-text-muted)' : '#fff', border:`1px solid ${showCreate ? 'var(--color-border)' : BRAND.teal}`, borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.78rem', fontWeight:600 }}
+              >
+                {showCreate ? '✕ Cancelar' : '+ Nueva Fórmula'}
+              </button>
+            )}
             <button
               onClick={onClose}
               style={{ width:32, height:32, background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-full)', cursor:'pointer', fontSize:'1rem', display:'flex', alignItems:'center', justifyContent:'center' }}
@@ -325,7 +328,9 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
             <div style={{ textAlign:'center', padding:'3rem 1rem', color:'var(--color-text-muted)' }}>
               <div style={{ fontSize:'2.5rem', marginBottom:'0.5rem' }}>💊</div>
               <p style={{ fontSize:'0.875rem' }}>Sin fórmulas médicas registradas para este paciente.</p>
-              <p style={{ fontSize:'0.78rem', marginTop:'0.3rem' }}>Crea una con el botón <strong>"+ Nueva Fórmula"</strong> o al guardar una consulta.</p>
+              {canEdit && (
+                <p style={{ fontSize:'0.78rem', marginTop:'0.3rem' }}>Crea una con el botón <strong>"+ Nueva Fórmula"</strong> o al guardar una consulta.</p>
+              )}
             </div>
           ) : petFormulas.map(f => {
             const prods = Array.isArray(f.productos) ? f.productos : [];
@@ -340,12 +345,14 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
                   </div>
                   <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
                     {estadoBadge(f.estado)}
-                    <button
-                      onClick={() => openEdit(f)}
-                      style={{ padding:'0.35rem 0.8rem', background:'rgba(255,255,255,0.15)', color:'#fff', border:'1px solid rgba(255,255,255,0.4)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.75rem', fontWeight:600, backdropFilter:'blur(4px)' }}
-                    >
-                      ✏️ Editar
-                    </button>
+                    {canEdit && (
+                      <button
+                        onClick={() => openEdit(f)}
+                        style={{ padding:'0.35rem 0.8rem', background:'rgba(255,255,255,0.15)', color:'#fff', border:'1px solid rgba(255,255,255,0.4)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.75rem', fontWeight:600, backdropFilter:'blur(4px)' }}
+                      >
+                        ✏️ Editar
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDownload(f)}
                       style={{ padding:'0.35rem 0.8rem', background:'rgba(255,255,255,0.15)', color:'#fff', border:'1px solid rgba(255,255,255,0.4)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.75rem', fontWeight:600, backdropFilter:'blur(4px)' }}
