@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
 
 const SEDE_ID = 1; // Fase 1: fijo a Santa Mónica
-const SEDE_COLOR = '#2e5cbf';
-const SEDE_COLOR_DARK = '#1e3f8a';
+const SEDE_COLOR = '#316d74';
+const SEDE_COLOR_DARK = '#1e4e54';
 
 const C = {
   bg: '#f4f6fb',
