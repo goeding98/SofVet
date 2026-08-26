@@ -136,6 +136,23 @@ export default function PetDetailPage() {
       .then(({ data }) => { if (data) setPatientConsults(data); });
   }, [petId]);
 
+  // Triage de hoy sin usar (sistema de turnos, fase 2) — si existe, precarga
+  // motivo/anamnesis/examen físico en la próxima "Nueva Consulta" para no
+  // repetirle las preguntas al médico.
+  const [pendingTriage, setPendingTriage] = useState(null);
+  useEffect(() => {
+    const hoyInicio = new Date(); hoyInicio.setHours(0, 0, 0, 0);
+    supabase
+      .from('triages')
+      .select('*')
+      .eq('patient_id', petId)
+      .eq('usado_en_consulta', false)
+      .gte('created_at', hoyInicio.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .then(({ data }) => setPendingTriage(data?.[0] || null));
+  }, [petId]);
+
   const client = pet ? clients.find(c => c.id === pet.client_id) : null;
 
   const petConsults = patientConsults
@@ -349,6 +366,10 @@ export default function PetDetailPage() {
       if (!result) { alert('❌ Error al guardar consulta:\n\n' + saveError); return; }
       setPatientConsults(prev => [result, ...prev]);
       await _createFormulaAndLabs({ ...data, formula_productos, labs_pedidos }, petId, pet);
+      if (pendingTriage) {
+        await supabase.from('triages').update({ usado_en_consulta: true }).eq('id', pendingTriage.id);
+        setPendingTriage(null);
+      }
     }
 
     // Save vaccine record if any field filled
@@ -1876,8 +1897,22 @@ export default function PetDetailPage() {
         initialData={editingConsult ? {
           ...editingConsult,
           formula_productos: formulas.find(f => f.patient_id === petId && f.fecha === editingConsult.date)?.productos || editingConsult.formula_productos || [],
-        } : null}
+        } : (pendingTriage ? {
+          motivo_consulta: pendingTriage.motivo_consulta || '',
+          antecedentes: pendingTriage.antecedentes || '',
+          temperatura: pendingTriage.temperatura ?? '',
+          frecuencia_cardiaca: pendingTriage.frecuencia_cardiaca ?? '',
+          frecuencia_respiratoria: pendingTriage.frecuencia_respiratoria ?? '',
+          peso: pendingTriage.peso ?? '',
+          condicion_corporal: pendingTriage.condicion_corporal ?? '',
+          mucosas: pendingTriage.mucosas || '',
+          tiempo_llenado_capilar: pendingTriage.tiempo_llenado_capilar ?? '',
+          pulso: pendingTriage.pulso || '',
+          glicemia: pendingTriage.glicemia ?? '',
+          presion_arterial: pendingTriage.presion_arterial || '',
+        } : null)}
         mode={editingConsult ? (editingConsult.estado === 'incompleta' ? 'incomplete' : 'edit') : 'new'}
+        fromTriage={!editingConsult && !!pendingTriage}
       />
 
       <ControlModal

@@ -88,8 +88,9 @@ export default function TurneroDisplayPage() {
     firstLoadRef.current = false;
     prevLlamadoIdsRef.current = idsActuales;
 
+    const porPrioridad = (a, b) => (a.prioridad || 99) - (b.prioridad || 99) || new Date(a.created_at) - new Date(b.created_at);
     setLlamados(nuevosLlamados);
-    setEsperando(data.filter(t => t.estado === 'esperando'));
+    setEsperando(data.filter(t => t.estado === 'esperando').sort(porPrioridad));
   }, []);
 
   useEffect(() => {

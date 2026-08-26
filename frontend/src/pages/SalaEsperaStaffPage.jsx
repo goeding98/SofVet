@@ -18,7 +18,8 @@ export default function SalaEsperaStaffPage() {
       .in('estado', ['esperando', 'llamado'])
       .order('created_at', { ascending: true });
     if (!data) return;
-    setEsperando(data.filter(t => t.estado === 'esperando'));
+    const porPrioridad = (a, b) => (a.prioridad || 99) - (b.prioridad || 99) || new Date(a.created_at) - new Date(b.created_at);
+    setEsperando(data.filter(t => t.estado === 'esperando').sort(porPrioridad));
     setLlamados(data.filter(t => t.estado === 'llamado'));
   }, []);
 
@@ -85,7 +86,15 @@ export default function SalaEsperaStaffPage() {
   );
 }
 
+const PRIORIDAD_BADGE = {
+  1: { label: '🔴 Emergencia', color: '#c0392b', bg: '#fdecea' },
+  2: { label: '🟠 Urgente', color: '#c2740c', bg: '#fff3e0' },
+  3: { label: '🟡 Semi-urgente', color: '#a3830a', bg: '#fffbe6' },
+  4: { label: '🟢 Rutina', color: '#1e7d45', bg: '#eafaf0' },
+};
+
 function Card({ t, children }) {
+  const badge = PRIORIDAD_BADGE[t.prioridad];
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem',
@@ -93,7 +102,12 @@ function Card({ t, children }) {
       padding: '1rem 1.2rem', marginBottom: '0.7rem',
     }}>
       <div>
-        <div style={{ fontWeight: 800, fontSize: '1.1rem' }}>{t.numero} — {t.tutor_nombre || 'Sin nombre'} {t.es_cliente_nuevo && <span style={{ fontSize: '0.7rem', background: '#e8f0ff', color: '#2e5cbf', padding: '2px 8px', borderRadius: 999, marginLeft: 6 }}>nuevo</span>}</div>
+        <div style={{ fontWeight: 800, fontSize: '1.1rem' }}>
+          {t.numero} — {t.tutor_nombre || 'Sin nombre'}
+          {t.es_cliente_nuevo && <span style={{ fontSize: '0.7rem', background: '#e8f0ff', color: '#2e5cbf', padding: '2px 8px', borderRadius: 999, marginLeft: 6 }}>nuevo</span>}
+          {badge && <span style={{ fontSize: '0.7rem', fontWeight: 800, background: badge.bg, color: badge.color, padding: '2px 8px', borderRadius: 999, marginLeft: 6 }}>{badge.label}</span>}
+          {!badge && <span style={{ fontSize: '0.7rem', fontWeight: 700, background: '#f0f2f6', color: '#8A8076', padding: '2px 8px', borderRadius: 999, marginLeft: 6 }}>sin triage</span>}
+        </div>
         <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
           🐾 {t.mascota_nombre || '—'} · CC {t.tutor_cedula || '—'}
         </div>

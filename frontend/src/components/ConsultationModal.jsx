@@ -62,7 +62,7 @@ const SectionHeader = ({ icon, title, color='var(--color-primary)' }) => (
 );
 
 // mode: 'new' | 'incomplete' | 'edit'
-export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft, onDelete, pet, initialData = null, mode = 'new' }) {
+export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft, onDelete, pet, initialData = null, mode = 'new', fromTriage = false }) {
   const { sedeActual, isAdmin } = useSede();
   const { session } = useAuth();
   const canEditFormula = session?.rol === 'Administrador' || session?.rol === 'Médico';
@@ -222,6 +222,12 @@ export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft
       size="xl"
     >
       {incompleteBanner}
+
+      {fromTriage && (
+        <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', background:'#eef6f6', border:'1px solid #bfe0e0', borderRadius:'var(--radius-sm)', padding:'0.5rem 0.85rem', marginBottom:'1rem' }}>
+          <span style={{ fontSize:'0.8rem', color:'#1e4e54', fontWeight:600 }}>📋 Motivo, anamnesis y examen físico precargados desde el triage — revisa y ajusta si hace falta.</span>
+        </div>
+      )}
 
       {/* Fecha / Hora / Sede */}
       <div style={{ display:'flex', gap:'1rem', marginBottom:'1rem' }}>

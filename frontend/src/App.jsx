@@ -39,6 +39,7 @@ import KioscoPage        from './pages/KioscoPage';
 import TurnoFormPage     from './pages/TurnoFormPage';
 import TurneroDisplayPage from './pages/TurneroDisplayPage';
 import SalaEsperaStaffPage from './pages/SalaEsperaStaffPage';
+import TriagePage        from './pages/TriagePage';
 
 function ProtectedLayout({ children }) {
   const { session } = useAuth();
@@ -85,6 +86,7 @@ function AppRoutes() {
       <Route path="/prueba/turno/:id"       element={<TurnoFormPage />} />
       <Route path="/prueba/turnero-display" element={<TurneroDisplayPage />} />
       <Route path="/prueba/sala-espera"     element={<ProtectedLayout><SalaEsperaStaffPage /></ProtectedLayout>} />
+      <Route path="/prueba/triage"          element={<ProtectedLayout><TriagePage /></ProtectedLayout>} />
 
       <Route path="/"                  element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
       <Route path="/clients"           element={<ProtectedLayout><ClientsPage /></ProtectedLayout>} />
