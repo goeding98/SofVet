@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../utils/supabaseClient';
 
 const SEDE_ID = 1; // Fase 1: fijo a Santa Mónica
@@ -28,10 +28,47 @@ function Logo({ color, height = 40 }) {
   return <div style={{ height, color, display: 'inline-flex', alignItems: 'center' }} dangerouslySetInnerHTML={{ __html: svg }} />;
 }
 
+// "Plin!" generado con Web Audio API — sin depender de un archivo de sonido.
+function playChime(ctx) {
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  [784, 1046.5].forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    const t0 = now + i * 0.16;
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(0.35, t0 + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.55);
+  });
+}
+
 export default function TurneroDisplayPage() {
   const [llamados, setLlamados] = useState([]);
   const [esperando, setEsperando] = useState([]);
   const [now, setNow] = useState(new Date());
+  const [soundOn, setSoundOn] = useState(false);
+
+  const audioCtxRef = useRef(null);
+  const soundOnRef = useRef(false);
+  const prevLlamadoIdsRef = useRef(new Set());
+  const firstLoadRef = useRef(true);
+
+  useEffect(() => { soundOnRef.current = soundOn; }, [soundOn]);
+
+  const enableSound = () => {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
+      audioCtxRef.current.resume();
+      playChime(audioCtxRef.current);
+      setSoundOn(true);
+    } catch {}
+  };
 
   const cargar = useCallback(async () => {
     const { data } = await supabase
@@ -41,7 +78,17 @@ export default function TurneroDisplayPage() {
       .in('estado', ['esperando', 'llamado'])
       .order('created_at', { ascending: true });
     if (!data) return;
-    setLlamados(data.filter(t => t.estado === 'llamado').sort((a, b) => new Date(b.llamado_at) - new Date(a.llamado_at)));
+    const nuevosLlamados = data.filter(t => t.estado === 'llamado').sort((a, b) => new Date(b.llamado_at) - new Date(a.llamado_at));
+
+    const idsActuales = new Set(nuevosLlamados.map(t => t.id));
+    if (!firstLoadRef.current) {
+      const hayNuevo = [...idsActuales].some(id => !prevLlamadoIdsRef.current.has(id));
+      if (hayNuevo && soundOnRef.current) playChime(audioCtxRef.current);
+    }
+    firstLoadRef.current = false;
+    prevLlamadoIdsRef.current = idsActuales;
+
+    setLlamados(nuevosLlamados);
     setEsperando(data.filter(t => t.estado === 'esperando'));
   }, []);
 
@@ -158,6 +205,17 @@ export default function TurneroDisplayPage() {
           )}
         </div>
       </div>
+
+      {!soundOn && (
+        <button onClick={enableSound} style={{
+          position: 'fixed', bottom: 22, right: 22, padding: '0.8rem 1.3rem',
+          background: SEDE_COLOR, color: 'white', border: 'none', borderRadius: 999,
+          fontWeight: 700, fontSize: '0.95rem', fontFamily: 'inherit', cursor: 'pointer',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.25)', zIndex: 50,
+        }}>
+          🔊 Activar sonido
+        </button>
+      )}
 
       <style>{`
         @keyframes fadeIn {
