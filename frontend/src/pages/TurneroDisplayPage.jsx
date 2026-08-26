@@ -125,10 +125,10 @@ export default function TurneroDisplayPage() {
               <div style={{ fontSize: 'min(11vw, 8rem)', fontWeight: 900, color: 'white', lineHeight: 1, letterSpacing: '-0.02em' }}>
                 {principal.numero}
               </div>
-              <div style={{ marginTop: '1.2rem', fontSize: '2.1rem', fontWeight: 800, color: 'white', textAlign: 'center', padding: '0 2rem' }}>
+              <div style={{ marginTop: '1.2rem', fontSize: 'min(5.5vw, 3.6rem)', fontWeight: 800, color: 'white', textAlign: 'center', padding: '0 2rem' }}>
                 {principal.tutor_nombre || 'Sin nombre'}
               </div>
-              <div style={{ marginTop: '0.4rem', fontSize: '1.3rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>
+              <div style={{ marginTop: '0.6rem', fontSize: 'min(3.4vw, 2.3rem)', color: 'rgba(255,255,255,0.85)', fontWeight: 700 }}>
                 🐾 {principal.mascota_nombre || '—'}
               </div>
             </div>
