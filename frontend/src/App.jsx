@@ -35,6 +35,10 @@ import ReportesPage      from './pages/ReportesPage';
 import InventarioPage    from './pages/InventarioPage';
 import VisitasPage       from './pages/VisitasPage';
 import CitasEspecialistasPage from './pages/CitasEspecialistasPage';
+import KioscoPage        from './pages/KioscoPage';
+import TurnoFormPage     from './pages/TurnoFormPage';
+import TurneroDisplayPage from './pages/TurneroDisplayPage';
+import SalaEsperaStaffPage from './pages/SalaEsperaStaffPage';
 
 function ProtectedLayout({ children }) {
   const { session } = useAuth();
@@ -64,6 +68,9 @@ function AppRoutes() {
       <Routes>
         <Route path="/portal" element={<PortalPage />} />
         <Route path="/login"  element={<LoginPage />} />
+        <Route path="/prueba/kiosco"          element={<KioscoPage />} />
+        <Route path="/prueba/turno/:id"       element={<TurnoFormPage />} />
+        <Route path="/prueba/turnero-display" element={<TurneroDisplayPage />} />
         <Route path="*"       element={<Navigate to="/login" />} />
       </Routes>
     );
@@ -73,6 +80,11 @@ function AppRoutes() {
     <Routes>
       <Route path="/portal" element={<PortalPage />} />
       <Route path="/login"  element={<Navigate to="/" />} />
+
+      <Route path="/prueba/kiosco"          element={<KioscoPage />} />
+      <Route path="/prueba/turno/:id"       element={<TurnoFormPage />} />
+      <Route path="/prueba/turnero-display" element={<TurneroDisplayPage />} />
+      <Route path="/prueba/sala-espera"     element={<ProtectedLayout><SalaEsperaStaffPage /></ProtectedLayout>} />
 
       <Route path="/"                  element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
       <Route path="/clients"           element={<ProtectedLayout><ClientsPage /></ProtectedLayout>} />
