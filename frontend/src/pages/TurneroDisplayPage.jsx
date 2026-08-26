@@ -103,8 +103,8 @@ export default function TurneroDisplayPage() {
               }}>
                 <div style={{ width: 90, fontWeight: 800, fontSize: '1.1rem', color: SEDE_COLOR }}>{t.numero}</div>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: '1rem', color: C.text }}>{t.tutor_nombre || 'Sin nombre'}</div>
-                  <div style={{ fontSize: '0.85rem', color: C.muted }}>🐾 {t.mascota_nombre || '—'}</div>
+                  {t.tutor_nombre && <div style={{ fontWeight: 700, fontSize: '1rem', color: C.text }}>{t.tutor_nombre}</div>}
+                  {t.mascota_nombre && <div style={{ fontSize: '0.85rem', color: C.muted }}>🐾 {t.mascota_nombre}</div>}
                 </div>
               </div>
             ))}
@@ -125,12 +125,16 @@ export default function TurneroDisplayPage() {
               <div style={{ fontSize: 'min(11vw, 8rem)', fontWeight: 900, color: 'white', lineHeight: 1, letterSpacing: '-0.02em' }}>
                 {principal.numero}
               </div>
-              <div style={{ marginTop: '1.2rem', fontSize: 'min(5.5vw, 3.6rem)', fontWeight: 800, color: 'white', textAlign: 'center', padding: '0 2rem' }}>
-                {principal.tutor_nombre || 'Sin nombre'}
-              </div>
-              <div style={{ marginTop: '0.6rem', fontSize: 'min(3.4vw, 2.3rem)', color: 'rgba(255,255,255,0.85)', fontWeight: 700 }}>
-                🐾 {principal.mascota_nombre || '—'}
-              </div>
+              {principal.tutor_nombre && (
+                <div style={{ marginTop: '1.2rem', fontSize: 'min(5.5vw, 3.6rem)', fontWeight: 800, color: 'white', textAlign: 'center', padding: '0 2rem' }}>
+                  {principal.tutor_nombre}
+                </div>
+              )}
+              {principal.mascota_nombre && (
+                <div style={{ marginTop: '0.6rem', fontSize: 'min(3.4vw, 2.3rem)', color: 'rgba(255,255,255,0.85)', fontWeight: 700 }}>
+                  🐾 {principal.mascota_nombre}
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
