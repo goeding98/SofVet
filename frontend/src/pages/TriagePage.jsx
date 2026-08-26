@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
 import { useAuth } from '../utils/useAuth';
 
@@ -57,6 +57,7 @@ const sectionTitle = { fontSize: '0.95rem', fontWeight: 800, color: '#1c2333', m
 
 export default function TriagePage() {
   const { session } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [pendientes, setPendientes] = useState([]);
   const [activo, setActivo] = useState(null); // turno seleccionado para triar
   const [pacienteExistente, setPacienteExistente] = useState(null); // datos actuales del patient si ya existe
@@ -108,6 +109,18 @@ export default function TriagePage() {
       setPacienteExistente(null);
     }
   };
+
+  // Si llegamos con ?turno=<id> (ej. desde el botón "Comenzar triage" en
+  // Sala de espera), abre ese turno directo sin pasar por la lista.
+  useEffect(() => {
+    const turnoId = searchParams.get('turno');
+    if (!turnoId) return;
+    supabase.from('turnos_espera').select('*').eq('id', turnoId).single().then(({ data }) => {
+      if (data) abrirTriage(data);
+      setSearchParams({}, { replace: true });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const puntaje = FACTORES.reduce((sum, f) => sum + (factores[f.key] ? f.puntos : 0), 0);
   const clasif = clasificar(puntaje);

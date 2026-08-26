@@ -74,6 +74,7 @@ export default function SalaEsperaStaffPage() {
         {llamados.length === 0 && <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>Nadie llamado en este momento.</p>}
         {llamados.map(t => (
           <Card key={t.id} t={t}>
+            {!t.triage_id && <Link to={`/prueba/triage?turno=${t.id}`} style={btnTriageLink}>🚦 Comenzar triage</Link>}
             <button onClick={() => atender(t.id)} disabled={busy === t.id} style={btnPrimary}>✅ Marcar atendido</button>
             <button onClick={() => devolver(t.id)} disabled={busy === t.id} style={btnGhost}>↩️ Volver a fila</button>
           </Card>
@@ -85,6 +86,7 @@ export default function SalaEsperaStaffPage() {
         {esperando.length === 0 && <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>No hay nadie en fila.</p>}
         {esperando.map(t => (
           <Card key={t.id} t={t}>
+            {!t.triage_id && <Link to={`/prueba/triage?turno=${t.id}`} style={btnTriageLink}>🚦 Comenzar triage</Link>}
             <button onClick={() => llamar(t.id)} disabled={busy === t.id} style={btnPrimary}>📢 Llamar</button>
             <button onClick={() => cancelar(t.id)} disabled={busy === t.id} style={btnGhost}>✕ Cancelar</button>
           </Card>
@@ -133,4 +135,9 @@ const btnPrimary = {
 const btnGhost = {
   padding: '0.55rem 1rem', background: 'white', color: '#8A8076', border: '1px solid var(--color-border)',
   borderRadius: 10, fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
+};
+const btnTriageLink = {
+  padding: '0.55rem 1rem', background: '#fff8e6', color: '#a3830a', border: '1px solid #f0d98c',
+  borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', textDecoration: 'none',
+  display: 'inline-flex', alignItems: 'center',
 };
