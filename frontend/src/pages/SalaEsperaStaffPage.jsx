@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
 import { useAuth } from '../utils/useAuth';
 
@@ -56,10 +57,17 @@ export default function SalaEsperaStaffPage() {
 
   return (
     <div style={{ padding: '1.5rem 2rem', maxWidth: 1000 }}>
-      <h1 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.3rem' }}>🎫 Sala de espera — Santa Mónica</h1>
-      <p style={{ color: 'var(--color-text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-        Página de prueba (fase 1, sin triage todavía). Sesión: {session?.username} · {session?.rol}
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+        <div>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.3rem' }}>🎫 Sala de espera — Santa Mónica</h1>
+          <p style={{ color: 'var(--color-text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+            Página de prueba. Sesión: {session?.username} · {session?.rol}
+          </p>
+        </div>
+        <Link to="/prueba/triage" style={{ flexShrink: 0, padding: '0.55rem 1.1rem', background: '#316d74', color: 'white', borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none' }}>
+          🚦 Ir a Triage
+        </Link>
+      </div>
 
       <section style={{ marginBottom: '2rem' }}>
         <h2 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '0.8rem' }}>Llamados ({llamados.length})</h2>

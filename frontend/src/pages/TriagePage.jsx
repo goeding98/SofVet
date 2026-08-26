@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
 import { useAuth } from '../utils/useAuth';
 
@@ -340,8 +341,15 @@ export default function TriagePage() {
 
   return (
     <div style={{ padding: '1.5rem 2rem', maxWidth: 760 }}>
-      <h1 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.3rem' }}>🚦 Triage — Santa Mónica</h1>
-      <p style={{ color: '#8A8076', marginBottom: '1.5rem', fontSize: '0.9rem' }}>Página de prueba (fase 2). Pendientes de triage: {pendientes.length}</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+        <div>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.3rem' }}>🚦 Triage — Santa Mónica</h1>
+          <p style={{ color: '#8A8076', marginBottom: '1.5rem', fontSize: '0.9rem' }}>Página de prueba. Pendientes de triage: {pendientes.length}</p>
+        </div>
+        <Link to="/prueba/sala-espera" style={{ flexShrink: 0, padding: '0.55rem 1.1rem', background: '#316d74', color: 'white', borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none' }}>
+          🎫 Ir a Sala de espera
+        </Link>
+      </div>
 
       {pendientes.length === 0 && <p style={{ color: '#8A8076' }}>No hay turnos pendientes de triage.</p>}
       {pendientes.map(t => (
