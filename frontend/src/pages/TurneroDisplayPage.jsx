@@ -137,7 +137,7 @@ export default function TurneroDisplayPage() {
         {/* Lista de espera */}
         <div style={{ width: '34%', minWidth: 340, background: C.panel, borderRadius: 20, border: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ display: 'flex', padding: '0.9rem 1.4rem', background: '#eef1f8', fontWeight: 700, fontSize: '0.85rem', color: C.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            <div style={{ width: 90 }}>Turno</div>
+            <div style={{ width: 130, flexShrink: 0 }}>Turno</div>
             <div>Paciente</div>
           </div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -149,7 +149,7 @@ export default function TurneroDisplayPage() {
                 background: i % 2 === 0 ? '#ffffff' : '#f7f9fc',
                 borderBottom: `1px solid ${C.border}`,
               }}>
-                <div style={{ width: 90, fontWeight: 800, fontSize: '1.1rem', color: SEDE_COLOR }}>{t.numero}</div>
+                <div style={{ width: 130, flexShrink: 0, fontWeight: 800, fontSize: '1rem', color: SEDE_COLOR, whiteSpace: 'nowrap' }}>{t.numero}</div>
                 <div>
                   {t.tutor_nombre && <div style={{ fontWeight: 700, fontSize: '1rem', color: C.text }}>{t.tutor_nombre}</div>}
                   {t.mascota_nombre && <div style={{ fontSize: '0.85rem', color: C.muted }}>🐾 {t.mascota_nombre}</div>}
@@ -170,7 +170,7 @@ export default function TurneroDisplayPage() {
 
           {principal ? (
             <div key={principal.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.4s ease' }}>
-              <div style={{ fontSize: 'min(11vw, 8rem)', fontWeight: 900, color: 'white', lineHeight: 1, letterSpacing: '-0.02em' }}>
+              <div style={{ fontSize: 'min(9vw, 6.2rem)', fontWeight: 900, color: 'white', lineHeight: 1, letterSpacing: '-0.02em', whiteSpace: 'nowrap', padding: '0 1rem' }}>
                 {principal.numero}
               </div>
               {principal.tutor_nombre && (
