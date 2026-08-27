@@ -78,7 +78,11 @@ export default function TriagePage() {
       .eq('estado', 'esperando')
       .is('triage_id', null)
       .order('created_at', { ascending: true });
-    setPendientes(data || []);
+    // Urgencia (autoreportada en el kiosco) salta al frente de la fila de
+    // triage, para que un auxiliar la revise primero — la prioridad clínica
+    // real la sigue decidiendo el checklist de triage, no este autoreporte.
+    const ordenado = (data || []).slice().sort((a, b) => (b.tipo_turno === 'Urgencia') - (a.tipo_turno === 'Urgencia'));
+    setPendientes(ordenado);
   }, []);
 
   useEffect(() => {
@@ -372,8 +376,15 @@ export default function TriagePage() {
           padding: '1rem 1.2rem', marginBottom: '0.7rem', cursor: 'pointer',
         }}>
           <div>
-            <div style={{ fontWeight: 800, fontSize: '1.1rem' }}>{t.numero} — {t.tutor_nombre || 'Sin nombre'} {t.es_cliente_nuevo && <span style={{ fontSize: '0.7rem', background: '#e8f0ff', color: '#2e5cbf', padding: '2px 8px', borderRadius: 999, marginLeft: 6 }}>nuevo</span>}</div>
-            <div style={{ fontSize: '0.85rem', color: '#8A8076' }}>🐾 {t.mascota_nombre || '—'} · CC {t.tutor_cedula || '—'}</div>
+            <div style={{ fontWeight: 800, fontSize: '1.1rem' }}>
+              {t.numero} — {t.tutor_nombre || 'Sin nombre'}
+              {t.es_cliente_nuevo && <span style={{ fontSize: '0.7rem', background: '#e8f0ff', color: '#2e5cbf', padding: '2px 8px', borderRadius: 999, marginLeft: 6 }}>nuevo</span>}
+              {t.tipo_turno === 'Urgencia' && <span style={{ fontSize: '0.7rem', fontWeight: 800, background: '#fdecea', color: '#c0392b', padding: '2px 8px', borderRadius: 999, marginLeft: 6 }}>🔴 urgencia</span>}
+            </div>
+            <div style={{ fontSize: '0.85rem', color: '#8A8076' }}>
+              🐾 {t.mascota_nombre || '—'} · CC {t.tutor_cedula || '—'}
+              {t.tipo_turno && <> · {t.tiene_cita ? 'Agendado' : 'No agendado'}: {t.tipo_turno}</>}
+            </div>
             {t.motivo_consulta && <div style={{ fontSize: '0.85rem', marginTop: '0.3rem' }}>💬 {t.motivo_consulta}</div>}
           </div>
           <button style={{ padding: '0.55rem 1.1rem', background: '#316d74', color: 'white', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}>Hacer triage</button>

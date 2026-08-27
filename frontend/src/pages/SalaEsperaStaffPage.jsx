@@ -120,6 +120,7 @@ function Card({ t, children }) {
         </div>
         <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
           🐾 {t.mascota_nombre || '—'} · CC {t.tutor_cedula || '—'}
+          {t.tipo_turno && <> · {t.tiene_cita ? 'Agendado' : 'No agendado'}: {t.tipo_turno}</>}
         </div>
         {t.motivo_consulta && <div style={{ fontSize: '0.85rem', color: '#2D2D2D', marginTop: '0.3rem' }}>💬 {t.motivo_consulta}</div>}
       </div>

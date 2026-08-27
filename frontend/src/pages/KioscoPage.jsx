@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
 import { supabase } from '../utils/supabaseClient';
 
@@ -26,6 +26,22 @@ const bigBtn = (bg, color = 'white') => ({
   boxShadow: '0 6px 20px rgba(0,0,0,0.12)', width: '100%',
 });
 
+// Prefijo de numeración por tipo de servicio. Se combina con A- (agendado)
+// o NA- (no agendado), ej: A-C-001, NA-LAB-001. Cada combinación tiene su
+// propio contador que reinicia en 001 cada día.
+const TIPO_PREFIJO = {
+  'Urgencia': 'URG',
+  'Consulta general': 'C',
+  'Consulta especialista': 'CE',
+  'Vacunación': 'VAC',
+  'Laboratorio': 'LAB',
+  'Imagenología (Rx / Ecografía)': 'IMAG',
+  'Visita hospitalizado': 'VH',
+  'Otro': 'OTR',
+};
+const AGENDADO_TIPOS = ['Consulta general', 'Consulta especialista', 'Vacunación', 'Laboratorio', 'Imagenología (Rx / Ecografía)', 'Visita hospitalizado', 'Otro'];
+const NO_AGENDADO_TIPOS = ['Urgencia', 'Consulta general', 'Vacunación', 'Laboratorio', 'Imagenología (Rx / Ecografía)', 'Visita hospitalizado', 'Otro'];
+
 function todayStartISO() {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -33,7 +49,13 @@ function todayStartISO() {
 }
 
 export default function KioscoPage() {
-  const [screen, setScreen] = useState('home'); // home | existente | nuevo | confirmado
+  // home | agendado | tipo | existente | nuevo | confirmado
+  const [screen, setScreen] = useState('home');
+  const [esClienteExistente, setEsClienteExistente] = useState(null);
+  const [agendado, setAgendado] = useState(null);
+  const [tipoTurno, setTipoTurno] = useState(null);
+  const [otroDetalle, setOtroDetalle] = useState('');
+
   const [cedula, setCedula] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
@@ -45,16 +67,30 @@ export default function KioscoPage() {
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [countdown, setCountdown] = useState(15);
 
-  const resetTimer = useRef(null);
-
   const resetAll = () => {
     setScreen('home');
+    setEsClienteExistente(null);
+    setAgendado(null);
+    setTipoTurno(null);
+    setOtroDetalle('');
     setCedula('');
     setErr('');
     setClienteEncontrado(null);
     setMascotas(null);
     setTurno(null);
     setQrDataUrl('');
+  };
+
+  const irACedula = () => {
+    setCedula('');
+    setErr('');
+    setMascotas(null);
+    setScreen(esClienteExistente ? 'existente' : 'nuevo');
+  };
+
+  const elegirTipo = (t) => {
+    setTipoTurno(t);
+    if (t !== 'Otro') setScreen(esClienteExistente ? 'existente' : 'nuevo');
   };
 
   // Cuenta regresiva en la pantalla de confirmación → vuelve a home sola
@@ -74,12 +110,15 @@ export default function KioscoPage() {
     setLoading(true);
     setErr('');
     try {
+      const prefijo = `${agendado ? 'A' : 'NA'}-${TIPO_PREFIJO[tipoTurno]}`;
+
       const { count } = await supabase
         .from('turnos_espera')
         .select('id', { count: 'exact', head: true })
         .eq('sede_id', SEDE_ID)
-        .gte('created_at', todayStartISO());
-      const numero = `T-${String((count || 0) + 1).padStart(3, '0')}`;
+        .gte('created_at', todayStartISO())
+        .like('numero', `${prefijo}-%`);
+      const numero = `${prefijo}-${String((count || 0) + 1).padStart(3, '0')}`;
 
       const { data, error } = await supabase.from('turnos_espera').insert({
         sede_id: SEDE_ID,
@@ -90,6 +129,9 @@ export default function KioscoPage() {
         tutor_cedula: cedula.trim(),
         mascota_nombre: mascotaNombre || null,
         es_cliente_nuevo: !!esClienteNuevo,
+        tipo_turno: tipoTurno,
+        tiene_cita: !!agendado,
+        otro_detalle: tipoTurno === 'Otro' ? (otroDetalle.trim() || null) : null,
         estado: 'esperando',
       }).select().single();
 
@@ -149,15 +191,55 @@ export default function KioscoPage() {
         <div style={{ textAlign: 'center', marginBottom: '1.8rem' }}>
           <div style={{ fontSize: '2.4rem' }}>🐾</div>
           <div style={{ fontWeight: 800, fontSize: '1.3rem', color: C.tealDark }}>Pets &amp; Pets — Santa Mónica</div>
-          <div style={{ color: C.muted, fontSize: '0.95rem' }}>Pide tu turno sin cita</div>
+          <div style={{ color: C.muted, fontSize: '0.95rem' }}>Pide tu turno</div>
         </div>
 
         {screen === 'home' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <button style={bigBtn(C.teal)} onClick={() => setScreen('existente')}>✅ Ya soy cliente</button>
-            <button style={bigBtn('white', C.tealDark)} onClick={() => { setScreen('nuevo'); }} >
+            <button style={bigBtn(C.teal)} onClick={() => { setEsClienteExistente(true); setScreen('agendado'); }}>✅ Ya soy cliente</button>
+            <button style={bigBtn('white', C.tealDark)} onClick={() => { setEsClienteExistente(false); setScreen('agendado'); }}>
               🆕 Soy nuevo
             </button>
+          </div>
+        )}
+
+        {screen === 'agendado' && (
+          <div>
+            <p style={{ color: C.text, fontWeight: 600, marginBottom: '1rem', textAlign: 'center' }}>¿Ya tienes una cita agendada?</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <button style={bigBtn(C.teal)} onClick={() => { setAgendado(true); setScreen('tipo'); }}>📅 Sí, estoy agendado</button>
+              <button style={bigBtn('white', C.tealDark)} onClick={() => { setAgendado(false); setScreen('tipo'); }}>🚶 No, no tengo cita</button>
+            </div>
+            <button style={{ ...bigBtn('transparent', C.muted), boxShadow: 'none', marginTop: '1rem', fontSize: '0.9rem' }} onClick={resetAll}>← Atrás</button>
+          </div>
+        )}
+
+        {screen === 'tipo' && (
+          <div>
+            <p style={{ color: C.text, fontWeight: 600, marginBottom: '1rem', textAlign: 'center' }}>¿Qué necesitas hoy?</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              {(agendado ? AGENDADO_TIPOS : NO_AGENDADO_TIPOS).map(t => (
+                <button key={t}
+                  style={bigBtn(tipoTurno === t ? C.teal : C.tealLight, tipoTurno === t ? 'white' : C.tealDark)}
+                  onClick={() => elegirTipo(t)}>
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            {tipoTurno === 'Otro' && (
+              <div style={{ marginTop: '1rem' }}>
+                <input
+                  style={bigInp}
+                  value={otroDetalle}
+                  onChange={e => setOtroDetalle(e.target.value)}
+                  placeholder="Cuéntanos brevemente (opcional)"
+                />
+                <button style={{ ...bigBtn(C.teal), marginTop: '0.8rem' }} onClick={irACedula}>Continuar</button>
+              </div>
+            )}
+
+            <button style={{ ...bigBtn('transparent', C.muted), boxShadow: 'none', marginTop: '1rem', fontSize: '0.9rem' }} onClick={() => setScreen('agendado')}>← Atrás</button>
           </div>
         )}
 
@@ -196,7 +278,7 @@ export default function KioscoPage() {
 
             {!mascotas && (
               <div style={{ display: 'flex', gap: '0.7rem', marginTop: '1.4rem' }}>
-                <button style={{ ...bigBtn('white', C.muted), flex: 1 }} onClick={resetAll}>← Atrás</button>
+                <button style={{ ...bigBtn('white', C.muted), flex: 1 }} onClick={() => setScreen('tipo')}>← Atrás</button>
                 <button style={{ ...bigBtn(C.teal), flex: 2 }} disabled={loading || !cedula.trim()} onClick={buscarCliente}>
                   {loading ? 'Buscando…' : 'Continuar'}
                 </button>
@@ -221,7 +303,7 @@ export default function KioscoPage() {
             />
             {err && <p style={{ color: C.danger, fontSize: '0.9rem', marginTop: '0.6rem' }}>{err}</p>}
             <div style={{ display: 'flex', gap: '0.7rem', marginTop: '1.4rem' }}>
-              <button style={{ ...bigBtn('white', C.muted), flex: 1 }} onClick={resetAll}>← Atrás</button>
+              <button style={{ ...bigBtn('white', C.muted), flex: 1 }} onClick={() => setScreen('tipo')}>← Atrás</button>
               <button style={{ ...bigBtn(C.teal), flex: 2 }} disabled={loading || !cedula.trim()} onClick={crearTurnoNuevo}>
                 {loading ? 'Creando turno…' : 'Obtener mi turno'}
               </button>
@@ -232,7 +314,7 @@ export default function KioscoPage() {
         {screen === 'confirmado' && turno && (
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '0.95rem', color: C.muted, marginBottom: '0.3rem' }}>Tu turno es</div>
-            <div style={{ fontSize: '3.2rem', fontWeight: 900, color: C.tealDark, lineHeight: 1 }}>{turno.numero}</div>
+            <div style={{ fontSize: '2.6rem', fontWeight: 900, color: C.tealDark, lineHeight: 1 }}>{turno.numero}</div>
             <div style={{ marginTop: '0.8rem', background: C.successBg, color: C.success, borderRadius: 12, padding: '0.7rem 1rem', fontWeight: 700 }}>
               {turno.personasAntes === 0 ? 'Eres el siguiente' : `${turno.personasAntes} persona(s) antes de ti`}
               {' · '}~{turno.mins || MIN_POR_TURNO} min de espera aprox.
