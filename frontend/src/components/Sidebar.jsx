@@ -88,6 +88,9 @@ export default function Sidebar() {
 
           <SectionLabel>Servicios</SectionLabel>
           {serviciosItems.map(item => <MenuItem key={item.path} item={item} />)}
+          {(session?.rol === 'Administrador' || session?.sede_id === 1) && (
+            <MenuItem item={{ path: '/prueba/sala-espera', label: 'Sala de Espera', icon: '🎫' }} />
+          )}
 
           <SectionLabel>Otros</SectionLabel>
           {otrosItems.map(item => <MenuItem key={item.path} item={item} />)}
