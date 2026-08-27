@@ -476,11 +476,12 @@ export default function VisitasPage() {
                 <>
                   <div>
                     <label style={labelSt}>Hora entrada *</label>
-                    <input type="time" style={inputSt} value={form.time} onChange={e => f('time', e.target.value)} />
+                    <input type="time" style={inputSt} value={form.time}
+                      onChange={e => { const t = e.target.value; setForm(p => ({ ...p, time: t, time_end: t ? addMins(t, 20) : '' })); }} />
                   </div>
                   <div>
-                    <label style={labelSt}>Hora salida</label>
-                    <input type="time" style={inputSt} value={form.time_end} onChange={e => f('time_end', e.target.value)} />
+                    <label style={labelSt}>Hora salida (automática, 20 min)</label>
+                    <input type="time" style={{ ...inputSt, background: 'var(--color-bg)', color: 'var(--color-text-muted)' }} value={form.time_end} readOnly />
                   </div>
                 </>
               )}
