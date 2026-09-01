@@ -9,7 +9,7 @@ import Button from '../components/Button';
 import VetName from '../components/VetName';
 import { nowDate, nowTime, localDateStr } from '../utils/nowLocal';
 import { supabase } from '../utils/supabaseClient';
-import html2pdf from 'html2pdf.js';
+import jsPDF from 'jspdf';
 
 const localDate = () => nowDate();
 
@@ -658,69 +658,106 @@ export default function HospitalizationPage() {
     const saldo = totalConsumido - totalAbonado;
     const fechaHoy = new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
 
-    // Nota: html2canvas captura mal los elementos position:fixed cuando la
-    // pagina esta scrolleada (bug conocido). Forzamos scroll a 0 y usamos
-    // position:absolute en (0,0) del documento para que la captura sea fiable.
-    window.scrollTo(0, 0);
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.width;
+    const marginX = 14;
+    const contentW = pageW - marginX * 2;
 
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99998;display:flex;align-items:center;justify-content:center;color:white;font-family:Arial,sans-serif;font-size:15px;font-weight:600;';
-    overlay.textContent = 'Generando PDF…';
+    // ── Header ──
+    doc.setFillColor(44, 105, 110); // #2C696E
+    doc.rect(0, 0, pageW, 34, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('times', 'bold');
+    doc.setFontSize(22);
+    doc.text('Pets & Pets', marginX, 15);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('GESTIÓN ADMINISTRATIVA · HOSPITALIZACIÓN', marginX, 21);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.text('Notificación de Estado de Cuenta', marginX, 29);
 
-    const wrapper = document.createElement('div');
-    wrapper.style.position = 'absolute';
-    wrapper.style.left = '0';
-    wrapper.style.top = '0';
-    wrapper.style.width = '210mm';
-    wrapper.style.background = '#ffffff';
-    wrapper.style.zIndex = '99997';
-    wrapper.innerHTML = `
-      <div style="font-family: Arial, sans-serif; color:#4A3E3D;">
-        <div style="background:#2C696E; color:#ffffff; padding:28px 36px;">
-          <div style="font-family: Georgia, serif; font-size:24px; font-weight:bold;">Pets &amp; Pets</div>
-          <div style="font-size:11px; letter-spacing:1.5px; text-transform:uppercase; opacity:0.9; margin-top:4px;">Gestión Administrativa · Hospitalización</div>
-          <div style="font-size:15px; margin-top:10px;">Notificación de Estado de Cuenta</div>
-        </div>
-        <div style="padding:32px 36px;">
-          <div style="font-family: Georgia, serif; font-size:17px; color:#2C696E; font-weight:bold; margin-bottom:16px;">📋 Estado de Cuenta de Paciente Hospitalizado</div>
-          <p style="font-size:14px; line-height:1.6; margin:0 0 10px;">Buen día,</p>
-          <p style="font-size:14px; line-height:1.6; margin:0 0 18px;">Le compartimos el estado de cuenta actualizado de <strong>${h.patient_name || ''}</strong> con corte al día de hoy ${fechaHoy}.</p>
+    // ── Título ──
+    let y = 46;
+    doc.setTextColor(44, 105, 110);
+    doc.setFont('times', 'bold');
+    doc.setFontSize(14);
+    doc.text('Estado de Cuenta de Paciente Hospitalizado', marginX, y);
 
-          <div style="background:#F7F3ED; border-radius:8px; padding:16px 20px; margin:14px 0;">
-            <div style="font-size:11px; letter-spacing:1px; text-transform:uppercase; color:#666666; font-weight:bold;">Total consumido a la fecha</div>
-            <div style="font-size:22px; font-weight:bold; color:#4A3E3D; margin-top:4px;">${fmtCOP(totalConsumido)}</div>
-          </div>
-          <div style="background:#F7F3ED; border-radius:8px; padding:16px 20px; margin:14px 0;">
-            <div style="font-size:11px; letter-spacing:1px; text-transform:uppercase; color:#666666; font-weight:bold;">Total abonado a la fecha</div>
-            <div style="font-size:22px; font-weight:bold; color:#4A3E3D; margin-top:4px;">${fmtCOP(totalAbonado)}</div>
-          </div>
-          <div style="background:#F7F3ED; border-radius:8px; padding:16px 20px; margin:14px 0; border:2px solid #2C696E;">
-            <div style="font-size:11px; letter-spacing:1px; text-transform:uppercase; color:#666666; font-weight:bold;">Saldo pendiente a la fecha</div>
-            <div style="font-size:26px; font-weight:bold; color:${saldo > 0 ? '#C9302C' : '#2C696E'}; margin-top:4px;">${fmtCOP(saldo)}</div>
-          </div>
+    // ── Saludo ──
+    y += 10;
+    doc.setTextColor(74, 62, 61);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.text('Buen día,', marginX, y);
 
-          ${saldo > 500000 ? `
-          <div style="background:#FFF8F6; border-left:4px solid #C9302C; border-radius:6px; padding:16px 20px; margin:20px 0;">
-            <div style="font-size:13px; font-weight:bold; color:#C9302C; margin-bottom:6px;">⚠️ Requisito para ingreso a visita</div>
-            <div style="font-size:13px; line-height:1.6; color:#4A3E3D;">
-              Teniendo en cuenta que el saldo supera los $500.000, agradecemos realizar el pago correspondiente durante el día de hoy, antes de ingresar a la visita de su mascota.
-            </div>
-          </div>` : ''}
+    y += 7;
+    const parrafo = doc.splitTextToSize(
+      `Le compartimos el estado de cuenta actualizado de ${h.patient_name || ''} con corte al día de hoy ${fechaHoy}.`,
+      contentW
+    );
+    doc.text(parrafo, marginX, y);
+    y += parrafo.length * 5.5 + 6;
 
-          <p style="font-size:13px; line-height:1.6; margin-top:20px;">Una vez realizado el pago, por favor compartir el comprobante con recepción para su respectiva validación.</p>
-          <p style="font-size:13px; line-height:1.6;">Muchas gracias por su atención y comprensión.</p>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(wrapper);
-    document.body.appendChild(overlay);
-    html2pdf().set({
-      margin: 0,
-      filename: `estado_cuenta_${(h.patient_name || 'paciente').trim().replace(/\s+/g, '_')}_${localDateStr(new Date())}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, windowWidth: wrapper.scrollWidth, scrollX: 0, scrollY: 0 },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    }).from(wrapper).save().finally(() => { wrapper.remove(); overlay.remove(); });
+    // ── Cajas de totales ──
+    const drawBox = (label, valor, opts = {}) => {
+      const boxH = opts.big ? 26 : 22;
+      doc.setFillColor(247, 243, 237); // #F7F3ED
+      doc.roundedRect(marginX, y, contentW, boxH, 2, 2, 'F');
+      if (opts.border) {
+        doc.setDrawColor(44, 105, 110);
+        doc.setLineWidth(0.6);
+        doc.roundedRect(marginX, y, contentW, boxH, 2, 2, 'S');
+      }
+      doc.setTextColor(102, 102, 102);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text(label.toUpperCase(), marginX + 6, y + 8);
+      doc.setTextColor(...(opts.color || [74, 62, 61]));
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(opts.big ? 18 : 15);
+      doc.text(fmtCOP(valor), marginX + 6, y + (opts.big ? 20 : 17));
+      y += boxH + 6;
+    };
+
+    drawBox('Total consumido a la fecha', totalConsumido);
+    drawBox('Total abonado a la fecha', totalAbonado);
+    drawBox('Saldo pendiente a la fecha', saldo, { border: true, big: true, color: saldo > 0 ? [201, 48, 44] : [44, 105, 110] });
+
+    // ── Aviso condicional ──
+    if (saldo > 500000) {
+      y += 2;
+      doc.setFillColor(255, 248, 246); // #FFF8F6
+      const avisoTexto = doc.splitTextToSize(
+        'Teniendo en cuenta que el saldo supera los $500.000, agradecemos realizar el pago correspondiente durante el día de hoy, antes de ingresar a la visita de su mascota.',
+        contentW - 12
+      );
+      const avisoH = 10 + avisoTexto.length * 5;
+      doc.roundedRect(marginX, y, contentW, avisoH, 2, 2, 'F');
+      doc.setFillColor(201, 48, 44); // #C9302C — barra izquierda tipo "border-left"
+      doc.rect(marginX, y, 1.5, avisoH, 'F');
+      doc.setTextColor(201, 48, 44);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text('Requisito para ingreso a visita', marginX + 6, y + 7);
+      doc.setTextColor(74, 62, 61);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(avisoTexto, marginX + 6, y + 13);
+      y += avisoH + 8;
+    } else {
+      y += 4;
+    }
+
+    // ── Cierre ──
+    doc.setTextColor(74, 62, 61);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('Una vez realizado el pago, por favor compartir el comprobante con recepción para su respectiva validación.', marginX, y);
+    y += 6;
+    doc.text('Muchas gracias por su atención y comprensión.', marginX, y);
+
+    doc.save(`estado_cuenta_${(h.patient_name || 'paciente').trim().replace(/\s+/g, '_')}_${localDateStr(new Date())}.pdf`);
   };
 
   // ── hoja de consumo ─────────────────────────────────────────────────────
