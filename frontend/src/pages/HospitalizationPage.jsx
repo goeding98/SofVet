@@ -745,13 +745,14 @@ export default function HospitalizationPage() {
     doc.text(avisoTexto, marginX + 6, y + 13);
     y += avisoH + 8;
 
-    // ── Cierre ──
+    // ── Cierre (centrado) ──
     doc.setTextColor(74, 62, 61);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.text('Una vez realizado el pago, por favor compartir el comprobante con recepción para su respectiva validación.', marginX, y);
-    y += 6;
-    doc.text('Muchas gracias por su atención y comprensión.', marginX, y);
+    const cierre1 = doc.splitTextToSize('Una vez realizado el pago, por favor compartir el comprobante con recepción para su respectiva validación.', contentW);
+    doc.text(cierre1, pageW / 2, y, { align: 'center' });
+    y += cierre1.length * 5.5 + 3;
+    doc.text('Muchas gracias por su atención y comprensión.', pageW / 2, y, { align: 'center' });
 
     doc.save(`estado_cuenta_${(h.patient_name || 'paciente').trim().replace(/\s+/g, '_')}_${localDateStr(new Date())}.pdf`);
   };
