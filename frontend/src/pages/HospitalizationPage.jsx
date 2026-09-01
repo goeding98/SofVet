@@ -9,6 +9,7 @@ import Button from '../components/Button';
 import VetName from '../components/VetName';
 import { nowDate, nowTime, localDateStr } from '../utils/nowLocal';
 import { supabase } from '../utils/supabaseClient';
+import html2pdf from 'html2pdf.js';
 
 const localDate = () => nowDate();
 
@@ -650,6 +651,66 @@ export default function HospitalizationPage() {
     editHosp(hospId, { abonos: (h.abonos || []).filter(a => a.id !== abonoId) });
   };
 
+  // ── estado de cuenta (PDF) ─────────────────────────────────────────────
+  const generarEstadoCuenta = (h) => {
+    const totalConsumido = (h.consumo || []).reduce((sum, it) => sum + (Number(it.valor) || 0) * (parseInt(it.cantidad) || 1), 0);
+    const totalAbonado   = (h.abonos || []).reduce((sum, a) => sum + (Number(a.valor) || 0), 0);
+    const saldo = totalConsumido - totalAbonado;
+    const fechaHoy = new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'fixed';
+    wrapper.style.left = '-9999px';
+    wrapper.style.top = '0';
+    wrapper.style.width = '210mm';
+    wrapper.innerHTML = `
+      <div style="font-family: Arial, sans-serif; color:#4A3E3D;">
+        <div style="background:#2C696E; color:#ffffff; padding:28px 36px;">
+          <div style="font-family: Georgia, serif; font-size:24px; font-weight:bold;">Pets &amp; Pets</div>
+          <div style="font-size:11px; letter-spacing:1.5px; text-transform:uppercase; opacity:0.9; margin-top:4px;">Gestión Administrativa · Hospitalización</div>
+          <div style="font-size:15px; margin-top:10px;">Notificación de Estado de Cuenta</div>
+        </div>
+        <div style="padding:32px 36px;">
+          <div style="font-family: Georgia, serif; font-size:17px; color:#2C696E; font-weight:bold; margin-bottom:16px;">📋 Estado de Cuenta de Paciente Hospitalizado</div>
+          <p style="font-size:14px; line-height:1.6; margin:0 0 10px;">Buen día,</p>
+          <p style="font-size:14px; line-height:1.6; margin:0 0 18px;">Le compartimos el estado de cuenta actualizado de <strong>${h.patient_name || ''}</strong> con corte al día de hoy ${fechaHoy}.</p>
+
+          <div style="background:#F7F3ED; border-radius:8px; padding:16px 20px; margin:14px 0;">
+            <div style="font-size:11px; letter-spacing:1px; text-transform:uppercase; color:#666666; font-weight:bold;">Total consumido a la fecha</div>
+            <div style="font-size:22px; font-weight:bold; color:#4A3E3D; margin-top:4px;">${fmtCOP(totalConsumido)}</div>
+          </div>
+          <div style="background:#F7F3ED; border-radius:8px; padding:16px 20px; margin:14px 0;">
+            <div style="font-size:11px; letter-spacing:1px; text-transform:uppercase; color:#666666; font-weight:bold;">Total abonado a la fecha</div>
+            <div style="font-size:22px; font-weight:bold; color:#4A3E3D; margin-top:4px;">${fmtCOP(totalAbonado)}</div>
+          </div>
+          <div style="background:#F7F3ED; border-radius:8px; padding:16px 20px; margin:14px 0; border:2px solid #2C696E;">
+            <div style="font-size:11px; letter-spacing:1px; text-transform:uppercase; color:#666666; font-weight:bold;">Saldo pendiente a la fecha</div>
+            <div style="font-size:26px; font-weight:bold; color:${saldo > 0 ? '#C9302C' : '#2C696E'}; margin-top:4px;">${fmtCOP(saldo)}</div>
+          </div>
+
+          ${saldo > 500000 ? `
+          <div style="background:#FFF8F6; border-left:4px solid #C9302C; border-radius:6px; padding:16px 20px; margin:20px 0;">
+            <div style="font-size:13px; font-weight:bold; color:#C9302C; margin-bottom:6px;">⚠️ Requisito para ingreso a visita</div>
+            <div style="font-size:13px; line-height:1.6; color:#4A3E3D;">
+              Teniendo en cuenta que el saldo supera los $500.000, agradecemos realizar el pago correspondiente durante el día de hoy, antes de ingresar a la visita de su mascota.
+            </div>
+          </div>` : ''}
+
+          <p style="font-size:13px; line-height:1.6; margin-top:20px;">Una vez realizado el pago, por favor compartir el comprobante con recepción para su respectiva validación.</p>
+          <p style="font-size:13px; line-height:1.6;">Muchas gracias por su atención y comprensión.</p>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(wrapper);
+    html2pdf().set({
+      margin: 0,
+      filename: `estado_cuenta_${(h.patient_name || 'paciente').trim().replace(/\s+/g, '_')}_${localDateStr(new Date())}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    }).from(wrapper).save().then(() => wrapper.remove());
+  };
+
   // ── hoja de consumo ─────────────────────────────────────────────────────
   const openConsumo = (h) => {
     setConsumoHospId(h.id);
@@ -781,6 +842,7 @@ export default function HospitalizationPage() {
                           {(isAuxiliar || isMedico || isCaja) && (
                             <>
                               <button onClick={() => openAbonos(h)} style={btnStyle('#8e44ad')}>💰 Abonos</button>
+                              <button onClick={() => generarEstadoCuenta(h)} style={btnStyle('#2C696E')}>🧾 Estado de cuenta</button>
                               <button onClick={() => openAlta(h)} style={btnStyle('var(--color-success)')}>✅ Alta</button>
                               <button onClick={() => handleDeslinde(h)} style={btnStyle('#b45309')}>📋 Deslinde</button>
                               <button onClick={() => handleFallecido(h)} style={btnStyle('var(--color-danger)')}>💀 Fallecido</button>
@@ -863,6 +925,7 @@ export default function HospitalizationPage() {
                           {(isAuxiliar || isMedico || isCaja) && (
                             <>
                               <button onClick={() => openAbonos(h)} style={btnStyle('#8e44ad')}>💰 Abonos</button>
+                              <button onClick={() => generarEstadoCuenta(h)} style={btnStyle('#2C696E')}>🧾 Estado de cuenta</button>
                               <button onClick={() => openAlta(h)} style={btnStyle('var(--color-success)')}>✅ Alta</button>
                               <button onClick={() => handleDeslinde(h)} style={btnStyle('#b45309')}>📋 Deslinde</button>
                               <button onClick={() => handleFallecido(h)} style={btnStyle('var(--color-danger)')}>💀 Fallecido</button>
