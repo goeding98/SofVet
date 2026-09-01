@@ -1531,13 +1531,20 @@ export default function HospitalizationPage() {
                     <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#b8860b', marginBottom: '0.6rem' }}>
                       📋 Hoja de consumo — pendiente de cobro ({consumoPending.length} ítem{consumoPending.length !== 1 ? 's' : ''})
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginBottom: '0.6rem' }}>
                       {consumoPending.map(item => (
                         <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', padding: '0.3rem 0', borderBottom: '1px dashed #f5c842' }}>
                           <span>{item.descripcion}</span>
-                          <span style={{ fontWeight: 600 }}>x{item.cantidad}</span>
+                          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                            <span style={{ fontWeight: 600 }}>x{item.cantidad}</span>
+                            <span style={{ fontWeight: 600, color: '#b8860b', whiteSpace: 'nowrap' }}>{fmtCOP((Number(item.valor) || 0) * (parseInt(item.cantidad) || 1))}</span>
+                          </div>
                         </div>
                       ))}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '0.9rem', paddingTop: '0.4rem', borderTop: '2px solid #f5c842', color: '#b8860b' }}>
+                      <span>Total consumo pendiente</span>
+                      <span>{fmtCOP(consumoPending.reduce((sum, item) => sum + (Number(item.valor) || 0) * (parseInt(item.cantidad) || 1), 0))}</span>
                     </div>
                   </div>
                 )}
@@ -1721,9 +1728,17 @@ export default function HospitalizationPage() {
                         <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#b8860b', marginBottom: '0.35rem' }}>Pendiente de cobro</div>
                         {consumoPending.map(item => (
                           <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', padding: '0.2rem 0' }}>
-                            <span>{item.descripcion}</span><span style={{ fontWeight: 600 }}>x{item.cantidad}</span>
+                            <span>{item.descripcion}</span>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <span style={{ fontWeight: 600 }}>x{item.cantidad}</span>
+                              <span style={{ fontWeight: 600, color: '#b8860b', whiteSpace: 'nowrap' }}>{fmtCOP((Number(item.valor) || 0) * (parseInt(item.cantidad) || 1))}</span>
+                            </div>
                           </div>
                         ))}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '0.82rem', paddingTop: '0.35rem', marginTop: '0.35rem', borderTop: '1px solid #f5c842', color: '#b8860b' }}>
+                          <span>Total</span>
+                          <span>{fmtCOP(consumoPending.reduce((sum, item) => sum + (Number(item.valor) || 0) * (parseInt(item.cantidad) || 1), 0))}</span>
+                        </div>
                       </div>
                     )}
                     {consumoLiquidated.length > 0 && (
