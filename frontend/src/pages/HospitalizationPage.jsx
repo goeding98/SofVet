@@ -658,15 +658,17 @@ export default function HospitalizationPage() {
     const saldo = totalConsumido - totalAbonado;
     const fechaHoy = new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
 
-    // Nota: html2canvas a veces genera un lienzo en blanco si el elemento
-    // se posiciona fuera de pantalla con coordenadas negativas (left:-9999px).
-    // Por eso se renderiza en pantalla (0,0) tapado con un overlay de carga.
+    // Nota: html2canvas captura mal los elementos position:fixed cuando la
+    // pagina esta scrolleada (bug conocido). Forzamos scroll a 0 y usamos
+    // position:absolute en (0,0) del documento para que la captura sea fiable.
+    window.scrollTo(0, 0);
+
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99998;display:flex;align-items:center;justify-content:center;color:white;font-family:Arial,sans-serif;font-size:15px;font-weight:600;';
     overlay.textContent = 'Generando PDF…';
 
     const wrapper = document.createElement('div');
-    wrapper.style.position = 'fixed';
+    wrapper.style.position = 'absolute';
     wrapper.style.left = '0';
     wrapper.style.top = '0';
     wrapper.style.width = '210mm';
@@ -716,7 +718,7 @@ export default function HospitalizationPage() {
       margin: 0,
       filename: `estado_cuenta_${(h.patient_name || 'paciente').trim().replace(/\s+/g, '_')}_${localDateStr(new Date())}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, windowWidth: wrapper.scrollWidth },
+      html2canvas: { scale: 2, windowWidth: wrapper.scrollWidth, scrollX: 0, scrollY: 0 },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     }).from(wrapper).save().finally(() => { wrapper.remove(); overlay.remove(); });
   };
