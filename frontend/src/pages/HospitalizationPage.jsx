@@ -724,30 +724,26 @@ export default function HospitalizationPage() {
     drawBox('Total abonado a la fecha', totalAbonado);
     drawBox('Saldo pendiente a la fecha', saldo, { border: true, big: true, color: saldo > 0 ? [201, 48, 44] : [44, 105, 110] });
 
-    // ── Aviso condicional ──
-    if (saldo > 500000) {
-      y += 2;
-      doc.setFillColor(255, 248, 246); // #FFF8F6
-      const avisoTexto = doc.splitTextToSize(
-        'Teniendo en cuenta que el saldo supera los $500.000, agradecemos realizar el pago correspondiente durante el día de hoy, antes de ingresar a la visita de su mascota.',
-        contentW - 12
-      );
-      const avisoH = 10 + avisoTexto.length * 5;
-      doc.roundedRect(marginX, y, contentW, avisoH, 2, 2, 'F');
-      doc.setFillColor(201, 48, 44); // #C9302C — barra izquierda tipo "border-left"
-      doc.rect(marginX, y, 1.5, avisoH, 'F');
-      doc.setTextColor(201, 48, 44);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.text('Requisito para ingreso a visita', marginX + 6, y + 7);
-      doc.setTextColor(74, 62, 61);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.text(avisoTexto, marginX + 6, y + 13);
-      y += avisoH + 8;
-    } else {
-      y += 4;
-    }
+    // ── Aviso (texto fijo, igual al formato original) ──
+    y += 2;
+    doc.setFillColor(255, 248, 246); // #FFF8F6
+    const avisoTexto = doc.splitTextToSize(
+      'Teniendo en cuenta que si el saldo supera los $500.000, agradecemos realizar el pago correspondiente durante el día de hoy, antes de ingresar a la visita de su mascota.',
+      contentW - 12
+    );
+    const avisoH = 10 + avisoTexto.length * 5;
+    doc.roundedRect(marginX, y, contentW, avisoH, 2, 2, 'F');
+    doc.setFillColor(201, 48, 44); // #C9302C — barra izquierda tipo "border-left"
+    doc.rect(marginX, y, 1.5, avisoH, 'F');
+    doc.setTextColor(201, 48, 44);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('REQUISITO PARA INGRESO A VISITA', marginX + 6, y + 7);
+    doc.setTextColor(74, 62, 61);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(avisoTexto, marginX + 6, y + 13);
+    y += avisoH + 8;
 
     // ── Cierre ──
     doc.setTextColor(74, 62, 61);
