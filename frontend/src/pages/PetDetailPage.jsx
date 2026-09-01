@@ -106,6 +106,8 @@ export default function PetDetailPage() {
   const [editingControl, setEditingControl] = useState(null);
   const [remitirModal,   setRemitirModal]   = useState(null); // { recordType, recordId, servicio }
   const [fallModal,      setFallModal]      = useState(false);
+  const [pendingConsumoAdd,   setPendingConsumoAdd]   = useState(null); // { hosp, descripcion }
+  const [pendingConsumoValor, setPendingConsumoValor] = useState('');
   const [fallMotivo,     setFallMotivo]     = useState('');
 
   const canRemit = isAdminUser || session?.sede_id === 4;
@@ -421,11 +423,12 @@ export default function PetDetailPage() {
     closeConsultModal();
   };
 
-  const addToConsumo = (hosp, descripcion) => {
+  const addToConsumo = (hosp, descripcion, valor) => {
     const newItem = {
       id:             Date.now(),
       descripcion,
       cantidad:       '1',
+      valor:          Number(valor) || 0,
       fecha:          nowDate(),
       hora:           nowTime(),
       registrado_por: session?.nombre || 'Sistema',
@@ -436,21 +439,13 @@ export default function PetDetailPage() {
   const handleSolicitarLab = async (data) => {
     await addLabPedido({ ...data, patient_id: petId });
     setLabSolModal(false);
-    if (activeHosp && window.confirm(
-      `${pet.name} está hospitalizado/a.\n¿Agregar "${data.tipo_examen}" a la hoja de consumo?`
-    )) {
-      addToConsumo(activeHosp, `Lab: ${data.tipo_examen}`);
-    }
+    if (activeHosp) setPendingConsumoAdd({ hosp: activeHosp, descripcion: `Lab: ${data.tipo_examen}` });
   };
 
   const handleSolicitarImagen = async (data) => {
     await addImagenPedido({ ...data, patient_id: petId });
     setImgSolModal(false);
-    if (activeHosp && window.confirm(
-      `${pet.name} está hospitalizado/a.\n¿Agregar "${data.tipo_examen}" a la hoja de consumo?`
-    )) {
-      addToConsumo(activeHosp, `Imagen: ${data.tipo_examen}`);
-    }
+    if (activeHosp) setPendingConsumoAdd({ hosp: activeHosp, descripcion: `Imagen: ${data.tipo_examen}` });
   };
 
   const handleSaveImagenResult = async (data) => {
@@ -2093,6 +2088,48 @@ export default function PetDetailPage() {
                 </button>
                 <button onClick={handleFallecimiento} style={{ padding:'0.55rem 1.5rem', background:'#c0392b', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', fontWeight:700 }}>
                   Guardar fallecimiento
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Agregar lab/imagen a hoja de consumo (paciente hospitalizado) */}
+      {pendingConsumoAdd && (
+        <div onClick={() => { setPendingConsumoAdd(null); setPendingConsumoValor(''); }} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1200, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem', backdropFilter:'blur(2px)' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background:'var(--color-white)', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-lg)', width:'100%', maxWidth:440, overflow:'hidden' }}>
+            <div style={{ padding:'1.1rem 1.5rem', borderBottom:'1px solid var(--color-border)', background:'#fff3e0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div>
+                <h3 style={{ fontFamily:'var(--font-title)', color:'#e67e22', fontSize:'1rem', margin:0 }}>📋 Agregar a hoja de consumo</h3>
+                <p style={{ margin:'0.2rem 0 0', fontSize:'0.78rem', color:'var(--color-text-muted)' }}>{pet.name} está hospitalizado/a</p>
+              </div>
+              <button onClick={() => { setPendingConsumoAdd(null); setPendingConsumoValor(''); }} style={{ width:30, height:30, background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'50%', cursor:'pointer', fontSize:'1rem' }}>×</button>
+            </div>
+            <div style={{ padding:'1.5rem' }}>
+              <p style={{ fontSize:'0.875rem', margin:'0 0 1rem' }}>¿Agregar <strong>"{pendingConsumoAdd.descripcion}"</strong> a la hoja de consumo?</p>
+              <label style={{ display:'block', fontSize:'0.72rem', fontWeight:700, marginBottom:'0.4rem', textTransform:'uppercase', letterSpacing:'0.04em', color:'var(--color-text)' }}>
+                Valor *
+              </label>
+              <input
+                inputMode="numeric"
+                autoFocus
+                value={pendingConsumoValor}
+                onChange={e => setPendingConsumoValor(e.target.value.replace(/\D/g, ''))}
+                onKeyDown={e => e.key === 'Enter' && pendingConsumoValor.trim() && (addToConsumo(pendingConsumoAdd.hosp, pendingConsumoAdd.descripcion, pendingConsumoValor), setPendingConsumoAdd(null), setPendingConsumoValor(''))}
+                placeholder="Ej: 100000"
+                style={{ width:'100%', padding:'0.55rem 0.75rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.875rem', boxSizing:'border-box' }}
+              />
+              <div style={{ display:'flex', gap:'0.75rem', justifyContent:'flex-end', marginTop:'1.25rem' }}>
+                <button onClick={() => { setPendingConsumoAdd(null); setPendingConsumoValor(''); }} style={{ padding:'0.55rem 1.25rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', color:'var(--color-text-muted)' }}>
+                  No, gracias
+                </button>
+                <button
+                  disabled={!pendingConsumoValor.trim()}
+                  onClick={() => { addToConsumo(pendingConsumoAdd.hosp, pendingConsumoAdd.descripcion, pendingConsumoValor); setPendingConsumoAdd(null); setPendingConsumoValor(''); }}
+                  style={{ padding:'0.55rem 1.5rem', background: pendingConsumoValor.trim() ? '#e67e22' : 'var(--color-border)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor: pendingConsumoValor.trim() ? 'pointer' : 'default', fontFamily:'var(--font-body)', fontSize:'0.875rem', fontWeight:700 }}
+                >
+                  + Agregar
                 </button>
               </div>
             </div>
