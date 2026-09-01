@@ -293,6 +293,7 @@ export default function HospitalizationPage() {
   const [consumoHospId,  setConsumoHospId]  = useState(null);
   const [consumoNewDesc, setConsumoNewDesc] = useState('');
   const [consumoNewCant, setConsumoNewCant] = useState('');
+  const [consumoNewValor, setConsumoNewValor] = useState('');
 
   // ── delete application (admin) ──────────────────────────────────────────
   const [editAppHostId,    setEditAppHostId]    = useState(null); // hosp id whose apps are in edit mode
@@ -654,16 +655,18 @@ export default function HospitalizationPage() {
     setConsumoHospId(h.id);
     setConsumoNewDesc('');
     setConsumoNewCant('');
+    setConsumoNewValor('');
     setConsumoModal(true);
   };
 
   const handleAddConsumo = () => {
-    if (!consumoNewDesc.trim() || !consumoHosp) return;
+    if (!consumoNewDesc.trim() || !consumoNewValor.trim() || !consumoHosp) return;
     const now = new Date();
     const newItem = {
       id:             Date.now(),
       descripcion:    consumoNewDesc.trim(),
       cantidad:       consumoNewCant.trim() || '1',
+      valor:          Number(consumoNewValor.replace(/\D/g, '')) || 0,
       fecha:          localDate(now),
       hora:           nowTime(),
       registrado_por: session?.nombre || 'Desconocido',
@@ -671,6 +674,7 @@ export default function HospitalizationPage() {
     editHosp(consumoHospId, { consumo: [...(consumoHosp.consumo || []), newItem] });
     setConsumoNewDesc('');
     setConsumoNewCant('');
+    setConsumoNewValor('');
   };
 
   const handleDeleteConsumo = (hospId, itemId) => {
@@ -1904,7 +1908,7 @@ export default function HospitalizationPage() {
                 {/* Formulario para nuevo ítem */}
                 <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '1rem', background: 'var(--color-bg)' }}>
                   <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>Agregar ítem</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', alignItems: 'end' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.75rem', alignItems: 'end' }}>
                     <div>
                       <label style={labelStyle}>Descripción *</label>
                       <input
@@ -1925,12 +1929,23 @@ export default function HospitalizationPage() {
                         style={{ width: 70, padding: '0.55rem 0.75rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.875rem' }}
                       />
                     </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      <label style={labelStyle}>Valor *</label>
+                      <input
+                        inputMode="numeric"
+                        value={consumoNewValor}
+                        onChange={e => setConsumoNewValor(e.target.value.replace(/\D/g, ''))}
+                        onKeyDown={e => e.key === 'Enter' && handleAddConsumo()}
+                        placeholder="Ej: 100000"
+                        style={{ width: 110, padding: '0.55rem 0.75rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-body)', fontSize: '0.875rem' }}
+                      />
+                    </div>
                   </div>
                   <div style={{ marginTop: '0.75rem', display: 'flex', justifyContent: 'flex-end' }}>
                     <button
                       onClick={handleAddConsumo}
-                      disabled={!consumoNewDesc.trim()}
-                      style={{ padding: '0.5rem 1.25rem', background: consumoNewDesc.trim() ? '#e67e22' : 'var(--color-border)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: consumoNewDesc.trim() ? 'pointer' : 'default', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600 }}
+                      disabled={!consumoNewDesc.trim() || !consumoNewValor.trim()}
+                      style={{ padding: '0.5rem 1.25rem', background: (consumoNewDesc.trim() && consumoNewValor.trim()) ? '#e67e22' : 'var(--color-border)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: (consumoNewDesc.trim() && consumoNewValor.trim()) ? 'pointer' : 'default', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600 }}
                     >
                       + Agregar
                     </button>
@@ -1939,8 +1954,15 @@ export default function HospitalizationPage() {
 
                 {/* Lista de ítems */}
                 <div>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
-                    Ítems registrados ({consumoHosp.consumo?.length || 0})
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.5rem' }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
+                      Ítems registrados ({consumoHosp.consumo?.length || 0})
+                    </div>
+                    {consumoHosp.consumo?.length > 0 && (
+                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#e67e22' }}>
+                        Total: {fmtCOP(consumoHosp.consumo.reduce((sum, it) => sum + (Number(it.valor) || 0) * (parseInt(it.cantidad) || 1), 0))}
+                      </div>
+                    )}
                   </div>
                   {!consumoHosp.consumo?.length ? (
                     <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '1.5rem', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-md)' }}>
@@ -1957,6 +1979,9 @@ export default function HospitalizationPage() {
                               <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>{item.fecha} {item.hora} · Por: {item.registrado_por}</div>
                             </div>
                             <span style={{ fontWeight: 600, fontSize: '0.875rem', minWidth: 30, textAlign: 'right' }}>x{item.cantidad}</span>
+                            <span style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--color-text-muted)', minWidth: 70, textAlign: 'right' }}>
+                              {item.valor != null ? fmtCOP(item.valor) : '—'}
+                            </span>
                             {liquidado
                               ? <span style={{ fontSize: '0.68rem', background: 'var(--color-success)', color: 'white', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>✅ Liquidado</span>
                               : (
