@@ -71,6 +71,10 @@ export default function ClientsPage() {
     if (!clientForm.name.trim())     return alert('El nombre es requerido.');
     if (!clientForm.document.trim()) return alert('La cédula / documento es requerida.');
     if (!clientForm.phone.trim())    return alert('El teléfono es requerido.');
+    if (!editId) {
+      if (!clientForm.origen)                                    return alert('Selecciona cómo nos conoció el cliente.');
+      if (clientForm.origen === 'Otro' && !clientForm.origen_otro?.trim()) return alert('Cuéntanos brevemente en "Otro" cómo nos conoció.');
+    }
 
     // Validar cédula duplicada (solo en creación, o si se cambió el documento en edición)
     const docNorm = clientForm.document.trim();
@@ -258,13 +262,13 @@ export default function ClientsPage() {
         </div>
         {CF('Dirección *', 'address')}
         <div style={{ marginBottom: '1rem' }}>
-          <label style={labelStyle}>¿Cómo nos conociste?</label>
+          <label style={labelStyle}>¿Cómo nos conociste? {!editId && '*'}</label>
           <select
             value={clientForm.origen || ''}
             onChange={e => setClientForm(f => ({ ...f, origen: e.target.value, origen_otro: e.target.value === 'Otro' ? f.origen_otro : '' }))}
             style={{ width: '100%', padding: '0.6rem 0.75rem' }}
           >
-            <option value="">— Sin especificar —</option>
+            <option value="">{editId ? '— Sin especificar —' : '— Selecciona una opción —'}</option>
             {ORIGEN_OPTS.map(o => <option key={o}>{o}</option>)}
           </select>
           {clientForm.origen === 'Otro' && (
