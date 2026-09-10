@@ -8,9 +8,18 @@ import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { nowDate } from '../utils/nowLocal';
 
-const EMPTY_CLIENT = { name: '', document: '', phone: '', email: '', address: '', notes: '' };
+const EMPTY_CLIENT = { name: '', document: '', phone: '', email: '', address: '', notes: '', origen: '', origen_otro: '' };
 const EMPTY_PET    = { name: '', species: 'Perro', breed: '', age: '', weight: '', sex: 'Macho', esterilizado: 'No', caracter: 'Dócil', status: 'activo' };
 const SPECIES      = ['Perro', 'Gato', 'Conejo', 'Ave', 'Reptil', 'Otro'];
+const ORIGEN_OPTS  = [
+  'Recomendación de amigo/familiar',
+  'Búsqueda en Google de veterinarias abiertas por urgencias',
+  'Instagram/Facebook/TikTok',
+  'Vio el local en la calle',
+  'Volante o publicidad impresa',
+  'Aliado, convenio o médico remitente',
+  'Otro',
+];
 
 const validatePet = (f) => {
   if (!f.name.trim() || !f.breed.trim() || !f.fecha_nacimiento || !f.weight || !f.sex || !f.esterilizado || !f.caracter) {
@@ -248,6 +257,25 @@ export default function ClientsPage() {
           {CF('Correo electrónico *', 'email', 'email')}
         </div>
         {CF('Dirección *', 'address')}
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={labelStyle}>¿Cómo nos conociste?</label>
+          <select
+            value={clientForm.origen || ''}
+            onChange={e => setClientForm(f => ({ ...f, origen: e.target.value, origen_otro: e.target.value === 'Otro' ? f.origen_otro : '' }))}
+            style={{ width: '100%', padding: '0.6rem 0.75rem' }}
+          >
+            <option value="">— Sin especificar —</option>
+            {ORIGEN_OPTS.map(o => <option key={o}>{o}</option>)}
+          </select>
+          {clientForm.origen === 'Otro' && (
+            <input
+              value={clientForm.origen_otro || ''}
+              onChange={e => setClientForm(f => ({ ...f, origen_otro: e.target.value }))}
+              placeholder="Cuéntanos brevemente..."
+              style={{ width: '100%', padding: '0.6rem 0.75rem', marginTop: '0.5rem' }}
+            />
+          )}
+        </div>
         <div style={{ marginBottom: '1rem' }}>
           <label style={labelStyle}>Notas</label>
           <textarea
