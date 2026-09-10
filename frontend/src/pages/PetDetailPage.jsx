@@ -42,6 +42,7 @@ export default function PetDetailPage() {
   const navigate = useNavigate();
   const { items: patients, loading: loadingPatients, edit: editPatient } = useStore('patients');
   const { items: clients }     = useStore('clients');
+  const { items: remisionesInternas, add: addRemisionInterna, edit: editRemisionInterna } = useStore('remisionesInternas');
   const { items: prepagada }   = useStore('prepagada');
   const { add: addConsultation, edit: editConsultation, remove: removeConsultation } = useStore('consultations');
   const [patientConsults, setPatientConsults] = useState([]);
@@ -110,10 +111,57 @@ export default function PetDetailPage() {
   const [pendingConsumoValor, setPendingConsumoValor] = useState('');
   const [fallMotivo,     setFallMotivo]     = useState('');
 
+  // Remisión entre sedes propias (distinto de "remitirModal", que es para
+  // remisiones a especialistas/clínicas externas)
+  const [remitirSedeModal,   setRemitirSedeModal]   = useState(false);
+  const [remitirSedeDestino, setRemitirSedeDestino] = useState('');
+  const [remitirSedeMotivo,  setRemitirSedeMotivo]  = useState('');
+
   const canRemit = isAdminUser || session?.sede_id === 4;
 
   const petId  = parseInt(id);
   const pet    = patients.find(p => p.id === petId);
+
+  // Remisión pendiente hacia ESTA sede, en las últimas 24h — dispara el
+  // banner de "¿confirmar llegada?" cuando se abre la ficha aquí.
+  const pendingRemisionInterna = useMemo(() => {
+    if (!sedeActual) return null;
+    const HACE_24H = Date.now() - 24 * 3600 * 1000;
+    return remisionesInternas.find(r =>
+      r.patient_id === petId &&
+      r.sede_destino === sedeActual &&
+      r.estado === 'pendiente' &&
+      new Date(r.created_at).getTime() >= HACE_24H
+    ) || null;
+  }, [remisionesInternas, petId, sedeActual]);
+
+  const handleConfirmarLlegadaRemision = () => {
+    if (!pendingRemisionInterna) return;
+    editRemisionInterna(pendingRemisionInterna.id, {
+      estado: 'confirmada',
+      confirmado_por: session?.nombre || session?.username || null,
+      confirmado_at: new Date().toISOString(),
+    });
+  };
+
+  const handleRemitirSede = async () => {
+    if (!remitirSedeDestino) return alert('Selecciona a qué sede vas a remitir.');
+    const sedeOrigen = isAdminUser ? sedeActual : session?.sede_id;
+    await addRemisionInterna({
+      patient_id:   petId,
+      client_id:    client?.id || null,
+      sede_origen:  sedeOrigen || null,
+      sede_destino: parseInt(remitirSedeDestino),
+      motivo:       remitirSedeMotivo.trim() || null,
+      remitido_por: session?.nombre || session?.username || null,
+      estado:       'pendiente',
+    }, { onError: () => {} });
+    setRemitirSedeModal(false);
+    setRemitirSedeDestino('');
+    setRemitirSedeMotivo('');
+  };
+
+  const destinosRemisionSede = SEDES.filter(s => s.id !== 4 && s.id !== (isAdminUser ? sedeActual : session?.sede_id));
 
   // ── Listen for HC save from edit window ───────────────────────────────────
   useEffect(() => {
@@ -915,6 +963,18 @@ export default function PetDetailPage() {
         ← {client ? `Volver a ${client.name}` : 'Volver a Pacientes'}
       </button>
 
+      {pendingRemisionInterna && (
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'1rem', flexWrap:'wrap', background:'#fff8e1', border:'1px solid #f5c842', borderRadius:'var(--radius-md)', padding:'0.85rem 1.1rem', marginBottom:'1.25rem' }}>
+          <div style={{ fontSize:'0.85rem', color:'#7a5c00' }}>
+            🔀 <strong>{pet.name}</strong> fue remitido desde {SEDES.find(s => s.id === pendingRemisionInterna.sede_origen)?.nombre || 'otra sede'}
+            {pendingRemisionInterna.motivo ? ` — ${pendingRemisionInterna.motivo}` : ''}. ¿Ya llegó?
+          </div>
+          <button onClick={handleConfirmarLlegadaRemision} style={{ padding:'0.5rem 1.1rem', background:'#b8860b', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.82rem', fontWeight:700, whiteSpace:'nowrap' }}>
+            ✅ Confirmar llegada
+          </button>
+        </div>
+      )}
+
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1.5rem', marginBottom:'1.5rem', alignItems:'start' }}>
 
         {/* Pet info card */}
@@ -929,6 +989,9 @@ export default function PetDetailPage() {
                 <span style={{ background:sc.bg, color:sc.color, padding:'3px 10px', borderRadius:999, fontSize:'0.7rem', fontWeight:500 }}>{effectiveStatus}</span>
                 {prepagadaStatus === 'activo' && <span style={{ background:'#e8f0ff', color:'#2e5cbf', padding:'3px 10px', borderRadius:999, fontSize:'0.7rem', fontWeight:600 }}>💳 Afiliado</span>}
                 {prepagadaStatus === 'mora'   && <span style={{ background:'#fff8e1', color:'#b8860b', padding:'3px 10px', borderRadius:999, fontSize:'0.7rem', fontWeight:600 }}>⚠️ En Mora</span>}
+                <button onClick={() => setRemitirSedeModal(true)} style={{ padding:'0.25rem 0.75rem', background:'var(--color-bg)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.7rem', fontWeight:600, color:'var(--color-text-muted)', whiteSpace:'nowrap', flexShrink:0 }}>
+                  🔀 Remitir a otra sede
+                </button>
                 {pet.status !== 'fallecido' && (
                   <button onClick={() => setFallModal(true)} style={{ marginLeft:'auto', padding:'0.25rem 0.75rem', background:'#fef2f2', border:'1px solid #c0392b', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.7rem', fontWeight:700, color:'#c0392b', whiteSpace:'nowrap', flexShrink:0 }}>
                     ✕ Fallecido
@@ -2088,6 +2151,47 @@ export default function PetDetailPage() {
                 </button>
                 <button onClick={handleFallecimiento} style={{ padding:'0.55rem 1.5rem', background:'#c0392b', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', fontWeight:700 }}>
                   Guardar fallecimiento
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remitir a otra sede (interno, distinto de remisiones a especialistas externos) */}
+      {remitirSedeModal && (
+        <div onClick={() => setRemitirSedeModal(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1200, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem', backdropFilter:'blur(2px)' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background:'var(--color-white)', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-lg)', width:'100%', maxWidth:420, overflow:'hidden' }}>
+            <div style={{ padding:'1.1rem 1.5rem', borderBottom:'1px solid var(--color-border)', background:'#fff8e1', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div>
+                <h3 style={{ fontFamily:'var(--font-title)', color:'#b8860b', fontSize:'1rem', margin:0 }}>🔀 Remitir a otra sede</h3>
+                <p style={{ margin:'0.2rem 0 0', fontSize:'0.78rem', color:'var(--color-text-muted)' }}>{pet.name}</p>
+              </div>
+              <button onClick={() => setRemitirSedeModal(false)} style={{ width:30, height:30, background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'50%', cursor:'pointer', fontSize:'1rem' }}>×</button>
+            </div>
+            <div style={{ padding:'1.5rem' }}>
+              <label style={{ display:'block', fontSize:'0.72rem', fontWeight:700, marginBottom:'0.4rem', textTransform:'uppercase', letterSpacing:'0.04em', color:'var(--color-text)' }}>Sede destino *</label>
+              <select value={remitirSedeDestino} onChange={e => setRemitirSedeDestino(e.target.value)} style={{ width:'100%', padding:'0.55rem 0.75rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.875rem', marginBottom:'1rem', boxSizing:'border-box' }}>
+                <option value="">— Selecciona —</option>
+                {destinosRemisionSede.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+              </select>
+              <label style={{ display:'block', fontSize:'0.72rem', fontWeight:700, marginBottom:'0.4rem', textTransform:'uppercase', letterSpacing:'0.04em', color:'var(--color-text)' }}>Motivo</label>
+              <input
+                value={remitirSedeMotivo}
+                onChange={e => setRemitirSedeMotivo(e.target.value)}
+                placeholder="Ej: Ecografía, no la tenemos aquí"
+                style={{ width:'100%', padding:'0.55rem 0.75rem', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', fontFamily:'var(--font-body)', fontSize:'0.875rem', boxSizing:'border-box' }}
+              />
+              <div style={{ display:'flex', gap:'0.75rem', justifyContent:'flex-end', marginTop:'1.25rem' }}>
+                <button onClick={() => setRemitirSedeModal(false)} style={{ padding:'0.55rem 1.25rem', background:'var(--color-white)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.875rem', color:'var(--color-text-muted)' }}>
+                  Cancelar
+                </button>
+                <button
+                  disabled={!remitirSedeDestino}
+                  onClick={handleRemitirSede}
+                  style={{ padding:'0.55rem 1.5rem', background: remitirSedeDestino ? '#b8860b' : 'var(--color-border)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor: remitirSedeDestino ? 'pointer' : 'default', fontFamily:'var(--font-body)', fontSize:'0.875rem', fontWeight:700 }}
+                >
+                  Remitir
                 </button>
               </div>
             </div>

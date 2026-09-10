@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
+import { useSede, SEDES } from '../utils/useSede';
 import Card from '../components/Card';
 import Table from '../components/Table';
 import Button from '../components/Button';
@@ -37,8 +38,10 @@ const labelStyle = {
 export default function ClientsPage() {
   const navigate = useNavigate();
   const { session } = useAuth();
+  const { sedeActual, isAdmin } = useSede();
   const { items: clients, add: addClient, edit, remove } = useStore('clients');
   const { items: patients, add: addPet }                 = useStore('patients');
+  const { add: addRemisionInterna }                      = useStore('remisionesInternas');
 
   // Client modal
   const [clientModal, setClientModal] = useState(false);
@@ -52,6 +55,13 @@ export default function ClientsPage() {
   // Pet modal (triggered from ask-pet dialog)
   const [petModal, setPetModal]       = useState(false);
   const [petForm, setPetForm]         = useState(EMPTY_PET);
+
+  // Remitir a otra sede (opcional, junto con la creación de la mascota)
+  const [remitirCheck,   setRemitirCheck]   = useState(false);
+  const [remitirDestino, setRemitirDestino] = useState('');
+  const [remitirMotivo,  setRemitirMotivo]  = useState('');
+  const sedeOrigen = isAdmin ? sedeActual : session?.sede_id;
+  const destinosDisponibles = SEDES.filter(s => s.id !== 4 && s.id !== sedeOrigen);
 
   const [searchNombre,   setSearchNombre]   = useState('');
   const [searchCedula,   setSearchCedula]   = useState('');
@@ -119,6 +129,9 @@ export default function ClientsPage() {
   const openPetForm = () => {
     if (!pendingClient) return;
     setPetForm(EMPTY_PET);
+    setRemitirCheck(false);
+    setRemitirDestino('');
+    setRemitirMotivo('');
     setAskPet(false);
     setPetModal(true);
   };
@@ -130,6 +143,7 @@ export default function ClientsPage() {
 
   const handleSavePet = async () => {
     if (!validatePet(petForm)) return;
+    if (remitirCheck && !remitirDestino) return alert('Selecciona a qué sede vas a remitir.');
     const age = petForm.fecha_nacimiento
       ? Math.floor((new Date() - new Date(petForm.fecha_nacimiento)) / (365.25 * 24 * 3600 * 1000))
       : parseInt(petForm.age) || 0;
@@ -145,6 +159,19 @@ export default function ClientsPage() {
       created_at:  nowDate(),
     }, { onError: (m) => { saveErr = m; } });
     if (!result) { alert('❌ Error al guardar mascota:\n\n' + saveErr); return; }
+
+    if (remitirCheck && remitirDestino) {
+      await addRemisionInterna({
+        patient_id:     result.id,
+        client_id:      pendingClient.id,
+        sede_origen:    sedeOrigen || null,
+        sede_destino:   parseInt(remitirDestino),
+        motivo:         remitirMotivo.trim() || null,
+        remitido_por:   session?.nombre || session?.username || null,
+        estado:         'pendiente',
+      }, { onError: () => {} });
+    }
+
     setPetModal(false);
     setPendingClient(null);
   };
@@ -343,6 +370,28 @@ export default function ClientsPage() {
           {PF('Peso (kg) *', 'weight', 'number')}
           {PF('Esterilizado *', 'esterilizado', 'text', ['No', 'Sí'])}
           {PF('Carácter *', 'caracter', 'text', ['Dócil', 'Calmado', 'Nervioso', 'Agresivo'])}
+        </div>
+
+        <div style={{ marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text)' }}>
+            <input type="checkbox" checked={remitirCheck} onChange={e => setRemitirCheck(e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+            🔀 Remitir a otra sede
+          </label>
+          {remitirCheck && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 1rem', marginTop: '0.75rem' }}>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={labelStyle}>Sede destino *</label>
+                <select value={remitirDestino} onChange={e => setRemitirDestino(e.target.value)} style={{ width: '100%', padding: '0.6rem 0.75rem' }}>
+                  <option value="">— Selecciona —</option>
+                  {destinosDisponibles.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                </select>
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={labelStyle}>Motivo</label>
+                <input value={remitirMotivo} onChange={e => setRemitirMotivo(e.target.value)} placeholder="Ej: Ecografía, no la tenemos aquí" style={{ width: '100%', padding: '0.6rem 0.75rem' }} />
+              </div>
+            </div>
+          )}
         </div>
       </Modal>
     </div>

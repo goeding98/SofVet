@@ -34,6 +34,7 @@ const TABLE_MAP = {
   inventario:              'inventario',
   visitas_hospitalizacion: 'visitas_hospitalizacion',
   citas_especialistas:     'citas_especialistas',
+  remisionesInternas:      'remisiones_internas',
 };
 
 // ── Module-level cache (survives navigation, shared across all components) ──
