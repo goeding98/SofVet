@@ -10,6 +10,7 @@ import VetName from '../components/VetName';
 import { nowDate, nowTime, localDateStr } from '../utils/nowLocal';
 import { supabase } from '../utils/supabaseClient';
 import jsPDF from 'jspdf';
+import { calcularItemsHospitalizacionFaltantes } from '../utils/hospitalizacionPrecios';
 
 const localDate = () => nowDate();
 
@@ -254,6 +255,21 @@ export default function HospitalizationPage() {
 
   // Forzar datos frescos al entrar — múltiples usuarios editan hospitalizaciones simultáneamente
   useEffect(() => { refreshHosps(); }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cobro automático de hospitalización por 24h: cada vez que alguien tiene
+  // esta página abierta, revisa las hospitalizaciones activas y agrega a la
+  // Hoja de Consumo los períodos de 24h que ya se cumplieron y aún no
+  // estaban registrados (ej. "Hospitalización 20-21").
+  useEffect(() => {
+    const ahora = new Date();
+    for (const h of hosps) {
+      if (h.status !== 'activo') continue;
+      const faltantes = calcularItemsHospitalizacionFaltantes(h, ahora);
+      if (faltantes.length > 0) {
+        editHosp(h.id, { consumo: [...(h.consumo || []), ...faltantes] });
+      }
+    }
+  }, [hosps]);  // eslint-disable-line react-hooks/exhaustive-deps
   const { items: patients, edit: editPatient }               = useStore('patients');
   const { items: inventario, edit: editInventario }          = useStore('inventario');
 

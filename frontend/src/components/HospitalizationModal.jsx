@@ -89,9 +89,15 @@ function MedAutoComplete({ value, isOtro, onChange, onOtroToggle }) {
 
   useEffect(() => {
     if (!open) return;
-    const closeOnScroll = () => setOpen(false);
-    document.addEventListener('scroll', closeOnScroll, true);
-    return () => document.removeEventListener('scroll', closeOnScroll, true);
+    const reposition = () => {
+      if (inputRef.current) setDropRect(inputRef.current.getBoundingClientRect());
+    };
+    document.addEventListener('scroll', reposition, true);
+    window.addEventListener('resize', reposition);
+    return () => {
+      document.removeEventListener('scroll', reposition, true);
+      window.removeEventListener('resize', reposition);
+    };
   }, [open]);
 
   const handleFocus = () => {
@@ -206,6 +212,7 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
   const [meds,        setMeds]        = useState([{ ...EMPTY_MED }]);
   const [sedeId,      setSedeId]      = useState(sedeActual || 1);
   const [viral,       setViral]       = useState(false);
+  const [obstruccionUrinaria, setObstruccionUrinaria] = useState(false);
   const [error,       setError]       = useState('');
 
   useEffect(() => {
@@ -220,8 +227,9 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
         );
         setSedeId(initialData.sede_id || sedeActual || 1);
         setViral(initialData.viral || false);
+        setObstruccionUrinaria(initialData.obstruccion_urinaria || false);
       } else {
-        setMotivo(''); setDiagnostico(''); setMeds([{ ...EMPTY_MED }]); setSedeId(sedeActual || 1); setViral(false);
+        setMotivo(''); setDiagnostico(''); setMeds([{ ...EMPTY_MED }]); setSedeId(sedeActual || 1); setViral(false); setObstruccionUrinaria(false);
       }
       setError('');
     }
@@ -253,7 +261,8 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
         diagnostico,
         tratamiento:   tratamientoClean,
         sede_id:       sedeId,
-        ...(tipo !== 'semi' ? { viral } : {}),
+        viral,
+        obstruccion_urinaria: pet.species === 'Gato' ? obstruccionUrinaria : false,
         editado_por:   session?.nombre || null,
         hora_edicion:  nowTime(),
         fecha_edicion: nowDate(),
@@ -282,7 +291,8 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
       status:          'activo',
       aplicaciones:    [],
       tipo,
-      ...(tipo !== 'semi' ? { viral } : {}),
+      viral,
+      obstruccion_urinaria: pet.species === 'Gato' ? obstruccionUrinaria : false,
       conectar_inventario: sedeId === 2,
     });
 
@@ -355,27 +365,46 @@ export default function HospitalizationModal({ isOpen, onClose, pet, client, ini
             />
           </div>
 
-          {/* Viral — solo hospitalización completa */}
-          {tipo !== 'semi' && (
+          {/* Viral — afecta la tarifa de hospitalizacion por 24h */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={viral}
+                onChange={e => setViral(e.target.checked)}
+                style={{ width: 18, height: 18, accentColor: '#dc2626', cursor: 'pointer' }}
+              />
+              <span style={{ fontWeight: 700, fontSize: '0.875rem', color: viral ? '#dc2626' : 'var(--color-text)' }}>
+                🦠 Paciente viral
+              </span>
+              {viral && (
+                <span style={{ fontSize: '0.75rem', color: '#dc2626', background: '#fee2e2', padding: '2px 8px', borderRadius: 999, fontWeight: 600 }}>
+                  VIRAL
+                </span>
+              )}
+            </label>
+            <p style={{ margin: '0.3rem 0 0 1.6rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+              {tipo !== 'semi' && 'Aparecerá en rojo y primero en la lista de hospitalizados. '}
+              Afecta la tarifa automática de hospitalización por 24h.
+            </p>
+          </div>
+
+          {/* Obstrucción urinaria — solo gatos, tarifa fija sin importar peso */}
+          {pet.species === 'Gato' && (
             <div style={{ marginBottom: '1.25rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', userSelect: 'none' }}>
                 <input
                   type="checkbox"
-                  checked={viral}
-                  onChange={e => setViral(e.target.checked)}
-                  style={{ width: 18, height: 18, accentColor: '#dc2626', cursor: 'pointer' }}
+                  checked={obstruccionUrinaria}
+                  onChange={e => setObstruccionUrinaria(e.target.checked)}
+                  style={{ width: 18, height: 18, accentColor: '#b8860b', cursor: 'pointer' }}
                 />
-                <span style={{ fontWeight: 700, fontSize: '0.875rem', color: viral ? '#dc2626' : 'var(--color-text)' }}>
-                  🦠 Paciente viral
+                <span style={{ fontWeight: 700, fontSize: '0.875rem', color: obstruccionUrinaria ? '#b8860b' : 'var(--color-text)' }}>
+                  🐱 Obstrucción urinaria
                 </span>
-                {viral && (
-                  <span style={{ fontSize: '0.75rem', color: '#dc2626', background: '#fee2e2', padding: '2px 8px', borderRadius: 999, fontWeight: 600 }}>
-                    VIRAL
-                  </span>
-                )}
               </label>
               <p style={{ margin: '0.3rem 0 0 1.6rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                Aparecerá en rojo y primero en la lista de hospitalizados.
+                Usa una tarifa fija de hospitalización por 24h, sin importar el peso.
               </p>
             </div>
           )}
