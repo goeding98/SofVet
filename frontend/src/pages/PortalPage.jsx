@@ -137,13 +137,24 @@ export default function PortalPage() {
     setVLookupLoading(true); setVLookupErr('');
     setVClient(null); setVPatientId(null); setVMascota(''); setVHospOptions(null);
 
-    const { data: cls } = await supabase.from('clients').select('id,name').eq('document', doc);
-    if (!cls?.length) {
+    // Búsqueda tolerante: algunos registros tienen la cédula "contaminada" con
+    // espacios, tabs o texto pegado (ej. "7811283 EXTRANGERO"), así que se
+    // busca por coincidencia parcial en vez de exacta. Si hay más de un
+    // candidato y ninguno calza exacto, se pide contactar recepción en vez
+    // de arriesgarse a mostrar el paciente de otra persona.
+    const { data: candidatos } = await supabase.from('clients').select('id,name,document').ilike('document', `%${doc}%`);
+    if (!candidatos?.length) {
       setVLookupLoading(false);
       setVLookupErr('No encontramos ningún tutor registrado con esa cédula. Recuerda revisar bajo qué cédula quedó registrado el paciente — a veces lo deja hospitalizado un familiar distinto al que viene a la visita.');
       return;
     }
-    const cl = cls[0];
+    const exacto = candidatos.find(c => (c.document || '').trim() === doc);
+    const cl = exacto || (candidatos.length === 1 ? candidatos[0] : null);
+    if (!cl) {
+      setVLookupLoading(false);
+      setVLookupErr('Encontramos varios registros con esa cédula — por favor contacta a recepción para verificar tu registro.');
+      return;
+    }
 
     const { data: hosps } = await supabase.from('hospitalization')
       .select('patient_id,patient_name,sede_id')
