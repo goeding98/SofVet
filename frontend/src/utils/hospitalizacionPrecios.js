@@ -45,9 +45,12 @@ function buscarTarifa(brackets, weight) {
 }
 
 // tipo: 'completa' | 'semi' (semi paga 60% de la tarifa de 24h)
-export function calcularValorHospitalizacion({ species, weight, viral, obstruccionUrinaria, tipo }) {
+// esPrimerPeriodo: la tarifa fija de obstrucción urinaria SOLO aplica a las
+// primeras 24h. Del segundo día en adelante se cobra como hospitalización
+// normal (según especie/viral/peso), aunque el paciente siga con la sonda.
+export function calcularValorHospitalizacion({ species, weight, viral, obstruccionUrinaria, tipo, esPrimerPeriodo = true }) {
   let base;
-  if (species === 'Gato' && obstruccionUrinaria) {
+  if (species === 'Gato' && obstruccionUrinaria && esPrimerPeriodo) {
     base = OBSTRUCCION_URINARIA_GATO;
   } else {
     const tablaEspecie = TARIFAS[species] || TARIFAS.Perro;
@@ -72,13 +75,6 @@ export function calcularItemsHospitalizacionFaltantes(hosp, ahora = new Date()) 
 
   const periodosNecesarios = Math.floor(elapsedMs / DIA_MS) + 1;
   const descripcionesExistentes = new Set((hosp.consumo || []).map(it => it.descripcion));
-  const valor = calcularValorHospitalizacion({
-    species: hosp.species,
-    weight: hosp.weight,
-    viral: !!hosp.viral,
-    obstruccionUrinaria: !!hosp.obstruccion_urinaria,
-    tipo: hosp.tipo,
-  });
 
   const faltantes = [];
   for (let i = 0; i < periodosNecesarios; i++) {
@@ -90,6 +86,15 @@ export function calcularItemsHospitalizacionFaltantes(hosp, ahora = new Date()) 
     const yyyy = inicio.getFullYear();
     const mm = String(inicio.getMonth() + 1).padStart(2, '0');
     const dd = String(inicio.getDate()).padStart(2, '0');
+
+    const valor = calcularValorHospitalizacion({
+      species: hosp.species,
+      weight: hosp.weight,
+      viral: !!hosp.viral,
+      obstruccionUrinaria: !!hosp.obstruccion_urinaria,
+      tipo: hosp.tipo,
+      esPrimerPeriodo: i === 0,
+    });
 
     faltantes.push({
       id: Date.now() + i,
