@@ -253,14 +253,19 @@ export default function HospitalizationPage() {
   const { session } = useAuth();
   const { items: hosps, edit: editHosp, remove: removeHosp, refresh: refreshHosps } = useStore('hospitalization');
 
-  // Forzar datos frescos al entrar — múltiples usuarios editan hospitalizaciones simultáneamente
-  useEffect(() => { refreshHosps(); }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+  // Forzar datos frescos al entrar — múltiples usuarios editan hospitalizaciones simultáneamente.
+  // refreshDone: evita que el cobro automático corra con caché stale antes de tener datos frescos.
+  const [refreshDone, setRefreshDone] = useState(false);
+  useEffect(() => { refreshHosps().then(() => setRefreshDone(true)); }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cobro automático de hospitalización por 24h: cada vez que alguien tiene
   // esta página abierta, revisa las hospitalizaciones activas y agrega a la
   // Hoja de Consumo los períodos de 24h que ya se cumplieron y aún no
   // estaban registrados (ej. "Hospitalización 20-21").
+  // IMPORTANTE: solo corre después de que refreshHosps() completó para no
+  // sobreescribir ítems manuales con datos de caché desactualizados.
   useEffect(() => {
+    if (!refreshDone) return;
     const ahora = new Date();
     for (const h of hosps) {
       if (h.status !== 'activo') continue;
@@ -269,7 +274,7 @@ export default function HospitalizationPage() {
         editHosp(h.id, { consumo: [...(h.consumo || []), ...faltantes] });
       }
     }
-  }, [hosps]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [refreshDone]);  // eslint-disable-line react-hooks/exhaustive-deps
   const { items: patients, edit: editPatient }               = useStore('patients');
   const { items: inventario, edit: editInventario }          = useStore('inventario');
 
