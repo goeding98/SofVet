@@ -331,6 +331,8 @@ export default function HospitalizationPage() {
   const [trasladoHospId,  setTrasladoHospId]  = useState(null);
   const [trasladoSedeId,  setTrasladoSedeId]  = useState('');
   const [editTrasladoId,  setEditTrasladoId]  = useState(null); // hospId cuyo historial está en edición
+  const [editConsumoItemId,  setEditConsumoItemId]  = useState(null); // id del ítem de consumo automático en edición
+  const [editConsumoValor,   setEditConsumoValor]   = useState(''); // valor temporal mientras se edita
 
   // ── abonos modal ────────────────────────────────────────────────────────
   const [abonoModal,  setAbonoModal]  = useState(false);
@@ -812,6 +814,19 @@ export default function HospitalizationPage() {
     const liquidatedIds = new Set((h.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
     if (liquidatedIds.has(itemId)) { alert('Este ítem ya fue liquidado y no puede eliminarse.'); return; }
     editHosp(hospId, { consumo: (h.consumo || []).filter(item => item.id !== itemId) });
+  };
+
+  // Guarda el nuevo valor de un ítem automático de hospitalización
+  const handleEditConsumoValor = (hospId, itemId) => {
+    const h = hosps.find(x => x.id === hospId);
+    if (!h) return;
+    const nuevoValor = Number(editConsumoValor.replace(/\./g, '').replace(',', '.')) || 0;
+    const updatedConsumo = (h.consumo || []).map(it =>
+      it.id === itemId ? { ...it, valor: nuevoValor } : it
+    );
+    editHosp(hospId, { consumo: updatedConsumo });
+    setEditConsumoItemId(null);
+    setEditConsumoValor('');
   };
 
   return (
@@ -2117,6 +2132,8 @@ export default function HospitalizationPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: 300, overflowY: 'auto' }}>
                       {consumoHosp.consumo.map(item => {
                         const liquidado = liquidatedIds.has(item.id);
+                        const esAutomatico = item.registrado_por === 'Sistema (automático)';
+                        const enEdicion = editConsumoItemId === item.id;
                         return (
                           <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0.85rem', border: `1px solid ${liquidado ? 'var(--color-success)' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', background: liquidado ? 'var(--color-success-bg)' : 'var(--color-white)' }}>
                             <div style={{ flex: 1 }}>
@@ -2124,18 +2141,42 @@ export default function HospitalizationPage() {
                               <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>{item.fecha} {item.hora} · Por: {item.registrado_por}</div>
                             </div>
                             <span style={{ fontWeight: 600, fontSize: '0.875rem', minWidth: 30, textAlign: 'right' }}>x{item.cantidad}</span>
-                            <span style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--color-text-muted)', minWidth: 70, textAlign: 'right' }}>
-                              {item.valor != null ? fmtCOP(item.valor) : '—'}
-                            </span>
-                            {liquidado
-                              ? <span style={{ fontSize: '0.68rem', background: 'var(--color-success)', color: 'white', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>✅ Liquidado</span>
-                              : (
+                            {enEdicion ? (
+                              <input
+                                type="text"
+                                value={editConsumoValor}
+                                onChange={e => setEditConsumoValor(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') handleEditConsumoValor(consumoHosp.id, item.id); if (e.key === 'Escape') { setEditConsumoItemId(null); setEditConsumoValor(''); } }}
+                                autoFocus
+                                style={{ width: 90, padding: '0.2rem 0.4rem', fontSize: '0.8rem', border: '1px solid #e67e22', borderRadius: 'var(--radius-sm)', textAlign: 'right', fontFamily: 'var(--font-body)' }}
+                              />
+                            ) : (
+                              <span style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--color-text-muted)', minWidth: 70, textAlign: 'right' }}>
+                                {item.valor != null ? fmtCOP(item.valor) : '—'}
+                              </span>
+                            )}
+                            {liquidado ? (
+                              <span style={{ fontSize: '0.68rem', background: 'var(--color-success)', color: 'white', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>✅ Liquidado</span>
+                            ) : enEdicion ? (
+                              <button
+                                onClick={() => handleEditConsumoValor(consumoHosp.id, item.id)}
+                                style={{ background: '#e67e22', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '0.2rem 0.5rem', fontSize: '0.72rem', flexShrink: 0 }}
+                              >✓</button>
+                            ) : (
+                              <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
+                                {esAutomatico && (
+                                  <button
+                                    onClick={() => { setEditConsumoItemId(item.id); setEditConsumoValor(String(item.valor || '')); }}
+                                    title="Corregir valor"
+                                    style={{ background: 'var(--color-white)', color: '#e67e22', border: '1px solid #e67e22', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '0.2rem 0.5rem', fontSize: '0.72rem' }}
+                                  >✏️</button>
+                                )}
                                 <button
                                   onClick={() => handleDeleteConsumo(consumoHosp.id, item.id)}
-                                  style={{ background: 'var(--color-danger-bg)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '0.2rem 0.5rem', fontSize: '0.72rem', flexShrink: 0 }}
+                                  style={{ background: 'var(--color-danger-bg)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '0.2rem 0.5rem', fontSize: '0.72rem' }}
                                 >✕</button>
-                              )
-                            }
+                              </div>
+                            )}
                           </div>
                         );
                       })}
