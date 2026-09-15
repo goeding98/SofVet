@@ -821,8 +821,10 @@ export default function HospitalizationPage() {
     const h = hosps.find(x => x.id === hospId);
     if (!h) return;
     const nuevoValor = Number(editConsumoValor.replace(/\./g, '').replace(',', '.')) || 0;
+    const ahora = new Date();
+    const fechaHora = `${ahora.toLocaleDateString('es-CO')} ${ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}`;
     const updatedConsumo = (h.consumo || []).map(it =>
-      it.id === itemId ? { ...it, valor: nuevoValor } : it
+      it.id === itemId ? { ...it, valor: nuevoValor, registrado_por: `Sistema (automático) · Corregido por: ${session?.nombre || 'Desconocido'} ${fechaHora}` } : it
     );
     editHosp(hospId, { consumo: updatedConsumo });
     setEditConsumoItemId(null);
