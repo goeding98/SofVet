@@ -60,14 +60,27 @@ export default function PatientsPage() {
   };
 
   const clientDocMap = {};
-  clients.forEach(c => { clientDocMap[c.id] = c.document || ''; });
+  const clientById = {};
+  clients.forEach(c => { clientDocMap[c.id] = c.document || ''; clientById[c.id] = c; });
+
+  // El nombre/telefono del propietario que vive en la ficha de la mascota
+  // (owner/owner_phone) es una copia que se guarda al crear/editar y puede
+  // quedar desactualizada si el cliente cambia de nombre o de telefono
+  // despues (ej. Abby: el cliente le cambiaron el nombre y la ficha de la
+  // mascota se quedo con el nombre viejo). Por eso preferimos el cliente
+  // en vivo por client_id, y solo caemos al dato guardado si no hay match.
+  const ownerOf = (p) => {
+    const c = clientById[p.client_id];
+    return c ? { name: c.name, phone: c.phone } : { name: p.owner, phone: p.owner_phone };
+  };
 
   const filtered = patients
     .filter(p => {
-      const matchNombre   = !searchNombre   || (p.name || '').toLowerCase().includes(searchNombre.toLowerCase()) || (p.owner || '').toLowerCase().includes(searchNombre.toLowerCase());
+      const o = ownerOf(p);
+      const matchNombre   = !searchNombre   || (p.name || '').toLowerCase().includes(searchNombre.toLowerCase()) || (o.name || '').toLowerCase().includes(searchNombre.toLowerCase());
       const matchHC       = !searchHC       || (p.no_historia || '').includes(searchHC);
       const matchCedula   = !searchCedula   || (clientDocMap[p.client_id] || '').includes(searchCedula);
-      const matchTelefono = !searchTelefono || (p.owner_phone || '').includes(searchTelefono);
+      const matchTelefono = !searchTelefono || (o.phone || '').includes(searchTelefono);
       const matchClient   = !filterClient   || p.client_id === parseInt(filterClient);
       return matchNombre && matchHC && matchCedula && matchTelefono && matchClient;
     })
@@ -168,12 +181,15 @@ export default function PatientsPage() {
     { key: 'species', label: 'Especie' },
     { key: 'age',     label: 'Edad',   render: (v, row) => ageLabel(row.fecha_nacimiento, v) },
     { key: 'weight',  label: 'Peso',   render: v => `${v} kg`   },
-    { key: 'owner',   label: 'Propietario', render: (v, row) => (
-      <div>
-        <div style={{ fontWeight: 600 }}>{v}</div>
-        <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{row.owner_phone}</div>
-      </div>
-    )},
+    { key: 'owner',   label: 'Propietario', render: (v, row) => {
+      const o = ownerOf(row);
+      return (
+        <div>
+          <div style={{ fontWeight: 600 }}>{o.name}</div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{o.phone}</div>
+        </div>
+      );
+    }},
     { key: 'status', label: 'Estado', render: v => badge(v) },
     { key: 'last_attention_date', label: 'Última atención', render: v => (
       <span style={{ fontSize: '0.78rem', color: v ? 'var(--color-text)' : 'var(--color-text-muted)' }}>
