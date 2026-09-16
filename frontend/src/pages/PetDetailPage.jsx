@@ -52,7 +52,7 @@ export default function PetDetailPage() {
   const { items: procedimientos, add: addProcedimiento, edit: editProcedimiento } = useStore('procedimientos');
   const { items: laboratorios, add: addLaboratorio, edit: editLaboratorio } = useStore('laboratorios');
   const { items: hospReports, add: addHospReport, edit: editHospReport, remove: removeHospReport } = useStore('hospitalization_reports');
-  const { items: hospitalization, edit: editHosp }     = useStore('hospitalization');
+  const { items: hospitalization, edit: editHosp, refresh: refreshHosp } = useStore('hospitalization');
   const { items: signedDocs }  = useStore('signedDocuments');
   const { items: labPedidos, edit: editLabPedido, add: addLabPedido } = useStore('laboratorios_pedidos');
   const { items: notasClincias, add: addNota, edit: editNota, remove: removeNota } = useStore('notas_clinicas');
@@ -471,7 +471,7 @@ export default function PetDetailPage() {
     closeConsultModal();
   };
 
-  const addToConsumo = (hosp, descripcion, valor) => {
+  const addToConsumo = async (hosp, descripcion, valor) => {
     const newItem = {
       id:             Date.now(),
       descripcion,
@@ -481,7 +481,10 @@ export default function PetDetailPage() {
       hora:           nowTime(),
       registrado_por: session?.nombre || 'Sistema',
     };
-    editHosp(hosp.id, { consumo: [...(hosp.consumo || []), newItem] });
+    // Append atomico en el servidor (ver nota en HospitalizationPage.jsx) —
+    // evita perder items de consumo agregados por otro usuario al mismo tiempo.
+    await supabase.rpc('append_hospitalizacion_consumo', { p_hosp_id: hosp.id, p_items: [newItem] });
+    refreshHosp();
   };
 
   const handleSolicitarLab = async (data) => {

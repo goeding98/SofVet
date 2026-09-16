@@ -267,13 +267,23 @@ export default function HospitalizationPage() {
   useEffect(() => {
     if (!refreshDone) return;
     const ahora = new Date();
-    for (const h of hosps) {
-      if (h.status !== 'activo') continue;
-      const faltantes = calcularItemsHospitalizacionFaltantes(h, ahora);
-      if (faltantes.length > 0) {
-        editHosp(h.id, { consumo: [...(h.consumo || []), ...faltantes] });
+    (async () => {
+      let huboCambios = false;
+      for (const h of hosps) {
+        if (h.status !== 'activo') continue;
+        const faltantes = calcularItemsHospitalizacionFaltantes(h, ahora);
+        if (faltantes.length > 0) {
+          // Append atomico del lado del servidor (funcion append_hospitalizacion_consumo):
+          // sumar aqui "consumo actual + faltantes" y reescribir todo el arreglo con
+          // editHosp() podia perder items que otro usuario acababa de agregar en otra
+          // sesion mientras esta cache local seguia desactualizada (bug real: se
+          // perdian consumos manuales de Severus y Zeus en Colseguros).
+          const { error } = await supabase.rpc('append_hospitalizacion_consumo', { p_hosp_id: h.id, p_items: faltantes });
+          if (!error) huboCambios = true;
+        }
       }
-    }
+      if (huboCambios) refreshHosps();
+    })();
   }, [refreshDone]);  // eslint-disable-line react-hooks/exhaustive-deps
   const { items: patients, edit: editPatient }               = useStore('patients');
   const { items: inventario, edit: editInventario }          = useStore('inventario');
@@ -789,7 +799,7 @@ export default function HospitalizationPage() {
     setConsumoModal(true);
   };
 
-  const handleAddConsumo = () => {
+  const handleAddConsumo = async () => {
     if (!consumoNewDesc.trim() || !consumoNewValor.trim() || !consumoHosp) return;
     const now = new Date();
     const newItem = {
@@ -801,32 +811,41 @@ export default function HospitalizationPage() {
       hora:           nowTime(),
       registrado_por: session?.nombre || 'Desconocido',
     };
-    editHosp(consumoHospId, { consumo: [...(consumoHosp.consumo || []), newItem] });
+    // Append atomico en el servidor — evita perder items si otro usuario
+    // esta editando la misma hospitalizacion al mismo tiempo (ver nota en
+    // el efecto de cobro automatico mas abajo).
+    await supabase.rpc('append_hospitalizacion_consumo', { p_hosp_id: consumoHospId, p_items: [newItem] });
+    await refreshHosps();
     setConsumoNewDesc('');
     setConsumoNewCant('');
     setConsumoNewValor('');
   };
 
-  const handleDeleteConsumo = (hospId, itemId) => {
+  const handleDeleteConsumo = async (hospId, itemId) => {
     const h = hosps.find(x => x.id === hospId);
     if (!h) return;
     // Cannot delete liquidated items
     const liquidatedIds = new Set((h.liquidaciones_parciales || []).flatMap(lp => lp.item_ids || []));
     if (liquidatedIds.has(itemId)) { alert('Este ítem ya fue liquidado y no puede eliminarse.'); return; }
-    editHosp(hospId, { consumo: (h.consumo || []).filter(item => item.id !== itemId) });
+    // Delete atomico en el servidor (ver nota junto al cobro automatico mas arriba).
+    await supabase.rpc('delete_hospitalizacion_consumo_item', { p_hosp_id: hospId, p_item_id: itemId });
+    await refreshHosps();
   };
 
   // Guarda el nuevo valor de un ítem automático de hospitalización
-  const handleEditConsumoValor = (hospId, itemId) => {
-    const h = hosps.find(x => x.id === hospId);
-    if (!h) return;
+  const handleEditConsumoValor = async (hospId, itemId) => {
     const nuevoValor = Number(editConsumoValor.replace(/\./g, '').replace(',', '.')) || 0;
     const ahora = new Date();
     const fechaHora = `${ahora.toLocaleDateString('es-CO')} ${ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}`;
-    const updatedConsumo = (h.consumo || []).map(it =>
-      it.id === itemId ? { ...it, valor: nuevoValor, registrado_por: `Sistema (automático) · Corregido por: ${session?.nombre || 'Desconocido'} ${fechaHora}` } : it
-    );
-    editHosp(hospId, { consumo: updatedConsumo });
+    // Update atomico en el servidor (ver nota junto al cobro automatico mas
+    // arriba) — evita perder ediciones/adiciones concurrentes de otro usuario.
+    await supabase.rpc('update_hospitalizacion_consumo_item', {
+      p_hosp_id: hospId,
+      p_item_id: itemId,
+      p_valor: nuevoValor,
+      p_registrado_por: `Sistema (automático) · Corregido por: ${session?.nombre || 'Desconocido'} ${fechaHora}`,
+    });
+    await refreshHosps();
     setEditConsumoItemId(null);
     setEditConsumoValor('');
   };
