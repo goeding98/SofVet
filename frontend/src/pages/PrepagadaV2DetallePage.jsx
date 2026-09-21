@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
+import { supabase } from '../utils/supabaseClient';
 import { BENEFICIOS_TOTAL_ANUAL } from '../utils/prepagadaPrecios';
 import { calcularEstadoVencimiento } from '../utils/prepagadaEstado';
 import { nowDate } from '../utils/nowLocal';
@@ -65,6 +66,26 @@ export default function PrepagadaV2DetallePage() {
     const nuevaFecha = new Date(base);
     nuevaFecha.setMonth(nuevaFecha.getMonth() + 1);
     editAfiliado(afiliado.id, { fecha_vencimiento: nuevaFecha.toISOString().slice(0, 10), estado: 'activo' });
+  };
+
+  const [linkPago, setLinkPago] = useState(null);
+  const [generandoLink, setGenerandoLink] = useState(false);
+  const [linkCopiado, setLinkCopiado] = useState(false);
+
+  const handleGenerarLink = async () => {
+    if (!afiliado) return;
+    setGenerandoLink(true);
+    setLinkCopiado(false);
+    try {
+      const { data, error } = await supabase.functions.invoke('wompi-generar-link', {
+        body: { afiliado_id: afiliado.id },
+      });
+      if (error || !data?.url) throw new Error(error?.message || 'Sin URL en la respuesta');
+      setLinkPago(data.url);
+    } catch (e) {
+      alert('No se pudo generar el link de pago: ' + e.message);
+    }
+    setGenerandoLink(false);
   };
 
   const [eventoModal, setEventoModal] = useState(false);
@@ -147,6 +168,14 @@ export default function PrepagadaV2DetallePage() {
         </div>
         <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
           <button
+            onClick={handleGenerarLink}
+            disabled={generandoLink}
+            title="Genera un link de pago de Wompi (sandbox) para enviarle al tutor"
+            style={{ padding: '0.5rem 0.9rem', background: '#eef4ff', color: '#2a4d9e', border: '1px solid #2a4d9e', borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', cursor: generandoLink ? 'default' : 'pointer', whiteSpace: 'nowrap', opacity: generandoLink ? 0.6 : 1 }}
+          >
+            💳 {generandoLink ? 'Generando...' : 'Generar link de pago'}
+          </button>
+          <button
             onClick={handleMarcarPagado}
             title="Solo para pagos en efectivo/transferencia que caja sube a mano — con Wompi esto será automático"
             style={{ padding: '0.5rem 0.9rem', background: '#eafaf0', color: '#1e7d45', border: '1px solid #1e7d45', borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
@@ -158,6 +187,19 @@ export default function PrepagadaV2DetallePage() {
           </select>
         </div>
       </div>
+
+      {linkPago && (
+        <div style={{ background: '#eef4ff', border: '1px solid #2a4d9e', borderRadius: 12, padding: '0.9rem 1.2rem', marginBottom: '1.2rem', display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#2a4d9e' }}>Link de pago (sandbox):</span>
+          <a href={linkPago} target="_blank" rel="noreferrer" style={{ color: '#2a4d9e', fontSize: '0.85rem', wordBreak: 'break-all', flex: 1 }}>{linkPago}</a>
+          <button
+            onClick={() => { navigator.clipboard.writeText(linkPago); setLinkCopiado(true); }}
+            style={{ padding: '0.4rem 0.8rem', background: '#2a4d9e', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            {linkCopiado ? '✓ Copiado' : 'Copiar'}
+          </button>
+        </div>
+      )}
 
       {/* Bolsa */}
       <div style={{ background: 'white', border: '1px solid #e2e6ef', borderRadius: 14, padding: '1.2rem 1.5rem', marginBottom: '1.2rem' }}>
