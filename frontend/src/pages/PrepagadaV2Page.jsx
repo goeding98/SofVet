@@ -100,6 +100,16 @@ export default function PrepagadaV2Page() {
   const enGracia = afiliados.filter(a => a.estado === 'en_gracia').length;
   const suspendidos = afiliados.filter(a => a.estado === 'suspendido').length;
 
+  const [busqueda, setBusqueda] = useState('');
+  const q = busqueda.trim().toLowerCase();
+  const afiliadosFiltrados = !q ? afiliados : afiliados.filter(a => {
+    const c = clienteOf(a);
+    const m = mascotaOf(a);
+    return (m?.name || '').toLowerCase().includes(q)
+      || (c?.name || '').toLowerCase().includes(q)
+      || (c?.document || '').includes(busqueda.trim());
+  });
+
   return (
     <div style={{ padding: '1.5rem 2rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -114,6 +124,13 @@ export default function PrepagadaV2Page() {
         </button>
       </div>
 
+      <input
+        value={busqueda}
+        onChange={e => setBusqueda(e.target.value)}
+        placeholder="🔍 Buscar por mascota, tutor o cédula..."
+        style={{ width: '100%', maxWidth: 380, padding: '0.6rem 0.9rem', border: '1.5px solid #dfe3ea', borderRadius: 10, fontSize: '0.88rem', boxSizing: 'border-box', marginBottom: '1rem', fontFamily: 'inherit' }}
+      />
+
       <div style={{ background: 'white', border: '1px solid #e2e6ef', borderRadius: 14, overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -127,7 +144,10 @@ export default function PrepagadaV2Page() {
             {afiliados.length === 0 && (
               <tr><td colSpan={8} style={{ padding: '2rem', textAlign: 'center', color: '#8A8076' }}>Aún no hay afiliados. Crea el primero con "+ Afiliar mascota".</td></tr>
             )}
-            {afiliados.map(a => {
+            {afiliados.length > 0 && afiliadosFiltrados.length === 0 && (
+              <tr><td colSpan={8} style={{ padding: '2rem', textAlign: 'center', color: '#8A8076' }}>No hay afiliados que coincidan con "{busqueda}".</td></tr>
+            )}
+            {afiliadosFiltrados.map(a => {
               const badge = ESTADO_BADGE[a.estado] || ESTADO_BADGE.activo;
               const disponible = a.bolsa_maxima_anual - a.bolsa_consumida_anual;
               return (
