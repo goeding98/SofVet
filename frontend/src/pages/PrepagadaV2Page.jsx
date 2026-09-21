@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
 import { calcularPrecioPrepagada, BOLSA_ANUAL } from '../utils/prepagadaPrecios';
+import { calcularEstadoVencimiento } from '../utils/prepagadaEstado';
 import { nowDate } from '../utils/nowLocal';
 
 const fmtCOP = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v || 0);
@@ -19,10 +20,22 @@ const PLAN_LABEL = { urgencias: 'Urgencias', total: 'Total' };
 export default function PrepagadaV2Page() {
   const navigate = useNavigate();
   const { session } = useAuth();
-  const { items: afiliados, add: addAfiliado } = useStore('prepagadaAfiliados');
+  const { items: afiliados, add: addAfiliado, edit: editAfiliado } = useStore('prepagadaAfiliados');
   const { add: addBeneficios } = useStore('prepagadaBeneficios');
   const { items: clients } = useStore('clients');
   const { items: patients } = useStore('patients');
+
+  // Vencimiento automático: cada vez que se abre esta lista, revisa si algún
+  // afiliado ya venció y le pone el estado que le corresponda según el
+  // calendario del Protocolo Operativo (gracia 6 días, suspensión, cancelación
+  // a los 30). No toca afiliados ya cancelados a mano.
+  useEffect(() => {
+    const hoy = nowDate();
+    for (const a of afiliados) {
+      const estadoReal = calcularEstadoVencimiento(a, hoy);
+      if (estadoReal !== a.estado) editAfiliado(a.id, { estado: estadoReal });
+    }
+  }, [afiliados]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const [modal, setModal] = useState(false);
   const [busquedaCliente, setBusquedaCliente] = useState('');

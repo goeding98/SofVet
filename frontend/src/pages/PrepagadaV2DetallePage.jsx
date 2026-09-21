@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
 import { BENEFICIOS_TOTAL_ANUAL } from '../utils/prepagadaPrecios';
+import { calcularEstadoVencimiento } from '../utils/prepagadaEstado';
 import { nowDate } from '../utils/nowLocal';
 
 const fmtCOP = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v || 0);
@@ -41,6 +42,14 @@ export default function PrepagadaV2DetallePage() {
   const anioActual = new Date().getFullYear();
   const beneficioAnio = beneficios.find(b => b.afiliado_id === afiliadoId && b.anio === anioActual);
   const eventosAfiliado = eventos.filter(e => e.afiliado_id === afiliadoId).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+
+  // Igual que en la lista: corrige el estado por vencimiento si alguien entra
+  // directo a esta ficha sin pasar antes por /prueba/prepagada.
+  useEffect(() => {
+    if (!afiliado) return;
+    const estadoReal = calcularEstadoVencimiento(afiliado, nowDate());
+    if (estadoReal !== afiliado.estado) editAfiliado(afiliado.id, { estado: estadoReal });
+  }, [afiliado?.id, afiliado?.estado, afiliado?.fecha_vencimiento]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const [eventoModal, setEventoModal] = useState(false);
   const [evCosto, setEvCosto] = useState('');
