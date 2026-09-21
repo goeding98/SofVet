@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import QRCode from 'qrcode';
 import { supabase } from '../utils/supabaseClient';
+import OnScreenKeyboard from '../components/OnScreenKeyboard';
 
 // Fase 1: fijo a Santa Mónica. Cuando se active en más sedes, esto pasa a venir
 // de la URL (?sede=2) o de un selector en pantalla.
@@ -48,8 +48,31 @@ function todayStartISO() {
   return d.toISOString();
 }
 
+// Campo de texto que abre el teclado en pantalla en vez de depender del
+// teclado nativo del tablet (no siempre aparece confiable en modo kiosco).
+function CampoConTeclado({ label, value, activo, onActivar, multiline, placeholder }) {
+  const InputTag = multiline ? 'textarea' : 'input';
+  return (
+    <div style={{ marginBottom: '0.9rem', textAlign: 'left' }}>
+      {label && <span style={{ fontWeight: 600, color: C.text, fontSize: '0.88rem', marginBottom: '0.35rem', display: 'block' }}>{label}</span>}
+      <InputTag
+        readOnly
+        onClick={onActivar}
+        value={value}
+        placeholder={placeholder}
+        rows={multiline ? 3 : undefined}
+        style={{
+          ...bigInp, textAlign: 'left', fontSize: '1.1rem', cursor: 'pointer',
+          border: `2px solid ${activo ? C.teal : C.border}`,
+          resize: multiline ? 'none' : undefined,
+        }}
+      />
+    </div>
+  );
+}
+
 export default function KioscoPage() {
-  // home | agendado | tipo | existente | nuevo | confirmado
+  // home | agendado | tipo | existente | nuevo | datos | confirmado
   const [screen, setScreen] = useState('home');
   const [esClienteExistente, setEsClienteExistente] = useState(null);
   const [agendado, setAgendado] = useState(null);
@@ -62,10 +85,14 @@ export default function KioscoPage() {
 
   const [clienteEncontrado, setClienteEncontrado] = useState(null); // { id, name }
   const [mascotas, setMascotas] = useState(null); // lista para elegir si hay >1
+  const [mascotaConocida, setMascotaConocida] = useState(null); // { id, name } si ya se sabe cuál es
+
+  // Datos que se llenan directo en la tablet (reemplaza el QR)
+  const [datos, setDatos] = useState({ nombre: '', telefono: '', mascota: '', especie: 'Perro', motivo: '' });
+  const [campoActivo, setCampoActivo] = useState(null); // 'nombre'|'telefono'|'mascota'|'motivo'|null
 
   const [turno, setTurno] = useState(null); // { id, numero, personasAntes, mins }
-  const [qrDataUrl, setQrDataUrl] = useState('');
-  const [countdown, setCountdown] = useState(15);
+  const [countdown, setCountdown] = useState(8);
 
   const resetAll = () => {
     setScreen('home');
@@ -77,8 +104,10 @@ export default function KioscoPage() {
     setErr('');
     setClienteEncontrado(null);
     setMascotas(null);
+    setMascotaConocida(null);
+    setDatos({ nombre: '', telefono: '', mascota: '', especie: 'Perro', motivo: '' });
+    setCampoActivo(null);
     setTurno(null);
-    setQrDataUrl('');
   };
 
   const irACedula = () => {
@@ -96,7 +125,7 @@ export default function KioscoPage() {
   // Cuenta regresiva en la pantalla de confirmación → vuelve a home sola
   useEffect(() => {
     if (screen !== 'confirmado') return;
-    setCountdown(15);
+    setCountdown(8);
     const iv = setInterval(() => {
       setCountdown(c => {
         if (c <= 1) { clearInterval(iv); resetAll(); return 0; }
@@ -106,12 +135,47 @@ export default function KioscoPage() {
     return () => clearInterval(iv);
   }, [screen]);
 
-  async function crearTurno({ clientId, patientId, tutorNombre, mascotaNombre, esClienteNuevo }) {
+  async function finalizarTurno() {
     setLoading(true);
     setErr('');
     try {
-      const prefijo = `${agendado ? 'A' : 'NA'}-${TIPO_PREFIJO[tipoTurno]}`;
+      let clientId = clienteEncontrado?.id || null;
+      let patientId = mascotaConocida?.id || null;
+      let tutorNombre = clienteEncontrado?.name || null;
+      let mascotaNombre = mascotaConocida?.name || null;
 
+      // Cliente nuevo: creamos la ficha del tutor y de la mascota ahora, con
+      // lo que se llenó en la tablet.
+      if (!esClienteExistente) {
+        const { data: newClient, error: e1 } = await supabase.from('clients').insert({
+          name: datos.nombre.trim(),
+          document: cedula.trim(),
+          cedula: cedula.trim(),
+          phone: datos.telefono.trim(),
+          email: '',
+          address: '',
+          sede_id: SEDE_ID,
+          created_at: new Date().toISOString().slice(0, 10),
+        }).select().single();
+        if (e1) { setErr('No se pudo crear tu ficha: ' + e1.message); setLoading(false); return; }
+
+        const { data: newPatient, error: e2 } = await supabase.from('patients').insert({
+          name: datos.mascota.trim(),
+          species: datos.especie,
+          client_id: newClient.id,
+          status: 'activo',
+        }).select().single();
+        if (e2) { setErr('No se pudo registrar tu mascota: ' + e2.message); setLoading(false); return; }
+
+        clientId = newClient.id;
+        patientId = newPatient.id;
+        tutorNombre = newClient.name;
+        mascotaNombre = newPatient.name;
+      } else if (!mascotaNombre && datos.mascota.trim()) {
+        mascotaNombre = datos.mascota.trim();
+      }
+
+      const prefijo = `${agendado ? 'A' : 'NA'}-${TIPO_PREFIJO[tipoTurno]}`;
       const { count } = await supabase
         .from('turnos_espera')
         .select('id', { count: 'exact', head: true })
@@ -123,15 +187,16 @@ export default function KioscoPage() {
       const { data, error } = await supabase.from('turnos_espera').insert({
         sede_id: SEDE_ID,
         numero,
-        client_id: clientId || null,
-        patient_id: patientId || null,
-        tutor_nombre: tutorNombre || null,
+        client_id: clientId,
+        patient_id: patientId,
+        tutor_nombre: tutorNombre,
         tutor_cedula: cedula.trim(),
-        mascota_nombre: mascotaNombre || null,
-        es_cliente_nuevo: !!esClienteNuevo,
+        mascota_nombre: mascotaNombre,
+        es_cliente_nuevo: !esClienteExistente,
         tipo_turno: tipoTurno,
         tiene_cita: !!agendado,
         otro_detalle: tipoTurno === 'Otro' ? (otroDetalle.trim() || null) : null,
+        motivo_consulta: datos.motivo.trim() || null,
         estado: 'esperando',
       }).select().single();
 
@@ -144,9 +209,6 @@ export default function KioscoPage() {
         .eq('estado', 'esperando')
         .lt('created_at', data.created_at);
 
-      const url = `${window.location.origin}/prueba/turno/${data.id}`;
-      const qr = await QRCode.toDataURL(url, { width: 260, margin: 1, color: { dark: C.tealDark, light: '#ffffff' } });
-      setQrDataUrl(qr);
       setTurno({ id: data.id, numero, personasAntes: antes || 0, mins: (antes || 0) * MIN_POR_TURNO });
       setScreen('confirmado');
     } finally {
@@ -170,19 +232,46 @@ export default function KioscoPage() {
     setLoading(false);
     setClienteEncontrado(cl);
     if (!pets?.length) {
-      crearTurno({ clientId: cl.id, tutorNombre: cl.name });
+      setMascotaConocida(null);
+      setScreen('datos');
     } else if (pets.length === 1) {
-      crearTurno({ clientId: cl.id, patientId: pets[0].id, tutorNombre: cl.name, mascotaNombre: pets[0].name });
+      setMascotaConocida(pets[0]);
+      setScreen('datos');
     } else {
       setMascotas(pets);
     }
   }
 
-  async function crearTurnoNuevo() {
-    const doc = cedula.trim();
-    if (!doc) return;
-    await crearTurno({ esClienteNuevo: true });
-  }
+  const elegirMascotaExistente = (m) => {
+    setMascotaConocida(m);
+    setScreen('datos');
+  };
+
+  const omitirMascotaExistente = () => {
+    setMascotaConocida(null);
+    setScreen('datos');
+  };
+
+  const irADatosNuevo = () => {
+    if (!cedula.trim()) return;
+    setErr('');
+    setScreen('datos');
+  };
+
+  const setDato = (campo, val) => setDatos(d => ({ ...d, [campo]: val }));
+
+  const validarYFinalizar = () => {
+    if (!esClienteExistente) {
+      if (!datos.nombre.trim() || !datos.telefono.trim() || !datos.mascota.trim()) {
+        return setErr('Por favor completa nombre, teléfono y nombre de tu mascota.');
+      }
+    } else if (!mascotaConocida && !datos.mascota.trim()) {
+      return setErr('Por favor escribe el nombre de tu mascota.');
+    }
+    setErr('');
+    setCampoActivo(null);
+    finalizarTurno();
+  };
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
@@ -229,12 +318,15 @@ export default function KioscoPage() {
 
             {tipoTurno === 'Otro' && (
               <div style={{ marginTop: '1rem' }}>
-                <input
-                  style={bigInp}
+                <CampoConTeclado
                   value={otroDetalle}
-                  onChange={e => setOtroDetalle(e.target.value)}
+                  activo={campoActivo === 'otro'}
+                  onActivar={() => setCampoActivo('otro')}
                   placeholder="Cuéntanos brevemente (opcional)"
                 />
+                {campoActivo === 'otro' && (
+                  <OnScreenKeyboard mode="text" value={otroDetalle} onChange={setOtroDetalle} onDone={() => setCampoActivo(null)} />
+                )}
                 <button style={{ ...bigBtn(C.teal), marginTop: '0.8rem' }} onClick={irACedula}>Continuar</button>
               </div>
             )}
@@ -246,16 +338,15 @@ export default function KioscoPage() {
         {screen === 'existente' && (
           <div>
             <p style={{ color: C.text, fontWeight: 600, marginBottom: '0.8rem' }}>Escribe tu número de cédula</p>
-            <input
-              style={bigInp}
-              type="tel"
-              inputMode="numeric"
-              autoFocus
+            <CampoConTeclado
               value={cedula}
-              onChange={e => setCedula(e.target.value.replace(/\D/g, ''))}
-              onKeyDown={e => e.key === 'Enter' && buscarCliente()}
+              activo={campoActivo === 'cedula'}
+              onActivar={() => setCampoActivo('cedula')}
               placeholder="Número de cédula"
             />
+            {campoActivo === 'cedula' && (
+              <OnScreenKeyboard mode="numeric" value={cedula} onChange={v => setCedula(v.replace(/\D/g, ''))} onDone={() => setCampoActivo(null)} />
+            )}
             {err && <p style={{ color: C.danger, fontSize: '0.9rem', marginTop: '0.6rem' }}>{err}</p>}
 
             {mascotas && (
@@ -263,13 +354,11 @@ export default function KioscoPage() {
                 <p style={{ fontWeight: 600, color: C.text }}>¿A cuál mascota traes hoy?</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                   {mascotas.map(m => (
-                    <button key={m.id} style={bigBtn(C.tealLight, C.tealDark)}
-                      onClick={() => crearTurno({ clientId: clienteEncontrado.id, patientId: m.id, tutorNombre: clienteEncontrado.name, mascotaNombre: m.name })}>
+                    <button key={m.id} style={bigBtn(C.tealLight, C.tealDark)} onClick={() => elegirMascotaExistente(m)}>
                       🐾 {m.name}
                     </button>
                   ))}
-                  <button style={{ ...bigBtn('transparent', C.muted), boxShadow: 'none', fontSize: '0.9rem' }}
-                    onClick={() => crearTurno({ clientId: clienteEncontrado.id, tutorNombre: clienteEncontrado.name })}>
+                  <button style={{ ...bigBtn('transparent', C.muted), boxShadow: 'none', fontSize: '0.9rem' }} onClick={omitirMascotaExistente}>
                     Omitir, no importa cuál
                   </button>
                 </div>
@@ -290,22 +379,75 @@ export default function KioscoPage() {
         {screen === 'nuevo' && (
           <div>
             <p style={{ color: C.text, fontWeight: 600, marginBottom: '0.4rem' }}>¡Bienvenido! Primero, tu cédula</p>
-            <p style={{ color: C.muted, fontSize: '0.88rem', marginBottom: '0.8rem' }}>Con esto ya te damos tu turno. Después de esto podrás escanear un código QR con tu celular para contarnos el motivo de tu visita — pero si no puedes, no hay problema, igual te atendemos.</p>
-            <input
-              style={bigInp}
-              type="tel"
-              inputMode="numeric"
-              autoFocus
+            <CampoConTeclado
               value={cedula}
-              onChange={e => setCedula(e.target.value.replace(/\D/g, ''))}
-              onKeyDown={e => e.key === 'Enter' && crearTurnoNuevo()}
+              activo={campoActivo === 'cedula'}
+              onActivar={() => setCampoActivo('cedula')}
               placeholder="Número de cédula"
             />
+            {campoActivo === 'cedula' && (
+              <OnScreenKeyboard mode="numeric" value={cedula} onChange={v => setCedula(v.replace(/\D/g, ''))} onDone={() => setCampoActivo(null)} />
+            )}
             {err && <p style={{ color: C.danger, fontSize: '0.9rem', marginTop: '0.6rem' }}>{err}</p>}
             <div style={{ display: 'flex', gap: '0.7rem', marginTop: '1.4rem' }}>
               <button style={{ ...bigBtn('white', C.muted), flex: 1 }} onClick={() => setScreen('tipo')}>← Atrás</button>
-              <button style={{ ...bigBtn(C.teal), flex: 2 }} disabled={loading || !cedula.trim()} onClick={crearTurnoNuevo}>
-                {loading ? 'Creando turno…' : 'Obtener mi turno'}
+              <button style={{ ...bigBtn(C.teal), flex: 2 }} disabled={loading || !cedula.trim()} onClick={irADatosNuevo}>
+                Continuar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {screen === 'datos' && (
+          <div>
+            <p style={{ color: C.text, fontWeight: 600, marginBottom: '0.3rem' }}>
+              {esClienteExistente ? 'Cuéntanos de tu visita' : 'Ya casi — completa tus datos'}
+            </p>
+            <p style={{ color: C.muted, fontSize: '0.85rem', marginBottom: '1rem' }}>
+              El motivo es opcional, el resto es obligatorio.
+            </p>
+
+            {!esClienteExistente && (
+              <>
+                <CampoConTeclado label="Tu nombre completo" value={datos.nombre} activo={campoActivo === 'nombre'} onActivar={() => setCampoActivo('nombre')} placeholder="Nombre y apellido" />
+                {campoActivo === 'nombre' && <OnScreenKeyboard mode="text" value={datos.nombre} onChange={v => setDato('nombre', v)} onDone={() => setCampoActivo(null)} />}
+
+                <CampoConTeclado label="Tu teléfono" value={datos.telefono} activo={campoActivo === 'telefono'} onActivar={() => setCampoActivo('telefono')} placeholder="Número de celular" />
+                {campoActivo === 'telefono' && <OnScreenKeyboard mode="numeric" value={datos.telefono} onChange={v => setDato('telefono', v.replace(/\D/g, ''))} onDone={() => setCampoActivo(null)} />}
+
+                <CampoConTeclado label="Nombre de tu mascota" value={datos.mascota} activo={campoActivo === 'mascota'} onActivar={() => setCampoActivo('mascota')} placeholder="Ej: Rex" />
+                {campoActivo === 'mascota' && <OnScreenKeyboard mode="text" value={datos.mascota} onChange={v => setDato('mascota', v)} onDone={() => setCampoActivo(null)} />}
+
+                <div style={{ marginBottom: '0.9rem', textAlign: 'left' }}>
+                  <span style={{ fontWeight: 600, color: C.text, fontSize: '0.88rem', marginBottom: '0.35rem', display: 'block' }}>Especie</span>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    {['Perro', 'Gato', 'Otro'].map(sp => (
+                      <button key={sp} type="button" onClick={() => setDato('especie', sp)}
+                        style={{ flex: 1, padding: '0.8rem', borderRadius: 12, border: `2px solid ${datos.especie === sp ? C.teal : C.border}`, background: datos.especie === sp ? C.teal : 'white', color: datos.especie === sp ? 'white' : C.text, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        {sp}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {esClienteExistente && !mascotaConocida && (
+              <>
+                <CampoConTeclado label="Nombre de tu mascota" value={datos.mascota} activo={campoActivo === 'mascota'} onActivar={() => setCampoActivo('mascota')} placeholder="Ej: Rex" />
+                {campoActivo === 'mascota' && <OnScreenKeyboard mode="text" value={datos.mascota} onChange={v => setDato('mascota', v)} onDone={() => setCampoActivo(null)} />}
+              </>
+            )}
+
+            <CampoConTeclado label="Motivo de la visita (opcional)" value={datos.motivo} activo={campoActivo === 'motivo'} onActivar={() => setCampoActivo('motivo')} multiline placeholder="Ej: vómito desde ayer, control de vacunas..." />
+            {campoActivo === 'motivo' && <OnScreenKeyboard mode="text" value={datos.motivo} onChange={v => setDato('motivo', v)} onDone={() => setCampoActivo(null)} />}
+
+            {err && <p style={{ color: C.danger, fontSize: '0.9rem', marginTop: '0.6rem' }}>{err}</p>}
+
+            <div style={{ display: 'flex', gap: '0.7rem', marginTop: '1.2rem' }}>
+              <button style={{ ...bigBtn('white', C.muted), flex: 1 }} onClick={() => { setCampoActivo(null); setScreen(esClienteExistente ? 'existente' : 'nuevo'); }}>← Atrás</button>
+              <button style={{ ...bigBtn(C.teal), flex: 2 }} disabled={loading} onClick={validarYFinalizar}>
+                {loading ? 'Guardando…' : 'Obtener mi turno'}
               </button>
             </div>
           </div>
@@ -313,24 +455,18 @@ export default function KioscoPage() {
 
         {screen === 'confirmado' && turno && (
           <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '2.6rem' }}>✅</div>
             <div style={{ fontSize: '0.95rem', color: C.muted, marginBottom: '0.3rem' }}>Tu turno es</div>
             <div style={{ fontSize: '2.6rem', fontWeight: 900, color: C.tealDark, lineHeight: 1 }}>{turno.numero}</div>
             <div style={{ marginTop: '0.8rem', background: C.successBg, color: C.success, borderRadius: 12, padding: '0.7rem 1rem', fontWeight: 700 }}>
               {turno.personasAntes === 0 ? 'Eres el siguiente' : `${turno.personasAntes} persona(s) antes de ti`}
               {' · '}~{turno.mins || MIN_POR_TURNO} min de espera aprox.
             </div>
-
-            <div style={{ marginTop: '1.5rem', padding: '1.2rem', background: 'white', borderRadius: 18, border: `1px solid ${C.border}` }}>
-              <p style={{ fontWeight: 700, color: C.text, marginBottom: '0.6rem', fontSize: '0.95rem' }}>
-                📱 Escanea este código con tu celular
-              </p>
-              <p style={{ color: C.muted, fontSize: '0.82rem', marginBottom: '0.9rem' }}>
-                Para contarnos el motivo de tu visita (opcional, nos ayuda a atenderte más rápido)
-              </p>
-              {qrDataUrl && <img src={qrDataUrl} alt="QR" style={{ width: 200, height: 200 }} />}
-              <div style={{ marginTop: '0.8rem', color: C.muted, fontSize: '0.8rem' }}>
-                Volviendo al inicio en {countdown}s…
-              </div>
+            <p style={{ color: C.muted, fontSize: '0.85rem', marginTop: '1rem' }}>
+              Ya registramos tus datos, no necesitas hacer nada más. Sigue tu turno en la pantalla de la sala de espera.
+            </p>
+            <div style={{ marginTop: '0.6rem', color: C.muted, fontSize: '0.8rem' }}>
+              Volviendo al inicio en {countdown}s…
             </div>
 
             <button style={{ ...bigBtn('white', C.muted), marginTop: '1.2rem', fontSize: '0.9rem' }} onClick={resetAll}>
