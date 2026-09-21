@@ -1,5 +1,5 @@
 // Genera un link de pago (Web Checkout) de Wompi para un afiliado de Prepagada.
-// Body esperado: { afiliado_id: number, redirect_url?: string }
+// Body esperado: { afiliado_id: number, meses?: 1|3|6, redirect_url?: string }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const WOMPI_PUBLIC_KEY = Deno.env.get('WOMPI_PUBLIC_KEY')!;
@@ -8,6 +8,9 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+// Descuento por pagar varios meses de una vez (definido por el negocio, sin anual por ahora).
+const DESCUENTO_POR_MESES: Record<number, number> = { 1: 0, 3: 0.05, 6: 0.15 };
 
 async function sha256Hex(text: string): Promise<string> {
   const data = new TextEncoder().encode(text);
@@ -26,7 +29,9 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
 
   try {
-    const { afiliado_id, redirect_url } = await req.json();
+    const { afiliado_id, meses: mesesRaw, redirect_url } = await req.json();
+    const meses = [1, 3, 6].includes(mesesRaw) ? mesesRaw : 1;
+
     if (!afiliado_id) {
       return new Response(JSON.stringify({ error: 'afiliado_id es requerido' }), {
         status: 400,
@@ -47,8 +52,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const reference = `pp-${afiliado.id}-${Date.now()}`;
-    const amountInCents = Math.round(afiliado.precio_mensual * 100);
+    const descuento = DESCUENTO_POR_MESES[meses];
+    const totalPesos = Math.round(afiliado.precio_mensual * meses * (1 - descuento));
+    const reference = `pp-${afiliado.id}-${meses}-${Date.now()}`;
+    const amountInCents = totalPesos * 100;
     const currency = 'COP';
 
     const integrity = await sha256Hex(
@@ -71,7 +78,7 @@ Deno.serve(async (req) => {
 
     const url = `https://checkout.wompi.co/p/?${params.toString()}`;
 
-    return new Response(JSON.stringify({ url, reference }), {
+    return new Response(JSON.stringify({ url, reference, meses, total: totalPesos, descuento }), {
       status: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });

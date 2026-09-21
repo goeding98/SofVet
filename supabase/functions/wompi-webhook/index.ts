@@ -63,9 +63,11 @@ Deno.serve(async (req) => {
   if (!tx) return new Response('OK', { status: 200 }); // evento que no nos interesa
 
   if (tx.status === 'APPROVED') {
-    const match = String(tx.reference || '').match(/^pp-(\d+)-/);
+    // Formato de referencia: pp-{afiliadoId}-{meses}-{timestamp}
+    const match = String(tx.reference || '').match(/^pp-(\d+)-(\d+)-/);
     if (match) {
       const afiliadoId = Number(match[1]);
+      const meses = Number(match[2]) || 1;
       const { data: afiliado } = await supabase
         .from('prepagada_afiliados')
         .select('id, fecha_vencimiento, ultimo_pago_id')
@@ -79,7 +81,7 @@ Deno.serve(async (req) => {
             ? afiliado.fecha_vencimiento
             : hoy;
         const nuevaFecha = new Date(base + 'T00:00:00');
-        nuevaFecha.setMonth(nuevaFecha.getMonth() + 1);
+        nuevaFecha.setMonth(nuevaFecha.getMonth() + meses);
 
         await supabase
           .from('prepagada_afiliados')
