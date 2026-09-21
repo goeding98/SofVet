@@ -31,9 +31,13 @@ export default function PrepagadaV2Page() {
   // a los 30). No toca afiliados ya cancelados a mano.
   useEffect(() => {
     const hoy = nowDate();
+    const anioActual = new Date().getFullYear();
     for (const a of afiliados) {
+      const updates = {};
       const estadoReal = calcularEstadoVencimiento(a, hoy);
-      if (estadoReal !== a.estado) editAfiliado(a.id, { estado: estadoReal });
+      if (estadoReal !== a.estado) updates.estado = estadoReal;
+      if (a.bolsa_anio !== anioActual) { updates.bolsa_anio = anioActual; updates.bolsa_consumida_anual = 0; }
+      if (Object.keys(updates).length) editAfiliado(a.id, updates);
     }
   }, [afiliados]);  // eslint-disable-line react-hooks/exhaustive-deps
 

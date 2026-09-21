@@ -43,13 +43,29 @@ export default function PrepagadaV2DetallePage() {
   const beneficioAnio = beneficios.find(b => b.afiliado_id === afiliadoId && b.anio === anioActual);
   const eventosAfiliado = eventos.filter(e => e.afiliado_id === afiliadoId).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
 
-  // Igual que en la lista: corrige el estado por vencimiento si alguien entra
-  // directo a esta ficha sin pasar antes por /prueba/prepagada.
+  // Igual que en la lista: corrige el estado por vencimiento, y resetea la
+  // bolsa consumida si ya cambió el año, si alguien entra directo a esta
+  // ficha sin pasar antes por /prueba/prepagada.
   useEffect(() => {
     if (!afiliado) return;
+    const anioActual = new Date().getFullYear();
+    const updates = {};
     const estadoReal = calcularEstadoVencimiento(afiliado, nowDate());
-    if (estadoReal !== afiliado.estado) editAfiliado(afiliado.id, { estado: estadoReal });
-  }, [afiliado?.id, afiliado?.estado, afiliado?.fecha_vencimiento]);  // eslint-disable-line react-hooks/exhaustive-deps
+    if (estadoReal !== afiliado.estado) updates.estado = estadoReal;
+    if (afiliado.bolsa_anio !== anioActual) { updates.bolsa_anio = anioActual; updates.bolsa_consumida_anual = 0; }
+    if (Object.keys(updates).length) editAfiliado(afiliado.id, updates);
+  }, [afiliado?.id, afiliado?.estado, afiliado?.fecha_vencimiento, afiliado?.bolsa_anio]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Excepción para pagos en efectivo/transferencia que caja sube a mano —
+  // cuando exista Wompi, esto lo hará el webhook automáticamente.
+  const handleMarcarPagado = () => {
+    if (!afiliado) return;
+    const hoy = nowDate();
+    const base = afiliado.fecha_vencimiento && afiliado.fecha_vencimiento > hoy ? afiliado.fecha_vencimiento : hoy;
+    const nuevaFecha = new Date(base);
+    nuevaFecha.setMonth(nuevaFecha.getMonth() + 1);
+    editAfiliado(afiliado.id, { fecha_vencimiento: nuevaFecha.toISOString().slice(0, 10), estado: 'activo' });
+  };
 
   const [eventoModal, setEventoModal] = useState(false);
   const [evCosto, setEvCosto] = useState('');
@@ -127,11 +143,20 @@ export default function PrepagadaV2DetallePage() {
             <span style={{ background: badge.bg, color: badge.color, padding: '3px 10px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 700 }}>{badge.label}</span>
             <span style={{ background: '#eef6f6', color: '#1e4e54', padding: '3px 10px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 700 }}>Plan {PLAN_LABEL[afiliado.plan]}</span>
           </div>
-          <p style={{ color: '#8A8076', fontSize: '0.9rem' }}>Titular: {cliente?.name || '—'} · {fmtCOP(afiliado.precio_mensual)}/mes · Afiliado desde {afiliado.fecha_afiliacion}</p>
+          <p style={{ color: '#8A8076', fontSize: '0.9rem' }}>Titular: {cliente?.name || '—'} · {fmtCOP(afiliado.precio_mensual)}/mes · Afiliado desde {afiliado.fecha_afiliacion} · Vence {afiliado.fecha_vencimiento || '—'}</p>
         </div>
-        <select value={afiliado.estado} onChange={e => editAfiliado(afiliadoId, { estado: e.target.value })} style={{ padding: '0.5rem 0.8rem', borderRadius: 10, border: '1.5px solid #dfe3ea', fontSize: '0.85rem', fontWeight: 600 }}>
-          {ESTADO_OPTS.map(o => <option key={o} value={o}>{ESTADO_BADGE[o].label}</option>)}
-        </select>
+        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+          <button
+            onClick={handleMarcarPagado}
+            title="Solo para pagos en efectivo/transferencia que caja sube a mano — con Wompi esto será automático"
+            style={{ padding: '0.5rem 0.9rem', background: '#eafaf0', color: '#1e7d45', border: '1px solid #1e7d45', borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            ✅ Marcar pagado
+          </button>
+          <select value={afiliado.estado} onChange={e => editAfiliado(afiliadoId, { estado: e.target.value })} style={{ padding: '0.5rem 0.8rem', borderRadius: 10, border: '1.5px solid #dfe3ea', fontSize: '0.85rem', fontWeight: 600 }}>
+            {ESTADO_OPTS.map(o => <option key={o} value={o}>{ESTADO_BADGE[o].label}</option>)}
+          </select>
+        </div>
       </div>
 
       {/* Bolsa */}
