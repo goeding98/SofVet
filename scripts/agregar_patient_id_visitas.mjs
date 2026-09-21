@@ -1,8 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
+import { config } from 'dotenv';
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+config({ path: path.join(__dirname, '../backend/.env') });
+
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+if (!SUPABASE_SERVICE_KEY) {
+  console.error('❌ SUPABASE_SERVICE_KEY no está definida en backend/.env');
+  process.exit(1);
+}
 
 const SERVICE = createClient(
   'https://lddksdszpwonsqaavjyd.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZGtzZHN6cHdvbnNxYWF2anlkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDczMjQ3NiwiZXhwIjoyMDkwMzA4NDc2fQ.-oQulewunczumyACrAMEI18BeTpSJkfBhOdR2Bsb1Uo'
+  SUPABASE_SERVICE_KEY
 );
 
 const { error } = await SERVICE.rpc('exec_sql', {
