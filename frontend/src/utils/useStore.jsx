@@ -35,6 +35,9 @@ const TABLE_MAP = {
   visitas_hospitalizacion: 'visitas_hospitalizacion',
   citas_especialistas:     'citas_especialistas',
   remisionesInternas:      'remisiones_internas',
+  prepagadaAfiliados:      'prepagada_afiliados',
+  prepagadaBeneficios:     'prepagada_beneficios',
+  prepagadaEventos:        'prepagada_eventos',
 };
 
 // ── Module-level cache (survives navigation, shared across all components) ──
