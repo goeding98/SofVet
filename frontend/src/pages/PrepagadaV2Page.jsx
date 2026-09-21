@@ -17,13 +17,29 @@ const ESTADO_BADGE = {
 
 const PLAN_LABEL = { urgencias: 'Urgencias', total: 'Total' };
 
+const SPECIES = ['Perro', 'Gato', 'Conejo', 'Ave', 'Reptil', 'Otro'];
+const ORIGEN_OPTS = [
+  'Recomendación de amigo/familiar',
+  'Búsqueda en Google de veterinarias abiertas por urgencias',
+  'Instagram/Facebook/TikTok',
+  'Vio el local en la calle',
+  'Volante o publicidad impresa',
+  'Aliado, convenio o médico remitente',
+  'Otro',
+];
+const EMPTY_CLIENTE_NUEVO = { name: '', document: '', phone: '', email: '', address: '', origen: '', origen_otro: '' };
+const EMPTY_MASCOTA_NUEVA = { name: '', species: 'Perro', breed: '', sex: 'Macho', fecha_nacimiento: '', weight: '', esterilizado: 'No', caracter: 'Dócil' };
+
+const inputStyle = { width: '100%', padding: '0.55rem 0.8rem', border: '1.5px solid #dfe3ea', borderRadius: 10, fontSize: '0.85rem', boxSizing: 'border-box', fontFamily: 'inherit' };
+const miniLabelStyle = { display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.3rem', textTransform: 'uppercase' };
+
 export default function PrepagadaV2Page() {
   const navigate = useNavigate();
   const { session } = useAuth();
   const { items: afiliados, add: addAfiliado, edit: editAfiliado } = useStore('prepagadaAfiliados');
   const { add: addBeneficios } = useStore('prepagadaBeneficios');
-  const { items: clients } = useStore('clients');
-  const { items: patients } = useStore('patients');
+  const { items: clients, add: addClient } = useStore('clients');
+  const { items: patients, add: addPet } = useStore('patients');
 
   // Vencimiento automático: cada vez que se abre esta lista, revisa si algún
   // afiliado ya venció y le pone el estado que le corresponda según el
@@ -50,10 +66,78 @@ export default function PrepagadaV2Page() {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
+  // Crear cliente nuevo desde el modal (venta en clínica o lead de redes sociales)
+  const [crearClienteModo, setCrearClienteModo] = useState(false);
+  const [clienteNuevo, setClienteNuevo] = useState(EMPTY_CLIENTE_NUEVO);
+  const [savingCliente, setSavingCliente] = useState(false);
+  const [errCliente, setErrCliente] = useState('');
+
+  // Registrar mascota nueva para el cliente seleccionado
+  const [crearMascotaModo, setCrearMascotaModo] = useState(false);
+  const [mascotaNueva, setMascotaNueva] = useState(EMPTY_MASCOTA_NUEVA);
+  const [savingMascota, setSavingMascota] = useState(false);
+  const [errMascota, setErrMascota] = useState('');
+
   const abrirModal = () => {
     setBusquedaCliente(''); setClienteSel(null); setMascotaSel(null);
     setPlan('urgencias'); setFechaAfiliacion(nowDate()); setErr('');
+    setCrearClienteModo(false); setClienteNuevo(EMPTY_CLIENTE_NUEVO); setErrCliente('');
+    setCrearMascotaModo(false); setMascotaNueva(EMPTY_MASCOTA_NUEVA); setErrMascota('');
     setModal(true);
+  };
+
+  const handleCrearCliente = async () => {
+    if (!clienteNuevo.name.trim())     return setErrCliente('El nombre es requerido.');
+    if (!clienteNuevo.document.trim()) return setErrCliente('La cédula es requerida.');
+    if (!clienteNuevo.phone.trim())    return setErrCliente('El teléfono es requerido.');
+    if (!clienteNuevo.origen)          return setErrCliente('Selecciona cómo nos conoció.');
+    if (clienteNuevo.origen === 'Otro' && !clienteNuevo.origen_otro?.trim()) return setErrCliente('Cuéntanos brevemente en "Otro" cómo nos conoció.');
+
+    const docNorm = clienteNuevo.document.trim();
+    const duplicado = clients.find(c => (c.document || '').trim() === docNorm);
+    if (duplicado) return setErrCliente(`Ya existe un cliente con esa cédula: ${duplicado.name}. Búscalo arriba.`);
+
+    setSavingCliente(true); setErrCliente('');
+    let saveErr = null;
+    const nuevo = await addClient({
+      ...clienteNuevo,
+      cedula: clienteNuevo.document,
+      created_at: nowDate(),
+    }, { onError: (m) => { saveErr = m; } });
+    setSavingCliente(false);
+    if (!nuevo) return setErrCliente('Error al crear cliente: ' + saveErr);
+
+    setClienteSel(nuevo);
+    setCrearClienteModo(false);
+    setClienteNuevo(EMPTY_CLIENTE_NUEVO);
+  };
+
+  const handleCrearMascota = async () => {
+    if (!clienteSel) return;
+    const f = mascotaNueva;
+    if (!f.name.trim() || !f.breed.trim() || !f.fecha_nacimiento || !f.weight || !f.sex || !f.esterilizado || !f.caracter) {
+      return setErrMascota('Completa todos los campos requeridos.');
+    }
+    setSavingMascota(true); setErrMascota('');
+    const age = Math.floor((new Date() - new Date(f.fecha_nacimiento)) / (365.25 * 24 * 3600 * 1000));
+    let saveErr = null;
+    const nueva = await addPet({
+      ...f,
+      client_id: clienteSel.id,
+      owner: clienteSel.name,
+      owner_phone: clienteSel.phone,
+      owner_email: clienteSel.email,
+      age,
+      weight: parseFloat(f.weight) || 0,
+      status: 'activo',
+      created_at: nowDate(),
+    }, { onError: (m) => { saveErr = m; } });
+    setSavingMascota(false);
+    if (!nueva) return setErrMascota('Error al registrar mascota: ' + saveErr);
+
+    setMascotaSel(nueva);
+    setCrearMascotaModo(false);
+    setMascotaNueva(EMPTY_MASCOTA_NUEVA);
   };
 
   const clientesFiltrados = busquedaCliente.trim().length < 2 ? [] : clients.filter(c =>
@@ -195,18 +279,51 @@ export default function PrepagadaV2Page() {
             </div>
             <div style={{ padding: '1.5rem' }}>
               {!clienteSel ? (
-                <>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Buscar cliente (nombre o cédula)</label>
-                  <input autoFocus value={busquedaCliente} onChange={e => setBusquedaCliente(e.target.value)} placeholder="Ej: Ana Campo, o su cédula..." style={{ width: '100%', padding: '0.6rem 0.85rem', border: '1.5px solid #dfe3ea', borderRadius: 10, fontSize: '0.9rem', boxSizing: 'border-box' }} />
-                  <div style={{ marginTop: '0.6rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    {clientesFiltrados.map(c => (
-                      <button key={c.id} onClick={() => setClienteSel(c)} style={{ textAlign: 'left', padding: '0.6rem 0.85rem', background: '#f7f9fc', border: '1px solid #eceff3', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit' }}>
-                        <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>{c.name}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#8A8076' }}>CC {c.document || '—'}</div>
-                      </button>
-                    ))}
-                  </div>
-                </>
+                crearClienteModo ? (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+                      <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#316d74' }}>Cliente nuevo</h4>
+                      <button onClick={() => { setCrearClienteModo(false); setErrCliente(''); }} style={{ background: 'none', border: 'none', color: '#8A8076', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>← Volver a buscar</button>
+                    </div>
+                    <div style={{ marginBottom: '0.8rem' }}><label style={miniLabelStyle}>Nombre completo *</label><input style={inputStyle} value={clienteNuevo.name} onChange={e => setClienteNuevo(f => ({ ...f, name: e.target.value }))} /></div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.8rem' }}>
+                      <div><label style={miniLabelStyle}>Cédula *</label><input style={inputStyle} value={clienteNuevo.document} onChange={e => setClienteNuevo(f => ({ ...f, document: e.target.value }))} /></div>
+                      <div><label style={miniLabelStyle}>Teléfono *</label><input style={inputStyle} value={clienteNuevo.phone} onChange={e => setClienteNuevo(f => ({ ...f, phone: e.target.value }))} /></div>
+                    </div>
+                    <div style={{ marginBottom: '0.8rem' }}><label style={miniLabelStyle}>Correo</label><input style={inputStyle} type="email" value={clienteNuevo.email} onChange={e => setClienteNuevo(f => ({ ...f, email: e.target.value }))} /></div>
+                    <div style={{ marginBottom: '0.8rem' }}><label style={miniLabelStyle}>Dirección</label><input style={inputStyle} value={clienteNuevo.address} onChange={e => setClienteNuevo(f => ({ ...f, address: e.target.value }))} /></div>
+                    <div style={{ marginBottom: '0.8rem' }}>
+                      <label style={miniLabelStyle}>¿Cómo nos conoció? *</label>
+                      <select style={inputStyle} value={clienteNuevo.origen} onChange={e => setClienteNuevo(f => ({ ...f, origen: e.target.value, origen_otro: e.target.value === 'Otro' ? f.origen_otro : '' }))}>
+                        <option value="">— Selecciona una opción —</option>
+                        {ORIGEN_OPTS.map(o => <option key={o}>{o}</option>)}
+                      </select>
+                      {clienteNuevo.origen === 'Otro' && (
+                        <input style={{ ...inputStyle, marginTop: '0.5rem' }} placeholder="Cuéntanos brevemente..." value={clienteNuevo.origen_otro} onChange={e => setClienteNuevo(f => ({ ...f, origen_otro: e.target.value }))} />
+                      )}
+                    </div>
+                    {errCliente && <p style={{ color: '#c0392b', fontSize: '0.82rem', marginBottom: '0.8rem' }}>{errCliente}</p>}
+                    <button onClick={handleCrearCliente} disabled={savingCliente} style={{ width: '100%', padding: '0.75rem', background: savingCliente ? '#ccc' : '#316d74', color: 'white', border: 'none', borderRadius: 10, fontWeight: 800, fontSize: '0.9rem', cursor: savingCliente ? 'not-allowed' : 'pointer' }}>
+                      {savingCliente ? 'Creando…' : 'Crear cliente y continuar'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Buscar cliente (nombre o cédula)</label>
+                    <input autoFocus value={busquedaCliente} onChange={e => setBusquedaCliente(e.target.value)} placeholder="Ej: Ana Campo, o su cédula..." style={{ width: '100%', padding: '0.6rem 0.85rem', border: '1.5px solid #dfe3ea', borderRadius: 10, fontSize: '0.9rem', boxSizing: 'border-box' }} />
+                    <div style={{ marginTop: '0.6rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                      {clientesFiltrados.map(c => (
+                        <button key={c.id} onClick={() => setClienteSel(c)} style={{ textAlign: 'left', padding: '0.6rem 0.85rem', background: '#f7f9fc', border: '1px solid #eceff3', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>{c.name}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#8A8076' }}>CC {c.document || '—'}</div>
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={() => setCrearClienteModo(true)} style={{ marginTop: '0.8rem', width: '100%', textAlign: 'center', padding: '0.6rem', background: 'white', border: '1.5px dashed #316d74', color: '#316d74', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.85rem' }}>
+                      + Crear cliente nuevo
+                    </button>
+                  </>
+                )
               ) : (
                 <>
                   <div style={{ background: '#eef6f6', border: '1px solid #bfe0e0', borderRadius: 10, padding: '0.6rem 0.85rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -218,16 +335,67 @@ export default function PrepagadaV2Page() {
                   </div>
 
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Mascota</label>
-                  {mascotasDelCliente.length === 0 ? (
-                    <p style={{ fontSize: '0.85rem', color: '#8A8076' }}>Este cliente no tiene mascotas registradas.</p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '1rem' }}>
-                      {mascotasDelCliente.map(m => (
-                        <button key={m.id} onClick={() => setMascotaSel(m)} style={{ textAlign: 'left', padding: '0.55rem 0.85rem', background: mascotaSel?.id === m.id ? '#316d74' : '#f7f9fc', color: mascotaSel?.id === m.id ? 'white' : '#1c2333', border: `1px solid ${mascotaSel?.id === m.id ? '#316d74' : '#eceff3'}`, borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.85rem' }}>
-                          🐾 {m.name} — {m.species}
-                        </button>
-                      ))}
+
+                  {crearMascotaModo ? (
+                    <div style={{ marginBottom: '1rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#316d74' }}>Mascota nueva</span>
+                        <button onClick={() => { setCrearMascotaModo(false); setErrMascota(''); }} style={{ background: 'none', border: 'none', color: '#8A8076', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>← Cancelar</button>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.6rem' }}>
+                        <div><label style={miniLabelStyle}>Nombre *</label><input style={inputStyle} value={mascotaNueva.name} onChange={e => setMascotaNueva(f => ({ ...f, name: e.target.value }))} /></div>
+                        <div><label style={miniLabelStyle}>Especie</label>
+                          <select style={inputStyle} value={mascotaNueva.species} onChange={e => setMascotaNueva(f => ({ ...f, species: e.target.value }))}>
+                            {SPECIES.map(s => <option key={s}>{s}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.6rem' }}>
+                        <div><label style={miniLabelStyle}>Raza *</label><input style={inputStyle} value={mascotaNueva.breed} onChange={e => setMascotaNueva(f => ({ ...f, breed: e.target.value }))} /></div>
+                        <div><label style={miniLabelStyle}>Sexo *</label>
+                          <select style={inputStyle} value={mascotaNueva.sex} onChange={e => setMascotaNueva(f => ({ ...f, sex: e.target.value }))}>
+                            <option>Macho</option><option>Hembra</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.6rem' }}>
+                        <div><label style={miniLabelStyle}>Fecha nacimiento *</label><input type="date" style={inputStyle} value={mascotaNueva.fecha_nacimiento} onChange={e => setMascotaNueva(f => ({ ...f, fecha_nacimiento: e.target.value }))} /></div>
+                        <div><label style={miniLabelStyle}>Peso (kg) *</label><input type="number" style={inputStyle} value={mascotaNueva.weight} onChange={e => setMascotaNueva(f => ({ ...f, weight: e.target.value }))} /></div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.8rem' }}>
+                        <div><label style={miniLabelStyle}>Esterilizado *</label>
+                          <select style={inputStyle} value={mascotaNueva.esterilizado} onChange={e => setMascotaNueva(f => ({ ...f, esterilizado: e.target.value }))}>
+                            <option>No</option><option>Sí</option>
+                          </select>
+                        </div>
+                        <div><label style={miniLabelStyle}>Carácter *</label>
+                          <select style={inputStyle} value={mascotaNueva.caracter} onChange={e => setMascotaNueva(f => ({ ...f, caracter: e.target.value }))}>
+                            {['Dócil', 'Calmado', 'Nervioso', 'Agresivo'].map(c => <option key={c}>{c}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      {errMascota && <p style={{ color: '#c0392b', fontSize: '0.82rem', marginBottom: '0.8rem' }}>{errMascota}</p>}
+                      <button onClick={handleCrearMascota} disabled={savingMascota} style={{ width: '100%', padding: '0.7rem', background: savingMascota ? '#ccc' : '#316d74', color: 'white', border: 'none', borderRadius: 10, fontWeight: 800, fontSize: '0.88rem', cursor: savingMascota ? 'not-allowed' : 'pointer' }}>
+                        {savingMascota ? 'Registrando…' : 'Registrar mascota y continuar'}
+                      </button>
                     </div>
+                  ) : (
+                    <>
+                      {mascotasDelCliente.length === 0 ? (
+                        <p style={{ fontSize: '0.85rem', color: '#8A8076', marginBottom: '0.8rem' }}>Este cliente no tiene mascotas registradas.</p>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.8rem' }}>
+                          {mascotasDelCliente.map(m => (
+                            <button key={m.id} onClick={() => setMascotaSel(m)} style={{ textAlign: 'left', padding: '0.55rem 0.85rem', background: mascotaSel?.id === m.id ? '#316d74' : '#f7f9fc', color: mascotaSel?.id === m.id ? 'white' : '#1c2333', border: `1px solid ${mascotaSel?.id === m.id ? '#316d74' : '#eceff3'}`, borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.85rem' }}>
+                              🐾 {m.name} — {m.species}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <button onClick={() => setCrearMascotaModo(true)} style={{ width: '100%', textAlign: 'center', padding: '0.55rem', background: 'white', border: '1.5px dashed #316d74', color: '#316d74', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.82rem', marginBottom: '1rem' }}>
+                        + Registrar mascota nueva
+                      </button>
+                    </>
                   )}
 
                   {mascotaSel && (

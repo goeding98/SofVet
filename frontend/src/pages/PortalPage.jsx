@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { ageLabel } from '../utils/ageLabel';
+import { calcularTotalMeses } from '../utils/prepagadaPrecios';
+
+const fmtCOP = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v || 0);
+const PREP_ESTADO_BADGE = {
+  activo:      { bg: '#eafaf0', color: '#1e7d45', label: 'Al día' },
+  en_gracia:   { bg: '#fff8e1', color: '#b8860b', label: 'En gracia' },
+  suspendido:  { bg: '#fdecea', color: '#c0392b', label: 'Suspendido' },
+  cancelado:   { bg: '#f0f2f6', color: '#8A8076', label: 'Cancelado' },
+};
 
 const C = {
   bg:'#FFF9F4', teal:'#316d74', tealDark:'#1e4e54', tealLight:'#e8f5f6',
@@ -283,6 +292,24 @@ export default function PortalPage() {
   // ── Carnet modal ──────────────────────────────────────────────────────────
   const [carnetModal, setCarnetModal] = useState(null); // { pet, type: 'vacunas'|'despar' }
 
+  // ── Pago Prepagada (Wompi) ──────────────────────────────────────────────────
+  const [pagandoId, setPagandoId] = useState(null); // afiliado_id en curso
+  const [pagoErr,   setPagoErr]   = useState('');
+
+  const handlePagarPrepagada = async (afiliadoId, meses) => {
+    setPagandoId(afiliadoId); setPagoErr('');
+    try {
+      const { data, error } = await supabase.functions.invoke('wompi-generar-link', {
+        body: { afiliado_id: afiliadoId, meses, redirect_url: window.location.origin + '/portal' },
+      });
+      if (error || !data?.url) throw new Error(error?.message || 'Sin URL en la respuesta');
+      window.location.href = data.url;
+    } catch (e) {
+      setPagoErr('No se pudo generar el pago. Intenta de nuevo o comunícate con la clínica.');
+      setPagandoId(null);
+    }
+  };
+
   const handleCancelAppointment = async (id) => {
     const { error } = await supabase.from('appointments').update({ status: 'cancelada' }).eq('id', id);
     if (error) return alert('Error al cancelar: ' + error.message);
@@ -331,7 +358,7 @@ export default function PortalPage() {
     const names = pets.map(p => p.name);
     const tod = today();
 
-    const [vR, cR, pR, lR, aR, iR, hR, hrR, ppR] = await Promise.all([
+    const [vR, cR, pR, lR, aR, iR, hR, hrR, ppR, pv2R] = await Promise.all([
       supabase.from('vaccines').select('patient_id,vaccine_name,date_applied,next_dose,vet').in('patient_id', ids).order('date_applied', { ascending: true }),
       supabase.from('consultations').select('patient_id,motivo_consulta,date,created_at').in('patient_id', ids).order('created_at', { ascending: false }),
       supabase.from('procedimientos').select('patient_id,tipo,descripcion,fecha,anestesia').in('patient_id', ids).order('fecha', { ascending: false }),
@@ -341,9 +368,10 @@ export default function PortalPage() {
       supabase.from('hospitalization').select('patient_id,motivo,diagnostico,ingreso_date,alta_date,status').in('patient_id', ids).order('ingreso_date', { ascending: false }),
       supabase.from('hc_requests').select('*').eq('client_id', cl.id).order('requested_at', { ascending: false }),
       supabase.from('prepagada').select('patient_id,status,paid_until').in('patient_id', ids).neq('status','baja'),
+      supabase.from('prepagada_afiliados').select('id,patient_id,plan,precio_mensual,fecha_vencimiento,estado').in('patient_id', ids),
     ]);
 
-    const vac=vR.data||[], con=cR.data||[], proc=pR.data||[], lab=lR.data||[], apt=aR.data||[], img=iR.data||[], hosp=hR.data||[], hcReqs=hrR.data||[], prep=ppR.data||[];
+    const vac=vR.data||[], con=cR.data||[], proc=pR.data||[], lab=lR.data||[], apt=aR.data||[], img=iR.data||[], hosp=hR.data||[], hcReqs=hrR.data||[], prep=ppR.data||[], prepV2All=pv2R.data||[];
 
     setClient(cl);
     setData({ pets: pets.map(p => ({
@@ -360,6 +388,7 @@ export default function PortalPage() {
       hosps:      hosp.filter(h => h.patient_id===p.id),
       hcReq:      hcReqs.find(r => r.patient_id===p.id) || null,
       prepagada:  prep.find(x => x.patient_id===p.id) || null,
+      prepV2:     prepV2All.find(x => x.patient_id===p.id) || null,
     }))});
   };
 
@@ -1254,7 +1283,8 @@ export default function PortalPage() {
               { key:'laboratorios',     label:'Laboratorios',    icon:'🧪', count: pet.labs.length },
               { key:'imagenologia',     label:'Imagenología',    icon:'🩻', count: pet.imaging.length },
               { key:'hospitalizacion',  label:'Hospitalización', icon:'🏥', count: pet.hosps.length },
-            ];
+              pet.prepV2 && { key:'prepagada', label:'Mi Plan', icon:'💳' },
+            ].filter(Boolean);
             return (
               <div key={pet.id} style={{ background:'white', borderRadius:20, boxShadow:'0 2px 20px rgba(0,0,0,0.07)', marginBottom:'1.75rem', overflow:'hidden' }}>
 
@@ -1464,6 +1494,54 @@ export default function PortalPage() {
                     </div>
                   )}
 
+                  {/* ── PREPAGADA (Mi Plan) ── */}
+                  {activeTab === 'prepagada' && pet.prepV2 && (() => {
+                    const p2 = pet.prepV2;
+                    const badge = PREP_ESTADO_BADGE[p2.estado] || PREP_ESTADO_BADGE.activo;
+                    const puedePagar = p2.estado !== 'cancelado';
+                    return (
+                      <div>
+                        <div style={{ display:'flex', alignItems:'center', gap:'0.6rem', marginBottom:'1rem', flexWrap:'wrap' }}>
+                          <span style={{ background:badge.bg, color:badge.color, padding:'4px 12px', borderRadius:999, fontSize:'0.78rem', fontWeight:700 }}>{badge.label}</span>
+                          <span style={{ fontSize:'0.85rem', color:C.muted }}>Plan {p2.plan === 'total' ? 'Total' : 'Urgencias'} · {fmtCOP(p2.precio_mensual)}/mes · Vence {fmt(p2.fecha_vencimiento)}</span>
+                        </div>
+
+                        {(p2.estado === 'en_gracia' || p2.estado === 'suspendido') && (
+                          <div style={{ background:'#fff8e1', border:'1px solid #f0d98c', borderRadius:12, padding:'0.7rem 1rem', marginBottom:'1rem', fontSize:'0.82rem', color:'#8a6d00' }}>
+                            ⚠️ Tu plan {p2.estado === 'en_gracia' ? 'está vencido' : 'está suspendido'}. Ponte al día para seguir usando tus beneficios.
+                          </div>
+                        )}
+
+                        {puedePagar ? (
+                          <>
+                            <div style={{ fontSize:'0.78rem', fontWeight:700, color:C.tealDark, textTransform:'uppercase', marginBottom:'0.6rem' }}>Pagar mi plan</div>
+                            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'0.7rem' }}>
+                              {[1, 3, 6].map(meses => {
+                                const total = calcularTotalMeses(p2.precio_mensual, meses);
+                                const dto = meses === 3 ? '5% dto.' : meses === 6 ? '15% dto.' : null;
+                                return (
+                                  <button
+                                    key={meses}
+                                    disabled={pagandoId !== null}
+                                    onClick={() => handlePagarPrepagada(p2.id, meses)}
+                                    style={{ padding:'0.9rem 0.8rem', background:'white', border:`1.5px solid ${C.teal}`, borderRadius:14, cursor: pagandoId ? 'default' : 'pointer', fontFamily:'inherit', textAlign:'center', opacity: pagandoId && pagandoId !== p2.id ? 0.5 : 1 }}
+                                  >
+                                    <div style={{ fontWeight:700, fontSize:'0.85rem', color:C.tealDark }}>{meses === 1 ? '1 mes' : `${meses} meses`}</div>
+                                    <div style={{ fontWeight:800, fontSize:'1.05rem', color:C.teal, margin:'0.2rem 0' }}>{fmtCOP(total)}</div>
+                                    {dto && <div style={{ fontSize:'0.7rem', color:'#1e7d45', fontWeight:700 }}>{dto}</div>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {pagandoId === p2.id && <p style={{ fontSize:'0.8rem', color:C.muted, marginTop:'0.8rem' }}>Redirigiendo a la pasarela de pago…</p>}
+                            {pagoErr && <p style={{ fontSize:'0.8rem', color:C.danger, marginTop:'0.8rem' }}>⚠️ {pagoErr}</p>}
+                          </>
+                        ) : (
+                          <p style={{ fontSize:'0.85rem', color:C.muted }}>Tu plan está cancelado. Comunícate con la clínica si deseas reactivarlo.</p>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                 </div>
 

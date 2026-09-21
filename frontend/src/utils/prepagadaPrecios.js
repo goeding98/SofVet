@@ -16,6 +16,15 @@ export function calcularPrecioPrepagada(plan, numeroMascota) {
   return Math.round(base * (1 - descuento));
 }
 
+// Descuento por pagar varios meses de una vez desde el Portal del Cliente
+// (sin anual por ahora). Debe coincidir con supabase/functions/wompi-generar-link.
+export const DESCUENTO_POR_MESES = { 1: 0, 3: 0.05, 6: 0.15 };
+
+export function calcularTotalMeses(precioMensual, meses) {
+  const descuento = DESCUENTO_POR_MESES[meses] ?? 0;
+  return Math.round(precioMensual * meses * (1 - descuento));
+}
+
 export const BENEFICIOS_TOTAL_ANUAL = {
   consultas: 12,
   vacunas: 1,
