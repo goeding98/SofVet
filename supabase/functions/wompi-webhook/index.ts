@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
   }
 
   const concatenated =
-    properties.map((p: string) => String(getByPath(payload, p))).join('') +
+    properties.map((p: string) => String(getByPath(payload.data, p))).join('') +
     String(timestamp) +
     WOMPI_EVENTS_SECRET;
   const expectedChecksum = (await sha256Hex(concatenated)).toUpperCase();
