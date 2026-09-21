@@ -1276,14 +1276,15 @@ export default function PortalPage() {
             </div>
           ) : data.pets.map(pet => {
             const activeTab = getTab(pet.id);
+            const planNeedsAttention = pet.prepV2 && pet.prepV2.estado !== 'activo' && pet.prepV2.estado !== 'cancelado';
             const TABS = [
               { key:'resumen',          label:'Resumen',         icon:'🏠' },
+              pet.prepV2 && { key:'prepagada', label: planNeedsAttention ? '¡Pagar plan!' : 'Mi Plan', icon: planNeedsAttention ? '⚠️' : '💳', alert: planNeedsAttention },
               { key:'consultas',        label:'Consultas',       icon:'📋', count: pet.consults.length },
               { key:'procedimientos',   label:'Procedimientos',  icon:'⚕️', count: pet.procs.length },
               { key:'laboratorios',     label:'Laboratorios',    icon:'🧪', count: pet.labs.length },
               { key:'imagenologia',     label:'Imagenología',    icon:'🩻', count: pet.imaging.length },
               { key:'hospitalizacion',  label:'Hospitalización', icon:'🏥', count: pet.hosps.length },
-              pet.prepV2 && { key:'prepagada', label:'Mi Plan', icon:'💳' },
             ].filter(Boolean);
             return (
               <div key={pet.id} style={{ background:'white', borderRadius:20, boxShadow:'0 2px 20px rgba(0,0,0,0.07)', marginBottom:'1.75rem', overflow:'hidden' }}>
@@ -1318,10 +1319,11 @@ export default function PortalPage() {
                 <div style={{ display:'flex', borderBottom:`1px solid ${C.border}`, overflowX:'auto', scrollbarWidth:'none' }}>
                   {TABS.map(t => (
                     <button key={t.key} onClick={() => setTab(pet.id, t.key)} style={{
-                      padding:'0.7rem 1rem', border:'none', background:'transparent',
-                      cursor:'pointer', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:activeTab===t.key?700:500,
-                      color: activeTab===t.key ? C.teal : C.muted,
-                      borderBottom: activeTab===t.key ? `2.5px solid ${C.teal}` : '2.5px solid transparent',
+                      padding:'0.7rem 1rem', border:'none',
+                      background: t.alert ? '#fff3e0' : 'transparent',
+                      cursor:'pointer', fontFamily:'inherit', fontSize:'0.78rem', fontWeight: (activeTab===t.key || t.alert) ?700:500,
+                      color: t.alert ? '#b8860b' : activeTab===t.key ? C.teal : C.muted,
+                      borderBottom: activeTab===t.key ? `2.5px solid ${t.alert ? '#b8860b' : C.teal}` : '2.5px solid transparent',
                       whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:'0.3rem',
                       transition:'all 0.15s',
                     }}>
