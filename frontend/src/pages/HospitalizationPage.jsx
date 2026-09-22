@@ -299,6 +299,7 @@ export default function HospitalizationPage() {
   // ── view state ─────────────────────────────────────────────────────────
   const [selectedId,     setSelectedId]     = useState(null);
   const [showNoCobradas, setShowNoCobradas] = useState(false);
+  const [showUltimasAltas, setShowUltimasAltas] = useState(false);
   const [resumenHosp,    setResumenHosp]    = useState(null);
 
   // ── apply modal ─────────────────────────────────────────────────────────
@@ -355,6 +356,10 @@ export default function HospitalizationPage() {
   const activosCompleta = activos.filter(h => h.tipo !== 'semi').sort((a, b) => (b.viral ? 1 : 0) - (a.viral ? 1 : 0));
   const activosSemi     = activos.filter(h => h.tipo === 'semi');
   const noCobradas = hosps.filter(h => h.status === 'no_cobrada' && (hospSedeFilter === null || h.sede_id === hospSedeFilter)).slice(-20).reverse();
+  const ultimasAltas = hosps
+    .filter(h => (h.status === 'cobrada' || h.status === 'no_cobrada') && (hospSedeFilter === null || h.sede_id === hospSedeFilter))
+    .sort((a, b) => `${b.alta_date || ''}T${b.alta_time || ''}`.localeCompare(`${a.alta_date || ''}T${a.alta_time || ''}`))
+    .slice(0, 15);
   const selected    = hosps.find(h => h.id === selectedId);
   const applyHosp   = hosps.find(h => h.id === applyHospId);
   const editTxHosp  = hosps.find(h => h.id === editTxHospId);
@@ -852,9 +857,17 @@ export default function HospitalizationPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1>Hospitalización</h1>
-        <p>{activosCompleta.length} hospitalización completa · {activosSemi.length} semi-hospitalización · {noCobradas.length} sin cobrar</p>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '1rem', flexWrap: 'wrap' }}>
+        <div>
+          <h1>Hospitalización</h1>
+          <p>{activosCompleta.length} hospitalización completa · {activosSemi.length} semi-hospitalización · {noCobradas.length} sin cobrar</p>
+        </div>
+        <button
+          onClick={() => setShowUltimasAltas(v => !v)}
+          style={{ padding: '0.3rem 0.7rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', fontSize: '0.72rem', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, background: showUltimasAltas ? 'var(--color-bg)' : 'transparent', color: 'var(--color-text-muted)' }}
+        >
+          🕓 Últimos dados de alta
+        </button>
       </div>
 
       {/* ── Section 1: Active ── */}
@@ -1465,6 +1478,63 @@ export default function HospitalizationPage() {
                               🗑 Eliminar
                             </button>
                           </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {showUltimasAltas && (
+        <Card
+          title={`Últimos dados de alta (${ultimasAltas.length})`}
+          style={{ marginBottom: '1.5rem' }}
+        >
+          {ultimasAltas.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🕓</div>
+              <p>Todavía no hay altas registradas{hospSedeFilter ? ' en esta sede' : ''}.</p>
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
+                    {['Cliente', 'Mascota', 'Sede', 'Fecha ingreso', 'Fecha alta', 'Duración', 'Estado', ''].map(h => (
+                      <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {ultimasAltas.map((h, idx) => {
+                    const dur = h.duration_days || calcDuration(h.ingreso_date, h.alta_date);
+                    return (
+                      <tr key={h.id} style={{ borderBottom: '1px solid var(--color-border)', background: idx % 2 === 0 ? 'transparent' : 'var(--color-bg)' }}>
+                        <td style={{ padding: '0.85rem 1rem', fontSize: '0.875rem', fontWeight: 500 }}>{h.client_name}</td>
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span>{speciesIcon(h.species)}</span>
+                            <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{h.patient_name}</span>
+                          </div>
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem' }}>{sedeBadge(h.sede_id)}</td>
+                        <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem' }}>{h.ingreso_date}</td>
+                        <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem' }}>{h.alta_date || '—'}{h.alta_time ? ` · ${h.alta_time}` : ''}</td>
+                        <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem' }}>
+                          {dur ? <span style={{ fontWeight: 600 }}>{dur} día{dur !== 1 ? 's' : ''}</span> : '—'}
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                          {h.status === 'cobrada'
+                            ? <span style={{ background: 'var(--color-success-bg, #eafaf0)', color: 'var(--color-success)', padding: '2px 8px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 600 }}>✅ Cobrada</span>
+                            : <span style={{ background: '#fff8e1', color: '#b8860b', padding: '2px 8px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 600 }}>Sin cobrar</span>
+                          }
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                          <button onClick={() => setResumenHosp(h)} style={btnStyle('var(--color-primary)')}>📋 Resumen</button>
                         </td>
                       </tr>
                     );
