@@ -3,6 +3,7 @@ import { useAuth } from '../utils/useAuth';
 import { useStore } from '../utils/useStore';
 import { supabase } from '../utils/supabaseClient';
 import { nowDate, nowTime } from '../utils/nowLocal';
+import * as XLSX from 'xlsx';
 
 const TIPO_LABEL  = { ml: 'ML', ampolla: 'Amp.', unidad: 'Und.' };
 const TIPO_COLOR  = { ml: '#1565c0', ampolla: '#7c3aed', unidad: '#065f46' };
@@ -46,6 +47,28 @@ export default function InventarioPage() {
   const itemsAgotado = inventario.filter(i => statusOf(i) === 'agotado').length;
 
   const unidad = (item) => item.tipo === 'ampolla' ? 'amp.' : item.tipo === 'unidad' ? 'und.' : 'ml';
+
+  const handleDescargarExcel = () => {
+    const rows = items.map(item => ({
+      'Código':        item.codigo || '',
+      'Medicamento':   item.nombre,
+      'Tipo':          TIPO_LABEL[item.tipo],
+      'Stock actual':  parseFloat(fmt(item.stock).replace(',', '.')),
+      'Unidad':        unidad(item),
+      'Mínimo':        item.stock_minimo,
+      'Estado':        STATUS_CFG[statusOf(item)].label,
+      'ml/ampolla':    item.tipo === 'ampolla' ? (item.ml_por_ampolla || '') : '',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [
+      { wch: 10 }, { wch: 34 }, { wch: 10 }, { wch: 13 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+    XLSX.writeFile(wb, `inventario_${nowDate()}.xlsx`);
+  };
 
   const openModal = (accion, item) => {
     setModal({ accion, item });
@@ -148,7 +171,13 @@ export default function InventarioPage() {
             ✕ Filtro: {filtroEstado}
           </button>
         )}
-        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'auto' }}>{items.length} items</span>
+        <button
+          onClick={handleDescargarExcel}
+          style={{ padding: '0.45rem 0.9rem', borderRadius: 'var(--radius-sm)', border: '1px solid #15803d', background: '#dcfce7', color: '#15803d', fontFamily: 'var(--font-body)', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', marginLeft: 'auto' }}
+        >
+          ⬇ Descargar Excel
+        </button>
+        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{items.length} items</span>
       </div>
 
       {/* Tabla */}
