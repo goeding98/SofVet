@@ -356,6 +356,11 @@ export default function HospitalizationPage() {
   const activosCompleta = activos.filter(h => h.tipo !== 'semi').sort((a, b) => (b.viral ? 1 : 0) - (a.viral ? 1 : 0));
   const activosSemi     = activos.filter(h => h.tipo === 'semi');
   const noCobradas = hosps.filter(h => h.status === 'no_cobrada' && (hospSedeFilter === null || h.sede_id === hospSedeFilter)).slice(-20).reverse();
+  const irAFichaCliente = (h) => {
+    const paciente = patients.find(p => p.id === h.patient_id);
+    if (paciente?.client_id) navigate(`/clients/${paciente.client_id}`);
+  };
+
   const ultimasAltas = hosps
     .filter(h => (h.status === 'cobrada' || h.status === 'no_cobrada') && (hospSedeFilter === null || h.sede_id === hospSedeFilter))
     .sort((a, b) => `${b.alta_date || ''}T${b.alta_time || ''}`.localeCompare(`${a.alta_date || ''}T${a.alta_time || ''}`))
@@ -1514,7 +1519,15 @@ export default function HospitalizationPage() {
                     const dur = h.duration_days || calcDuration(h.ingreso_date, h.alta_date);
                     return (
                       <tr key={h.id} style={{ borderBottom: '1px solid var(--color-border)', background: idx % 2 === 0 ? 'transparent' : 'var(--color-bg)' }}>
-                        <td style={{ padding: '0.85rem 1rem', fontSize: '0.875rem', fontWeight: 500 }}>{h.client_name}</td>
+                        <td style={{ padding: '0.85rem 1rem', fontSize: '0.875rem' }}>
+                          <button
+                            onClick={() => irAFichaCliente(h)}
+                            title="Ver ficha del cliente"
+                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '0.875rem', color: 'var(--color-primary)', textDecoration: 'underline', textUnderlineOffset: 2 }}
+                          >
+                            {h.client_name}
+                          </button>
+                        </td>
                         <td style={{ padding: '0.85rem 1rem' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                             <span>{speciesIcon(h.species)}</span>
