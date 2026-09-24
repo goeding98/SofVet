@@ -170,7 +170,7 @@ export default function PrepagadaV2DetallePage() {
           <button
             onClick={handleGenerarLink}
             disabled={generandoLink}
-            title="Genera un link de pago de Wompi (sandbox) para enviarle al tutor"
+            title="Genera un link de pago de Wompi para enviarle al tutor"
             style={{ padding: '0.5rem 0.9rem', background: '#eef4ff', color: '#2a4d9e', border: '1px solid #2a4d9e', borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', cursor: generandoLink ? 'default' : 'pointer', whiteSpace: 'nowrap', opacity: generandoLink ? 0.6 : 1 }}
           >
             💳 {generandoLink ? 'Generando...' : 'Generar link de pago'}
@@ -190,7 +190,7 @@ export default function PrepagadaV2DetallePage() {
 
       {linkPago && (
         <div style={{ background: '#eef4ff', border: '1px solid #2a4d9e', borderRadius: 12, padding: '0.9rem 1.2rem', marginBottom: '1.2rem', display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#2a4d9e' }}>Link de pago (sandbox):</span>
+          <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#2a4d9e' }}>Link de pago:</span>
           <a href={linkPago} target="_blank" rel="noreferrer" style={{ color: '#2a4d9e', fontSize: '0.85rem', wordBreak: 'break-all', flex: 1 }}>{linkPago}</a>
           <button
             onClick={() => { navigator.clipboard.writeText(linkPago); setLinkCopiado(true); }}
