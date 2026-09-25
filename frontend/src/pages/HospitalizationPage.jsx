@@ -1672,12 +1672,21 @@ export default function HospitalizationPage() {
                       📋 Hoja de consumo — pendiente de cobro ({consumoPending.length} ítem{consumoPending.length !== 1 ? 's' : ''})
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginBottom: '0.6rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#b8860b', opacity: 0.75 }}>
+                        <span>Descripción</span>
+                        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                          <span style={{ minWidth: 30, textAlign: 'right' }}>Cant.</span>
+                          <span style={{ minWidth: 78, textAlign: 'right' }}>V. unitario</span>
+                          <span style={{ minWidth: 78, textAlign: 'right' }}>V. total</span>
+                        </div>
+                      </div>
                       {consumoPending.map(item => (
                         <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', padding: '0.3rem 0', borderBottom: '1px dashed #f5c842' }}>
                           <span>{item.descripcion}</span>
                           <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-                            <span style={{ fontWeight: 600 }}>x{item.cantidad}</span>
-                            <span style={{ fontWeight: 600, color: '#b8860b', whiteSpace: 'nowrap' }}>{fmtCOP((Number(item.valor) || 0) * (parseInt(item.cantidad) || 1))}</span>
+                            <span style={{ fontWeight: 600, minWidth: 30, textAlign: 'right' }}>x{item.cantidad}</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', minWidth: 78, textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtCOP(Number(item.valor) || 0)} c/u</span>
+                            <span style={{ fontWeight: 700, color: '#b8860b', minWidth: 78, textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtCOP((Number(item.valor) || 0) * (parseInt(item.cantidad) || 1))}</span>
                           </div>
                         </div>
                       ))}
@@ -1866,12 +1875,21 @@ export default function HospitalizationPage() {
                     {consumoPending.length > 0 && (
                       <div style={{ background: '#fff8e1', border: '1px solid #f5c842', borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.85rem', marginBottom: '0.5rem' }}>
                         <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#b8860b', marginBottom: '0.35rem' }}>Pendiente de cobro</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#b8860b', opacity: 0.75, paddingBottom: '0.15rem' }}>
+                          <span>Descripción</span>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <span style={{ minWidth: 28, textAlign: 'right' }}>Cant.</span>
+                            <span style={{ minWidth: 74, textAlign: 'right' }}>V. unitario</span>
+                            <span style={{ minWidth: 74, textAlign: 'right' }}>V. total</span>
+                          </div>
+                        </div>
                         {consumoPending.map(item => (
                           <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', padding: '0.2rem 0' }}>
                             <span>{item.descripcion}</span>
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
-                              <span style={{ fontWeight: 600 }}>x{item.cantidad}</span>
-                              <span style={{ fontWeight: 600, color: '#b8860b', whiteSpace: 'nowrap' }}>{fmtCOP((Number(item.valor) || 0) * (parseInt(item.cantidad) || 1))}</span>
+                              <span style={{ fontWeight: 600, minWidth: 28, textAlign: 'right' }}>x{item.cantidad}</span>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', minWidth: 74, textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtCOP(Number(item.valor) || 0)} c/u</span>
+                              <span style={{ fontWeight: 700, color: '#b8860b', minWidth: 74, textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtCOP((Number(item.valor) || 0) * (parseInt(item.cantidad) || 1))}</span>
                             </div>
                           </div>
                         ))}
@@ -2234,6 +2252,13 @@ export default function HospitalizationPage() {
                     </p>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: 300, overflowY: 'auto' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0 0.85rem', fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-muted)' }}>
+                        <div style={{ flex: 1 }}>Descripción</div>
+                        <span style={{ minWidth: 30, textAlign: 'right' }}>Cant.</span>
+                        <span style={{ minWidth: 78, textAlign: 'right' }}>V. unitario</span>
+                        <span style={{ minWidth: 78, textAlign: 'right' }}>V. total</span>
+                        <span style={{ width: 66 }} />
+                      </div>
                       {consumoHosp.consumo.map(item => {
                         const liquidado = liquidatedIds.has(item.id);
                         const esAutomatico = item.registrado_por === 'Sistema (automático)';
@@ -2255,10 +2280,13 @@ export default function HospitalizationPage() {
                                 style={{ width: 90, padding: '0.2rem 0.4rem', fontSize: '0.8rem', border: '1px solid #e67e22', borderRadius: 'var(--radius-sm)', textAlign: 'right', fontFamily: 'var(--font-body)' }}
                               />
                             ) : (
-                              <span style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--color-text-muted)', minWidth: 70, textAlign: 'right' }}>
-                                {item.valor != null ? fmtCOP(item.valor) : '—'}
+                              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', minWidth: 78, textAlign: 'right' }}>
+                                {item.valor != null ? `${fmtCOP(item.valor)} c/u` : '—'}
                               </span>
                             )}
+                            <span style={{ fontWeight: 700, fontSize: '0.875rem', minWidth: 78, textAlign: 'right' }}>
+                              {item.valor != null ? fmtCOP((Number(item.valor) || 0) * (parseInt(item.cantidad) || 1)) : '—'}
+                            </span>
                             {liquidado ? (
                               <span style={{ fontSize: '0.68rem', background: 'var(--color-success)', color: 'white', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>✅ Liquidado</span>
                             ) : enEdicion ? (
