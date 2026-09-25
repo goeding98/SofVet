@@ -300,6 +300,7 @@ export default function HospitalizationPage() {
   const [selectedId,     setSelectedId]     = useState(null);
   const [showNoCobradas, setShowNoCobradas] = useState(false);
   const [showUltimasAltas, setShowUltimasAltas] = useState(false);
+  const [vistaFinanciera, setVistaFinanciera] = useState(false);
   const [resumenHosp,    setResumenHosp]    = useState(null);
 
   // ── apply modal ─────────────────────────────────────────────────────────
@@ -356,6 +357,13 @@ export default function HospitalizationPage() {
   const activosCompleta = activos.filter(h => h.tipo !== 'semi').sort((a, b) => (b.viral ? 1 : 0) - (a.viral ? 1 : 0));
   const activosSemi     = activos.filter(h => h.tipo === 'semi');
   const noCobradas = hosps.filter(h => h.status === 'no_cobrada' && (hospSedeFilter === null || h.sede_id === hospSedeFilter)).slice(-20).reverse();
+  // Mismos números que el PDF de Estado de cuenta, para que no haya discrepancias.
+  const finanzasDe = (h) => {
+    const consumido = (h.consumo || []).reduce((s, it) => s + (Number(it.valor) || 0) * (parseInt(it.cantidad) || 1), 0);
+    const abonado   = (h.abonos  || []).reduce((s, a)  => s + (Number(a.valor) || 0), 0);
+    return { consumido, abonado, porPagar: consumido - abonado };
+  };
+
   const irAFichaCliente = (h) => {
     const paciente = patients.find(p => p.id === h.patient_id);
     if (paciente?.client_id) navigate(`/clients/${paciente.client_id}`);
@@ -860,6 +868,24 @@ export default function HospitalizationPage() {
     setEditConsumoValor('');
   };
 
+  const TotalesFinancieros = ({ lista, label }) => {
+    if (!vistaFinanciera || !lista.length) return null;
+    const tot = lista.reduce((a, h) => {
+      const f = finanzasDe(h);
+      return { c: a.c + f.consumido, ab: a.ab + f.abonado, p: a.p + f.porPagar };
+    }, { c: 0, ab: 0, p: 0 });
+    return (
+      <tfoot>
+        <tr style={{ borderTop: '2px solid var(--color-border)', background: 'var(--color-bg)' }}>
+          <td colSpan={4} style={{ padding: '0.85rem 1rem', fontWeight: 700, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-muted)' }}>Total {label}</td>
+          <td style={{ padding: '0.85rem 1rem', textAlign: 'right', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{fmtCOP(tot.c)}</td>
+          <td style={{ padding: '0.85rem 1rem', textAlign: 'right', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap', color: '#8e44ad' }}>{fmtCOP(tot.ab)}</td>
+          <td style={{ padding: '0.85rem 1rem', textAlign: 'right', fontWeight: 800, fontSize: '0.95rem', whiteSpace: 'nowrap', color: tot.p > 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>{fmtCOP(tot.p)}</td>
+        </tr>
+      </tfoot>
+    );
+  };
+
   return (
     <div>
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '1rem', flexWrap: 'wrap' }}>
@@ -892,6 +918,15 @@ export default function HospitalizationPage() {
                   {SEDES.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
                 </select>
               )}
+              {isAdmin && (
+                <button
+                  onClick={() => setVistaFinanciera(v => !v)}
+                  title="Ver consumido, abonado y saldo por cobrar de cada paciente"
+                  style={{ padding: '0.35rem 0.85rem', borderRadius: 999, border: '1px solid #2C696E', fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 600, background: vistaFinanciera ? '#2C696E' : '#eef6f6', color: vistaFinanciera ? 'white' : '#2C696E' }}
+                >
+                  {vistaFinanciera ? '✕ Salir de vista financiera' : '💵 Vista financiera'}
+                </button>
+              )}
               <button
                 onClick={() => setShowNoCobradas(v => !v)}
                 style={{ padding: '0.35rem 0.85rem', borderRadius: 999, border: '1px solid #b8860b', fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 600, background: showNoCobradas ? '#b8860b' : '#fff8e1', color: showNoCobradas ? 'white' : '#b8860b' }}
@@ -912,8 +947,11 @@ export default function HospitalizationPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
-                    {['Paciente', 'Cliente', 'Sede', 'Motivo', 'Ingreso', 'Veterinario', 'Acciones'].map(h => (
-                      <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                    {(vistaFinanciera
+                      ? ['Paciente', 'Cliente', 'Sede', 'Veterinario', 'Consumido', 'Abonado', 'Por pagar']
+                      : ['Paciente', 'Cliente', 'Sede', 'Motivo', 'Ingreso', 'Veterinario', 'Acciones']
+                    ).map((h, i) => (
+                      <th key={h} style={{ padding: '0.65rem 1rem', textAlign: vistaFinanciera && i >= 4 ? 'right' : 'left', fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -941,14 +979,32 @@ export default function HospitalizationPage() {
                         {h.client_phone && <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{h.client_phone}</div>}
                       </td>
                       <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>{sedeBadge(h.sede_id)}</td>
-                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem', maxWidth: 180 }}>
-                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.motivo || '—'}</div>
-                      </td>
-                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
-                        <div>{h.ingreso_date}</div>
-                        <div style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{h.ingreso_time}</div>
-                      </td>
+                      {!vistaFinanciera && (
+                        <>
+                          <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem', maxWidth: 180 }}>
+                            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.motivo || '—'}</div>
+                          </td>
+                          <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                            <div>{h.ingreso_date}</div>
+                            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{h.ingreso_time}</div>
+                          </td>
+                        </>
+                      )}
                       <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem' }}><VetName name={h.responsible_vet} /></td>
+                      {vistaFinanciera ? (() => {
+                        const f = finanzasDe(h);
+                        return (
+                          <>
+                            <td style={{ padding: '0.85rem 1rem', fontSize: '0.85rem', textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtCOP(f.consumido)}</td>
+                            <td style={{ padding: '0.85rem 1rem', fontSize: '0.85rem', textAlign: 'right', whiteSpace: 'nowrap', color: f.abonado > 0 ? '#8e44ad' : 'var(--color-text-muted)' }}>{fmtCOP(f.abonado)}</td>
+                            <td style={{ padding: '0.85rem 1rem', fontSize: '0.9rem', fontWeight: 700, textAlign: 'right', whiteSpace: 'nowrap', color: f.porPagar > 0 ? 'var(--color-danger)' : f.porPagar < 0 ? '#b8860b' : 'var(--color-success)' }}>
+                              {f.porPagar < 0
+                                ? <span title="El abonado supera lo consumido: revisar si falta registrar consumo o si hay saldo a favor">{fmtCOP(Math.abs(f.porPagar))} a favor</span>
+                                : fmtCOP(f.porPagar)}
+                            </td>
+                          </>
+                        );
+                      })() : (
                       <td style={{ padding: '0.85rem 1rem' }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                           <button onClick={() => setSelectedId(selectedId === h.id ? null : h.id)} style={btnStyle('var(--color-primary)')}>
@@ -974,9 +1030,11 @@ export default function HospitalizationPage() {
                           )}
                         </div>
                       </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
+                <TotalesFinancieros lista={activosCompleta} label="hospitalización completa" />
               </table>
             </div>
           )}
@@ -998,8 +1056,11 @@ export default function HospitalizationPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
-                    {['Paciente', 'Cliente', 'Sede', 'Motivo', 'Ingreso', 'Veterinario', 'Acciones'].map(h => (
-                      <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                    {(vistaFinanciera
+                      ? ['Paciente', 'Cliente', 'Sede', 'Veterinario', 'Consumido', 'Abonado', 'Por pagar']
+                      : ['Paciente', 'Cliente', 'Sede', 'Motivo', 'Ingreso', 'Veterinario', 'Acciones']
+                    ).map((h, i) => (
+                      <th key={h} style={{ padding: '0.65rem 1rem', textAlign: vistaFinanciera && i >= 4 ? 'right' : 'left', fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -1024,14 +1085,32 @@ export default function HospitalizationPage() {
                         {h.client_phone && <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{h.client_phone}</div>}
                       </td>
                       <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>{sedeBadge(h.sede_id)}</td>
-                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem', maxWidth: 180 }}>
-                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.motivo || '—'}</div>
-                      </td>
-                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
-                        <div>{h.ingreso_date}</div>
-                        <div style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{h.ingreso_time}</div>
-                      </td>
+                      {!vistaFinanciera && (
+                        <>
+                          <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem', maxWidth: 180 }}>
+                            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.motivo || '—'}</div>
+                          </td>
+                          <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                            <div>{h.ingreso_date}</div>
+                            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem' }}>{h.ingreso_time}</div>
+                          </td>
+                        </>
+                      )}
                       <td style={{ padding: '0.85rem 1rem', fontSize: '0.82rem' }}><VetName name={h.responsible_vet} /></td>
+                      {vistaFinanciera ? (() => {
+                        const f = finanzasDe(h);
+                        return (
+                          <>
+                            <td style={{ padding: '0.85rem 1rem', fontSize: '0.85rem', textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtCOP(f.consumido)}</td>
+                            <td style={{ padding: '0.85rem 1rem', fontSize: '0.85rem', textAlign: 'right', whiteSpace: 'nowrap', color: f.abonado > 0 ? '#8e44ad' : 'var(--color-text-muted)' }}>{fmtCOP(f.abonado)}</td>
+                            <td style={{ padding: '0.85rem 1rem', fontSize: '0.9rem', fontWeight: 700, textAlign: 'right', whiteSpace: 'nowrap', color: f.porPagar > 0 ? 'var(--color-danger)' : f.porPagar < 0 ? '#b8860b' : 'var(--color-success)' }}>
+                              {f.porPagar < 0
+                                ? <span title="El abonado supera lo consumido: revisar si falta registrar consumo o si hay saldo a favor">{fmtCOP(Math.abs(f.porPagar))} a favor</span>
+                                : fmtCOP(f.porPagar)}
+                            </td>
+                          </>
+                        );
+                      })() : (
                       <td style={{ padding: '0.85rem 1rem' }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                           <button onClick={() => setSelectedId(selectedId === h.id ? null : h.id)} style={btnStyle('var(--color-primary)')}>
@@ -1057,9 +1136,11 @@ export default function HospitalizationPage() {
                           )}
                         </div>
                       </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
+                <TotalesFinancieros lista={activosSemi} label="semi-hospitalización" />
               </table>
             </div>
           )}
