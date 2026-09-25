@@ -99,6 +99,22 @@ Deno.serve(async (req) => {
     } else {
       console.warn('[wompi-webhook] referencia sin match:', tx.reference);
     }
+  } else if (['DECLINED', 'ERROR', 'VOIDED'].includes(tx.status)) {
+    // Un cobro automático que falla tiene que quedar visible para el equipo,
+    // si no el afiliado se cae sin que nadie se entere.
+    const match = String(tx.reference || '').match(/^pp-(\d+)-(\d+)-/);
+    if (match) {
+      const afiliadoId = Number(match[1]);
+      const motivo = tx.status_message || tx.status;
+      await supabase
+        .from('prepagada_afiliados')
+        .update({
+          ultimo_cobro_auto_estado: `${tx.status}: ${String(motivo).slice(0, 200)}`,
+          ultimo_cobro_auto_fecha: nowBogotaDateStr(),
+        })
+        .eq('id', afiliadoId);
+      console.warn(`[wompi-webhook] afiliado ${afiliadoId} cobro ${tx.status}: ${motivo}`);
+    }
   }
 
   return new Response('OK', { status: 200 });

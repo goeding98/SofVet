@@ -296,6 +296,68 @@ export default function PortalPage() {
   const [pagandoId, setPagandoId] = useState(null); // afiliado_id en curso
   const [pagoErr,   setPagoErr]   = useState('');
 
+  // ── Tarjeta para pago automático ────────────────────────────────────────────
+  // Los datos de la tarjeta van del navegador DIRECTO a Wompi. Nunca pasan por
+  // SofVet ni quedan guardados: de Wompi solo volvemos con un token.
+  const WOMPI_PUBLIC_KEY = 'pub_prod_5PzCKBhdU04bQIYuSeDbQRHL4qtMaChY';
+  const [tarjetaModal, setTarjetaModal] = useState(null); // afiliado
+  const [tjNumero, setTjNumero] = useState('');
+  const [tjVence, setTjVence] = useState('');
+  const [tjCvc,    setTjCvc]    = useState('');
+  const [tjNombre, setTjNombre] = useState('');
+  const [tjSaving, setTjSaving] = useState(false);
+  const [tjErr,    setTjErr]    = useState('');
+
+  const abrirTarjeta = (afiliado) => {
+    setTarjetaModal(afiliado);
+    setTjNumero(''); setTjVence(''); setTjCvc(''); setTjNombre(''); setTjErr('');
+  };
+
+  const handleGuardarTarjeta = async () => {
+    const numero = tjNumero.replace(/\D/g, '');
+    const [mm, aa] = tjVence.split('/').map(s => (s || '').trim());
+    if (numero.length < 13)                 return setTjErr('Revisa el número de la tarjeta.');
+    if (!mm || !aa || mm.length !== 2 || aa.length !== 2) return setTjErr('La fecha debe ir como MM/AA.');
+    if (tjCvc.replace(/\D/g, '').length < 3) return setTjErr('Revisa el código de seguridad.');
+    if (!tjNombre.trim())                    return setTjErr('Escribe el nombre como aparece en la tarjeta.');
+
+    setTjSaving(true); setTjErr('');
+    try {
+      const tokRes = await fetch('https://production.wompi.co/v1/tokens/cards', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${WOMPI_PUBLIC_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          number: numero,
+          cvc: tjCvc.replace(/\D/g, ''),
+          exp_month: mm,
+          exp_year: aa,
+          card_holder: tjNombre.trim().toUpperCase(),
+        }),
+      });
+      const tok = await tokRes.json();
+      if (!tokRes.ok || !tok?.data?.id) {
+        throw new Error('La tarjeta no fue aceptada. Verifica los datos e intenta de nuevo.');
+      }
+
+      const { data, error } = await supabase.functions.invoke('wompi-registrar-tarjeta', {
+        body: {
+          afiliado_id: tarjetaModal.id,
+          token: tok.data.id,
+          customer_email: client?.email || '',
+          tarjeta_marca: tok.data.brand || null,
+          tarjeta_ultimos4: tok.data.last_four || numero.slice(-4),
+        },
+      });
+      if (error || !data?.ok) throw new Error(data?.error || 'No se pudo guardar la tarjeta.');
+
+      setTarjetaModal(null);
+      await loadData(client);
+    } catch (e) {
+      setTjErr(e.message || 'No se pudo registrar la tarjeta.');
+    }
+    setTjSaving(false);
+  };
+
   const handlePagarPrepagada = async (afiliadoId, meses) => {
     setPagandoId(afiliadoId); setPagoErr('');
     try {
@@ -368,7 +430,7 @@ export default function PortalPage() {
       supabase.from('hospitalization').select('patient_id,motivo,diagnostico,ingreso_date,alta_date,status').in('patient_id', ids).order('ingreso_date', { ascending: false }),
       supabase.from('hc_requests').select('*').eq('client_id', cl.id).order('requested_at', { ascending: false }),
       supabase.from('prepagada').select('patient_id,status,paid_until').in('patient_id', ids).neq('status','baja'),
-      supabase.from('prepagada_afiliados').select('id,patient_id,plan,precio_mensual,fecha_vencimiento,estado').in('patient_id', ids),
+      supabase.from('prepagada_afiliados').select('id,patient_id,plan,precio_mensual,fecha_vencimiento,estado,cobro_automatico,tarjeta_marca,tarjeta_ultimos4').in('patient_id', ids),
     ]);
 
     const vac=vR.data||[], con=cR.data||[], proc=pR.data||[], lab=lR.data||[], apt=aR.data||[], img=iR.data||[], hosp=hR.data||[], hcReqs=hrR.data||[], prep=ppR.data||[], prepV2All=pv2R.data||[];
@@ -1537,6 +1599,33 @@ export default function PortalPage() {
                             </div>
                             {pagandoId === p2.id && <p style={{ fontSize:'0.8rem', color:C.muted, marginTop:'0.8rem' }}>Redirigiendo a la pasarela de pago…</p>}
                             {pagoErr && <p style={{ fontSize:'0.8rem', color:C.danger, marginTop:'0.8rem' }}>⚠️ {pagoErr}</p>}
+
+                            {/* Pago automático con tarjeta */}
+                            <div style={{ marginTop:'1.5rem', paddingTop:'1.2rem', borderTop:`1px solid ${C.border}` }}>
+                              {p2.cobro_automatico && p2.tarjeta_ultimos4 ? (
+                                <div style={{ background:'#EAF7EF', border:'1px solid #1E7D45', borderRadius:12, padding:'0.85rem 1rem', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'0.8rem', flexWrap:'wrap' }}>
+                                  <div>
+                                    <div style={{ fontWeight:700, fontSize:'0.88rem', color:'#1E7D45' }}>✓ Pago automático activo</div>
+                                    <div style={{ fontSize:'0.8rem', color:C.muted, marginTop:'0.15rem' }}>
+                                      {p2.tarjeta_marca || 'Tarjeta'} terminada en {p2.tarjeta_ultimos4} · se cobra sola cada mes
+                                    </div>
+                                  </div>
+                                  <button onClick={() => abrirTarjeta(p2)} style={{ padding:'0.45rem 0.9rem', background:'white', border:`1px solid ${C.border}`, borderRadius:10, cursor:'pointer', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:600, color:C.muted }}>
+                                    Cambiar tarjeta
+                                  </button>
+                                </div>
+                              ) : (
+                                <div style={{ background:C.cream, border:`1px solid ${C.border}`, borderRadius:12, padding:'1rem' }}>
+                                  <div style={{ fontWeight:700, fontSize:'0.9rem', color:C.tealDark, marginBottom:'0.25rem' }}>¿Prefieres no tener que acordarte cada mes?</div>
+                                  <p style={{ fontSize:'0.82rem', color:C.muted, margin:'0 0 0.8rem', lineHeight:1.5 }}>
+                                    Deja tu tarjeta registrada y el plan se cobra solo cada mes. Puedes quitarla cuando quieras.
+                                  </p>
+                                  <button onClick={() => abrirTarjeta(p2)} style={{ padding:'0.6rem 1.1rem', background:C.teal, color:'white', border:'none', borderRadius:10, cursor:'pointer', fontFamily:'inherit', fontSize:'0.85rem', fontWeight:700 }}>
+                                    💳 Activar pago automático
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </>
                         ) : (
                           <p style={{ fontSize:'0.85rem', color:C.muted }}>Tu plan está cancelado. Comunícate con la clínica si deseas reactivarlo.</p>
@@ -1581,6 +1670,50 @@ export default function PortalPage() {
       )}
 
       {/* Modal: cambiar contraseña */}
+      {tarjetaModal && (
+        <div onClick={() => !tjSaving && setTarjetaModal(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1100, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background:'white', borderRadius:18, width:'100%', maxWidth:420, boxShadow:'0 20px 60px rgba(0,0,0,0.3)', overflow:'hidden' }}>
+            <div style={{ padding:'1.1rem 1.4rem', borderBottom:`1px solid ${C.border}`, background:C.cream }}>
+              <h3 style={{ margin:0, fontSize:'1rem', fontWeight:800, color:C.tealDark }}>💳 Pago automático</h3>
+              <p style={{ margin:'0.2rem 0 0', fontSize:'0.78rem', color:C.muted }}>Tu plan se cobrará solo cada mes</p>
+            </div>
+            <div style={{ padding:'1.3rem 1.4rem' }}>
+              <div style={{ marginBottom:'0.85rem' }}>
+                <label style={{ fontSize:'0.75rem', fontWeight:700, color:C.text, display:'block', marginBottom:'0.3rem' }}>NÚMERO DE LA TARJETA</label>
+                <input inputMode="numeric" value={tjNumero} onChange={e => setTjNumero(e.target.value)} placeholder="1234 5678 9012 3456" style={inp} />
+              </div>
+              <div style={{ display:'flex', gap:'0.7rem', marginBottom:'0.85rem' }}>
+                <div style={{ flex:1 }}>
+                  <label style={{ fontSize:'0.75rem', fontWeight:700, color:C.text, display:'block', marginBottom:'0.3rem' }}>VENCE (MM/AA)</label>
+                  <input inputMode="numeric" value={tjVence} onChange={e => setTjVence(e.target.value)} placeholder="12/29" style={inp} />
+                </div>
+                <div style={{ flex:1 }}>
+                  <label style={{ fontSize:'0.75rem', fontWeight:700, color:C.text, display:'block', marginBottom:'0.3rem' }}>CÓDIGO (CVC)</label>
+                  <input inputMode="numeric" value={tjCvc} onChange={e => setTjCvc(e.target.value)} placeholder="123" style={inp} />
+                </div>
+              </div>
+              <div style={{ marginBottom:'1rem' }}>
+                <label style={{ fontSize:'0.75rem', fontWeight:700, color:C.text, display:'block', marginBottom:'0.3rem' }}>NOMBRE COMO APARECE EN LA TARJETA</label>
+                <input value={tjNombre} onChange={e => setTjNombre(e.target.value)} placeholder="JUAN PEREZ" style={inp} />
+              </div>
+
+              <div style={{ background:C.tealLight, borderRadius:10, padding:'0.7rem 0.9rem', marginBottom:'1rem', fontSize:'0.76rem', color:C.tealDark, lineHeight:1.5 }}>
+                🔒 Tus datos viajan directo a la pasarela de pagos de Bancolombia (Wompi). Pets &amp; Pets nunca ve ni guarda el número de tu tarjeta.
+              </div>
+
+              {tjErr && <p style={{ color:C.danger, fontSize:'0.8rem', marginBottom:'0.8rem', fontWeight:600 }}>⚠️ {tjErr}</p>}
+
+              <div style={{ display:'flex', gap:'0.7rem' }}>
+                <button onClick={() => setTarjetaModal(null)} disabled={tjSaving} style={{ flex:1, padding:'0.75rem', background:'white', border:`1px solid ${C.border}`, borderRadius:12, cursor:'pointer', fontFamily:'inherit', fontWeight:600, color:C.muted }}>Cancelar</button>
+                <button onClick={handleGuardarTarjeta} disabled={tjSaving} style={{ flex:2, padding:'0.75rem', background: tjSaving ? '#ccc' : C.teal, color:'white', border:'none', borderRadius:12, cursor: tjSaving ? 'default' : 'pointer', fontFamily:'inherit', fontWeight:800 }}>
+                  {tjSaving ? 'Guardando…' : 'Activar pago automático'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {pwModal && (
         <div onClick={() => !firstLogin && setPwModal(false)} style={{ position:'fixed', inset:0, background:'rgba(30,78,84,0.45)', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem', backdropFilter:'blur(3px)' }}>
           <div onClick={e=>e.stopPropagation()} style={{ background:'white', borderRadius:20, padding:'2rem', maxWidth:380, width:'100%', boxShadow:'0 20px 60px rgba(0,0,0,0.2)' }}>
