@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
       const meses = Number(match[2]) || 1;
       const { data: afiliado } = await supabase
         .from('prepagada_afiliados')
-        .select('id, fecha_vencimiento, ultimo_pago_id')
+        .select('id, fecha_vencimiento, ultimo_pago_id, ciclos_prepagada')
         .eq('id', afiliadoId)
         .single();
 
@@ -91,6 +91,9 @@ Deno.serve(async (req) => {
             ultimo_pago_id: tx.id,
             ultimo_pago_metodo: tx.payment_method_type ?? null,
             ultimo_pago_fecha: hoy,
+            // Cada mes pagado cuenta como un ciclo, para saber cuándo toca el
+            // mes de cortesía del pago automático.
+            ciclos_prepagada: (afiliado.ciclos_prepagada || 0) + meses,
           })
           .eq('id', afiliadoId);
 

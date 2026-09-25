@@ -16,6 +16,17 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const WOMPI_API = 'https://production.wompi.co/v1';
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// Incentivo por dejar la tarjeta registrada: estos ciclos no se cobran.
+// Solo aplica al cobro automático — quien paga manualmente ya tiene el
+// descuento por pago anticipado, y los dos beneficios no se acumulan.
+const CICLOS_GRATIS = [4, 8];
+
+function sumarMeses(fechaISO: string, meses: number): string {
+  const d = new Date(fechaISO + 'T00:00:00');
+  d.setMonth(d.getMonth() + meses);
+  return d.toISOString().slice(0, 10);
+}
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -37,6 +48,32 @@ async function cobrar(afiliado: any, hoy: string) {
   }
   if (!afiliado.wompi_payment_source_id) {
     return { afiliado_id: afiliado.id, estado: 'OMITIDO', motivo: 'Sin tarjeta registrada' };
+  }
+
+  // ¿A este ciclo le toca ser gratis?
+  const proximoCiclo = (afiliado.ciclos_prepagada || 0) + 1;
+  if (CICLOS_GRATIS.includes(proximoCiclo)) {
+    const base = afiliado.fecha_vencimiento && afiliado.fecha_vencimiento > hoy
+      ? afiliado.fecha_vencimiento
+      : hoy;
+    await supabase
+      .from('prepagada_afiliados')
+      .update({
+        fecha_vencimiento: sumarMeses(base, 1),
+        estado: 'activo',
+        ciclos_prepagada: proximoCiclo,
+        ultimo_cobro_auto_fecha: hoy,
+        ultimo_cobro_auto_estado: `GRATIS (mes ${proximoCiclo} de cortesía)`,
+      })
+      .eq('id', afiliado.id);
+
+    console.log(`[cobrar] afiliado ${afiliado.id}: mes ${proximoCiclo} de cortesía, no se cobra`);
+    return {
+      afiliado_id: afiliado.id,
+      estado: 'GRATIS',
+      ciclo: proximoCiclo,
+      motivo: `Mes ${proximoCiclo} de cortesía por pago automático`,
+    };
   }
 
   const { data: cliente } = await supabase

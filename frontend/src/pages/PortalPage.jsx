@@ -430,7 +430,7 @@ export default function PortalPage() {
       supabase.from('hospitalization').select('patient_id,motivo,diagnostico,ingreso_date,alta_date,status').in('patient_id', ids).order('ingreso_date', { ascending: false }),
       supabase.from('hc_requests').select('*').eq('client_id', cl.id).order('requested_at', { ascending: false }),
       supabase.from('prepagada').select('patient_id,status,paid_until').in('patient_id', ids).neq('status','baja'),
-      supabase.from('prepagada_afiliados').select('id,patient_id,plan,precio_mensual,fecha_vencimiento,estado,cobro_automatico,tarjeta_marca,tarjeta_ultimos4').in('patient_id', ids),
+      supabase.from('prepagada_afiliados').select('id,patient_id,plan,precio_mensual,fecha_vencimiento,estado,cobro_automatico,tarjeta_marca,tarjeta_ultimos4,ciclos_prepagada').in('patient_id', ids),
     ]);
 
     const vac=vR.data||[], con=cR.data||[], proc=pR.data||[], lab=lR.data||[], apt=aR.data||[], img=iR.data||[], hosp=hR.data||[], hcReqs=hrR.data||[], prep=ppR.data||[], prepV2All=pv2R.data||[];
@@ -1609,16 +1609,28 @@ export default function PortalPage() {
                                     <div style={{ fontSize:'0.8rem', color:C.muted, marginTop:'0.15rem' }}>
                                       {p2.tarjeta_marca || 'Tarjeta'} terminada en {p2.tarjeta_ultimos4} · se cobra sola cada mes
                                     </div>
+                                    <div style={{ fontSize:'0.78rem', color:C.gold, marginTop:'0.3rem', fontWeight:700 }}>
+                                      {(() => {
+                                        const ciclos = p2.ciclos_prepagada || 0;
+                                        const prox = [4, 8].find(m => m > ciclos);
+                                        return prox
+                                          ? `🎁 Tu mes ${prox} va por cuenta de Pets & Pets`
+                                          : '🎁 Ya disfrutaste tus 2 meses de cortesía';
+                                      })()}
+                                    </div>
                                   </div>
                                   <button onClick={() => abrirTarjeta(p2)} style={{ padding:'0.45rem 0.9rem', background:'white', border:`1px solid ${C.border}`, borderRadius:10, cursor:'pointer', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:600, color:C.muted }}>
                                     Cambiar tarjeta
                                   </button>
                                 </div>
                               ) : (
-                                <div style={{ background:C.cream, border:`1px solid ${C.border}`, borderRadius:12, padding:'1rem' }}>
-                                  <div style={{ fontWeight:700, fontSize:'0.9rem', color:C.tealDark, marginBottom:'0.25rem' }}>¿Prefieres no tener que acordarte cada mes?</div>
+                                <div style={{ background:C.cream, border:`1.5px solid ${C.gold}`, borderRadius:12, padding:'1rem' }}>
+                                  <div style={{ display:'inline-block', background:C.gold, color:'white', fontSize:'0.68rem', fontWeight:800, padding:'3px 10px', borderRadius:999, marginBottom:'0.5rem', letterSpacing:'0.04em' }}>
+                                    2 MESES GRATIS
+                                  </div>
+                                  <div style={{ fontWeight:700, fontSize:'0.9rem', color:C.tealDark, marginBottom:'0.25rem' }}>Deja tu tarjeta y te regalamos 2 meses</div>
                                   <p style={{ fontSize:'0.82rem', color:C.muted, margin:'0 0 0.8rem', lineHeight:1.5 }}>
-                                    Deja tu tarjeta registrada y el plan se cobra solo cada mes. Puedes quitarla cuando quieras.
+                                    Activa el pago automático y <strong style={{ color:C.tealDark }}>tu mes 4 y tu mes 8 van por cuenta nuestra</strong>. Tu plan se cobra solo cada mes y puedes quitar la tarjeta cuando quieras.
                                   </p>
                                   <button onClick={() => abrirTarjeta(p2)} style={{ padding:'0.6rem 1.1rem', background:C.teal, color:'white', border:'none', borderRadius:10, cursor:'pointer', fontFamily:'inherit', fontSize:'0.85rem', fontWeight:700 }}>
                                     💳 Activar pago automático
