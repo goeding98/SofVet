@@ -91,6 +91,8 @@ export default function PrepagadaV2DetallePage() {
   const [eventoModal, setEventoModal] = useState(false);
   const [evCosto, setEvCosto] = useState('');
   const [evTipo, setEvTipo] = useState('');
+  const [evClase, setEvClase] = useState('urgencia'); // 'urgencia' | 'programado'
+  const [evDescuento, setEvDescuento] = useState('50'); // % que asume P&P en servicios programados
   const [evNotas, setEvNotas] = useState('');
   const [evFactura, setEvFactura] = useState('');
   const [savingEvento, setSavingEvento] = useState(false);
@@ -124,9 +126,13 @@ export default function PrepagadaV2DetallePage() {
     editBeneficios(beneficioAnio.id, { [key]: Math.max(0, (beneficioAnio[key] || 0) - 1), updated_at: new Date().toISOString() });
   };
 
+  // Urgencia: el tutor paga 20% de copago y la bolsa asume el 80%.
+  // No urgencia: el tutor paga la tarifa con descuento, y lo que P&P descuenta
+  // también sale de la bolsa (es el tope anual de todo lo que aporta P&P).
   const costoNum = Number(evCosto.replace(/\D/g, '')) || 0;
-  const copago = Math.round(costoNum * 0.10);
-  const cubierto = costoNum - copago;
+  const pctPP = evClase === 'urgencia' ? 80 : (Number(evDescuento) || 0);
+  const cubierto = Math.round(costoNum * pctPP / 100);
+  const copago = costoNum - cubierto;
 
   const handleRegistrarEvento = async () => {
     if (!costoNum) return;
@@ -137,6 +143,7 @@ export default function PrepagadaV2DetallePage() {
       patient_id: afiliado.patient_id,
       fecha: nowDate(),
       tipo_evento: evTipo.trim() || null,
+      clase: evClase,
       costo_total: costoNum,
       copago,
       cubierto_pp: cubierto,
@@ -151,6 +158,7 @@ export default function PrepagadaV2DetallePage() {
     setSavingEvento(false);
     setEventoModal(false);
     setEvCosto(''); setEvTipo(''); setEvNotas(''); setEvFactura('');
+    setEvClase('urgencia'); setEvDescuento('50');
   };
 
   return (
@@ -255,12 +263,17 @@ export default function PrepagadaV2DetallePage() {
             {eventosAfiliado.map(e => (
               <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0.8rem', background: '#f7f9fc', borderRadius: 10, fontSize: '0.85rem' }}>
                 <div>
-                  <div style={{ fontWeight: 700 }}>{e.tipo_evento || 'Evento de urgencia'}</div>
+                  <div style={{ fontWeight: 700 }}>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 800, padding: '1px 7px', borderRadius: 999, marginRight: '0.4rem', background: e.clase === 'programado' ? '#eef6f6' : '#fdecea', color: e.clase === 'programado' ? '#1e4e54' : '#c0392b' }}>
+                      {e.clase === 'programado' ? 'PROGRAMADO' : 'URGENCIA'}
+                    </span>
+                    {e.tipo_evento || 'Evento'}
+                  </div>
                   <div style={{ color: '#8A8076', fontSize: '0.78rem' }}>{e.fecha} · {e.registrado_por}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div>Total: {fmtCOP(e.costo_total)}</div>
-                  <div style={{ color: '#8A8076', fontSize: '0.78rem' }}>Copago {fmtCOP(e.copago)} · P&P {fmtCOP(e.cubierto_pp)}</div>
+                  <div style={{ color: '#8A8076', fontSize: '0.78rem' }}>Tutor {fmtCOP(e.copago)} · Bolsa {fmtCOP(e.cubierto_pp)}</div>
                 </div>
               </div>
             ))}
@@ -276,6 +289,32 @@ export default function PrepagadaV2DetallePage() {
               <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: '#8A8076' }}>{mascota?.name}</p>
             </div>
             <div style={{ padding: '1.5rem' }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>¿Qué tipo de servicio fue?</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '1rem' }}>
+                {[
+                  { k: 'urgencia',   t: '🚨 Urgencia', s: 'Copago 20%' },
+                  { k: 'programado', t: '📅 Programado', s: 'Con descuento' },
+                ].map(o => (
+                  <button key={o.k} onClick={() => setEvClase(o.k)}
+                    style={{ padding: '0.6rem', background: evClase === o.k ? (o.k === 'urgencia' ? '#c0392b' : '#316d74') : 'white', color: evClase === o.k ? 'white' : '#1c2333', border: `1.5px solid ${evClase === o.k ? (o.k === 'urgencia' ? '#c0392b' : '#316d74') : '#dfe3ea'}`, borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.85rem' }}>
+                    <div>{o.t}</div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 500, opacity: 0.85 }}>{o.s}</div>
+                  </button>
+                ))}
+              </div>
+
+              {evClase === 'programado' && (
+                <>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Descuento aplicado (lo que asume P&amp;P)</label>
+                  <select value={evDescuento} onChange={e => setEvDescuento(e.target.value)} style={{ width: '100%', padding: '0.55rem 0.85rem', border: '1.5px solid #dfe3ea', borderRadius: 10, fontSize: '0.9rem', boxSizing: 'border-box', marginBottom: '1rem', fontFamily: 'inherit' }}>
+                    <option value="60">60% — Cirugía tejidos blandos · Rx adicional · Ecografía adicional</option>
+                    <option value="50">50% — Esterilización (con remisión) · TAC · Especialista · Hospitalización programada</option>
+                    <option value="40">40% — Cirugía de especialista · Profilaxis dental · Labs adicionales</option>
+                    <option value="10">10% — Medicamentos de farmacia</option>
+                  </select>
+                </>
+              )}
+
               <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Motivo / tipo de evento</label>
               <input value={evTipo} onChange={e => setEvTipo(e.target.value)} placeholder="Ej: Trauma por atropello" style={{ width: '100%', padding: '0.55rem 0.85rem', border: '1.5px solid #dfe3ea', borderRadius: 10, fontSize: '0.9rem', boxSizing: 'border-box', marginBottom: '1rem' }} />
 
@@ -284,8 +323,8 @@ export default function PrepagadaV2DetallePage() {
 
               {costoNum > 0 && (
                 <div style={{ background: '#f7f9fc', borderRadius: 10, padding: '0.8rem 1rem', marginBottom: '1rem', fontSize: '0.85rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Copago (10%, paga el tutor)</span><strong>{fmtCOP(copago)}</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Cubre P&amp;P (90%)</span><strong>{fmtCOP(cubierto)}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Paga el tutor ({100 - pctPP}%)</span><strong>{fmtCOP(copago)}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Asume P&amp;P ({pctPP}%) — sale de la bolsa</span><strong>{fmtCOP(cubierto)}</strong></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.3rem', paddingTop: '0.3rem', borderTop: '1px dashed #dfe3ea' }}><span>Bolsa después de este evento</span><strong style={{ color: (disponible - cubierto) < 0 ? '#c0392b' : '#1c2333' }}>{fmtCOP(disponible - cubierto)}</strong></div>
                 </div>
               )}
