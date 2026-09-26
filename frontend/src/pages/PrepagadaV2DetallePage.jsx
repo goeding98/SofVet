@@ -106,11 +106,11 @@ export default function PrepagadaV2DetallePage() {
   };
 
   const [eventoModal, setEventoModal] = useState(false);
-  const [evCosto, setEvCosto] = useState('');
-  const [evTipo, setEvTipo] = useState('');
   const [evClase, setEvClase] = useState('urgencia'); // 'urgencia' | 'programado'
-  const [evDescuento, setEvDescuento] = useState('');  // % que asume P&P en servicios programados
-  const [evServicio, setEvServicio] = useState('');    // índice del servicio elegido
+  // Una visita puede traer varios servicios (labs + Rx, por ejemplo), así que
+  // el modal trabaja con filas y cada fila queda como un consumo aparte.
+  const ITEM_VACIO = { servicio: '', desc: '', costo: '' };
+  const [evItems, setEvItems] = useState([{ ...ITEM_VACIO }]);
   const [evNotas, setEvNotas] = useState('');
   const [evFactura, setEvFactura] = useState('');
   const [savingEvento, setSavingEvento] = useState(false);
@@ -145,38 +145,62 @@ export default function PrepagadaV2DetallePage() {
   };
 
   // Urgencia: el tutor paga 20% de copago y la bolsa asume el 80%.
-  // No urgencia: el tutor paga la tarifa con descuento, y lo que P&P descuenta
+  // Programado: el tutor paga la tarifa con descuento, y lo que P&P descuenta
   // también sale de la bolsa (es el tope anual de todo lo que aporta P&P).
-  const costoNum = Number(evCosto.replace(/\D/g, '')) || 0;
-  const pctPP = evClase === 'urgencia' ? 80 : (Number(evDescuento) || 0);
-  const cubierto = Math.round(costoNum * pctPP / 100);
-  const copago = costoNum - cubierto;
+  const calcItem = (item) => {
+    const costo = Number(String(item.costo).replace(/\D/g, '')) || 0;
+    const pct = evClase === 'urgencia'
+      ? 80
+      : (item.servicio !== '' ? SERVICIOS_PROGRAMADOS[Number(item.servicio)].pct : 0);
+    const cubierto = Math.round(costo * pct / 100);
+    return { costo, pct, cubierto, copago: costo - cubierto };
+  };
+  const itemsConValor = evItems.filter(it => calcItem(it).costo > 0);
+  const totalEv = itemsConValor.reduce((a, it) => {
+    const c = calcItem(it);
+    return { costo: a.costo + c.costo, cubierto: a.cubierto + c.cubierto, copago: a.copago + c.copago };
+  }, { costo: 0, cubierto: 0, copago: 0 });
+  const faltaServicio = evClase === 'programado' && itemsConValor.some(it => it.servicio === '');
+  const puedeGuardar = itemsConValor.length > 0 && !faltaServicio;
+
+  const setItem = (i, campo, valor) => setEvItems(arr => arr.map((it, idx) => idx === i ? { ...it, [campo]: valor } : it));
+  const addItem = () => setEvItems(arr => [...arr, { ...ITEM_VACIO }]);
+  const delItem = (i) => setEvItems(arr => arr.length === 1 ? [{ ...ITEM_VACIO }] : arr.filter((_, idx) => idx !== i));
 
   const handleRegistrarEvento = async () => {
-    if (!costoNum) return;
+    if (!puedeGuardar) return;
     setSavingEvento(true);
-    let err = null;
-    const nuevo = await addEvento({
-      afiliado_id: afiliadoId,
-      patient_id: afiliado.patient_id,
-      fecha: nowDate(),
-      tipo_evento: evTipo.trim() || null,
-      clase: evClase,
-      costo_total: costoNum,
-      copago,
-      cubierto_pp: cubierto,
-      factura_copago: evFactura.trim() || null,
-      notas: evNotas.trim() || null,
-      registrado_por: session?.nombre || session?.username || null,
-    }, { onError: (m) => { err = m; } });
-    if (!nuevo) { setSavingEvento(false); alert('Error: ' + err); return; }
 
-    await editAfiliado(afiliadoId, { bolsa_consumida_anual: afiliado.bolsa_consumida_anual + cubierto });
+    // Cada fila queda como un consumo independiente, para poder reportar
+    // después por tipo de servicio.
+    let err = null;
+    for (const item of itemsConValor) {
+      const c = calcItem(item);
+      const nombreServicio = evClase === 'programado'
+        ? SERVICIOS_PROGRAMADOS[Number(item.servicio)].label
+        : null;
+      const ok = await addEvento({
+        afiliado_id: afiliadoId,
+        patient_id: afiliado.patient_id,
+        fecha: nowDate(),
+        tipo_evento: item.desc.trim() || nombreServicio || 'Urgencia',
+        clase: evClase,
+        costo_total: c.costo,
+        copago: c.copago,
+        cubierto_pp: c.cubierto,
+        factura_copago: evFactura.trim() || null,
+        notas: evNotas.trim() || null,
+        registrado_por: session?.nombre || session?.username || null,
+      }, { onError: (m) => { err = m; } });
+      if (!ok) { setSavingEvento(false); alert('Error al guardar: ' + err); return; }
+    }
+
+    await editAfiliado(afiliadoId, { bolsa_consumida_anual: afiliado.bolsa_consumida_anual + totalEv.cubierto });
 
     setSavingEvento(false);
     setEventoModal(false);
-    setEvCosto(''); setEvTipo(''); setEvNotas(''); setEvFactura('');
-    setEvClase('urgencia'); setEvDescuento(''); setEvServicio(''); setEvServicio('7');
+    setEvItems([{ ...ITEM_VACIO }]);
+    setEvNotas(''); setEvFactura(''); setEvClase('urgencia');
   };
 
   return (
@@ -304,7 +328,7 @@ export default function PrepagadaV2DetallePage() {
 
       {eventoModal && (
         <div onClick={() => setEventoModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: 18, width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: 18, width: '100%', maxWidth: 620, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
             <div style={{ padding: '1.2rem 1.5rem', borderBottom: '1px solid #eceff3' }}>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: evClase === 'urgencia' ? '#c0392b' : '#316d74', margin: 0 }}>
                 {evClase === 'urgencia' ? '🚨 Registrar urgencia' : '📅 Registrar servicio programado'}
@@ -326,40 +350,80 @@ export default function PrepagadaV2DetallePage() {
                 ))}
               </div>
 
-              {evClase === 'programado' && (
-                <>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>¿Qué servicio se le prestó?</label>
-                  <select
-                    value={evServicio}
-                    onChange={e => {
-                      const v = e.target.value;
-                      setEvServicio(v);
-                      if (v === '') { setEvDescuento(''); return; }
-                      const s = SERVICIOS_PROGRAMADOS[Number(v)];
-                      setEvDescuento(String(s.pct));
-                      if (!evTipo.trim()) setEvTipo(s.label);
-                    }}
-                    style={{ width: '100%', padding: '0.55rem 0.85rem', border: '1.5px solid #dfe3ea', borderRadius: 10, fontSize: '0.9rem', boxSizing: 'border-box', marginBottom: '1rem', fontFamily: 'inherit' }}
-                  >
-                    <option value="">— Elige el servicio —</option>
-                    {SERVICIOS_PROGRAMADOS.map((s, i) => (
-                      <option key={s.label} value={i}>{s.label} — {s.pct}%</option>
-                    ))}
-                  </select>
-                </>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>
+                {evClase === 'programado' ? 'Servicios prestados en esta visita' : 'Conceptos de la urgencia'}
+              </label>
+
+              {/* Encabezados */}
+              <div style={{ display: 'flex', gap: '0.5rem', padding: '0 0.1rem 0.3rem', fontSize: '0.65rem', fontWeight: 700, color: '#8A8076', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                <span style={{ flex: 1 }}>{evClase === 'programado' ? 'Servicio' : 'Concepto'}</span>
+                <span style={{ width: 105, textAlign: 'right' }}>Costo total</span>
+                <span style={{ width: 92, textAlign: 'right' }}>Sale de bolsa</span>
+                <span style={{ width: 24 }} />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '0.6rem' }}>
+                {evItems.map((item, i) => {
+                  const c = calcItem(item);
+                  const falta = evClase === 'programado' && c.costo > 0 && item.servicio === '';
+                  return (
+                    <div key={i} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      {evClase === 'programado' ? (
+                        <select
+                          value={item.servicio}
+                          onChange={e => setItem(i, 'servicio', e.target.value)}
+                          style={{ flex: 1, minWidth: 0, padding: '0.5rem 0.6rem', border: `1.5px solid ${falta ? '#c0392b' : '#dfe3ea'}`, borderRadius: 9, fontSize: '0.82rem', fontFamily: 'inherit', background: 'white' }}
+                        >
+                          <option value="">— Elige el servicio —</option>
+                          {SERVICIOS_PROGRAMADOS.map((s, si) => (
+                            <option key={s.label} value={si}>{s.label} — {s.pct}%</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          value={item.desc}
+                          onChange={e => setItem(i, 'desc', e.target.value)}
+                          placeholder="Ej: Trauma por atropello"
+                          style={{ flex: 1, minWidth: 0, padding: '0.5rem 0.6rem', border: '1.5px solid #dfe3ea', borderRadius: 9, fontSize: '0.82rem', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                        />
+                      )}
+                      <input
+                        inputMode="numeric"
+                        value={item.costo}
+                        onChange={e => setItem(i, 'costo', e.target.value)}
+                        placeholder="0"
+                        style={{ width: 105, padding: '0.5rem 0.6rem', border: '1.5px solid #dfe3ea', borderRadius: 9, fontSize: '0.82rem', textAlign: 'right', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                      />
+                      <span style={{ width: 92, textAlign: 'right', fontSize: '0.8rem', fontWeight: 700, color: c.cubierto > 0 ? '#316d74' : '#c8ccd2' }}>
+                        {c.cubierto > 0 ? fmtCOP(c.cubierto) : '—'}
+                      </span>
+                      <button
+                        onClick={() => delItem(i)}
+                        title="Quitar esta fila"
+                        style={{ width: 24, height: 24, flexShrink: 0, background: '#fdecea', color: '#c0392b', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontSize: '0.75rem', lineHeight: 1 }}
+                      >✕</button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button onClick={addItem} style={{ width: '100%', padding: '0.5rem', background: 'white', border: '1.5px dashed #316d74', color: '#316d74', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.8rem', marginBottom: '1rem' }}>
+                + Agregar otro ítem
+              </button>
+
+              {faltaServicio && (
+                <p style={{ color: '#c0392b', fontSize: '0.78rem', marginBottom: '0.8rem', fontWeight: 600 }}>⚠️ Falta elegir el servicio en las filas marcadas en rojo.</p>
               )}
 
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Motivo / tipo de evento</label>
-              <input value={evTipo} onChange={e => setEvTipo(e.target.value)} placeholder="Ej: Trauma por atropello" style={{ width: '100%', padding: '0.55rem 0.85rem', border: '1.5px solid #dfe3ea', borderRadius: 10, fontSize: '0.9rem', boxSizing: 'border-box', marginBottom: '1rem' }} />
-
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Costo total del evento *</label>
-              <input inputMode="numeric" value={evCosto} onChange={e => setEvCosto(e.target.value)} placeholder="Ej: 500000" style={{ width: '100%', padding: '0.55rem 0.85rem', border: '1.5px solid #dfe3ea', borderRadius: 10, fontSize: '0.9rem', boxSizing: 'border-box', marginBottom: '1rem' }} />
-
-              {costoNum > 0 && (
+              {totalEv.costo > 0 && (
                 <div style={{ background: '#f7f9fc', borderRadius: 10, padding: '0.8rem 1rem', marginBottom: '1rem', fontSize: '0.85rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Paga el tutor ({100 - pctPP}%)</span><strong>{fmtCOP(copago)}</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Asume P&amp;P ({pctPP}%) — sale de la bolsa</span><strong>{fmtCOP(cubierto)}</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.3rem', paddingTop: '0.3rem', borderTop: '1px dashed #dfe3ea' }}><span>Bolsa después de este evento</span><strong style={{ color: (disponible - cubierto) < 0 ? '#c0392b' : '#1c2333' }}>{fmtCOP(disponible - cubierto)}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Costo total de la visita</span><strong>{fmtCOP(totalEv.costo)}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Paga el tutor</span><strong>{fmtCOP(totalEv.copago)}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Asume P&amp;P — sale de la bolsa</span><strong style={{ color: '#316d74' }}>{fmtCOP(totalEv.cubierto)}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.35rem', paddingTop: '0.35rem', borderTop: '1px dashed #dfe3ea' }}>
+                    <span>Bolsa después de esta visita</span>
+                    <strong style={{ color: (disponible - totalEv.cubierto) < 0 ? '#c0392b' : '#1c2333' }}>{fmtCOP(disponible - totalEv.cubierto)}</strong>
+                  </div>
                 </div>
               )}
 
@@ -371,8 +435,8 @@ export default function PrepagadaV2DetallePage() {
 
               <div style={{ display: 'flex', gap: '0.7rem' }}>
                 <button onClick={() => setEventoModal(false)} style={{ flex: 1, padding: '0.7rem', background: 'white', border: '1px solid #dfe3ea', borderRadius: 10, fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
-                <button onClick={handleRegistrarEvento} disabled={savingEvento || !costoNum || (evClase === 'programado' && !evServicio)} style={{ flex: 2, padding: '0.7rem', background: (savingEvento || !costoNum || (evClase === 'programado' && !evServicio)) ? '#ccc' : (evClase === 'urgencia' ? '#c0392b' : '#316d74'), color: 'white', border: 'none', borderRadius: 10, fontWeight: 800, cursor: (savingEvento || !costoNum || (evClase === 'programado' && !evServicio)) ? 'not-allowed' : 'pointer' }}>
-                  {savingEvento ? 'Guardando…' : (evClase === 'urgencia' ? 'Registrar urgencia' : 'Registrar servicio')}
+                <button onClick={handleRegistrarEvento} disabled={savingEvento || !puedeGuardar} style={{ flex: 2, padding: '0.7rem', background: (savingEvento || !puedeGuardar) ? '#ccc' : (evClase === 'urgencia' ? '#c0392b' : '#316d74'), color: 'white', border: 'none', borderRadius: 10, fontWeight: 800, cursor: (savingEvento || !puedeGuardar) ? 'not-allowed' : 'pointer' }}>
+                  {savingEvento ? 'Guardando…' : (itemsConValor.length > 1 ? 'Registrar ' + itemsConValor.length + ' ítems' : (evClase === 'urgencia' ? 'Registrar urgencia' : 'Registrar servicio'))}
                 </button>
               </div>
             </div>
