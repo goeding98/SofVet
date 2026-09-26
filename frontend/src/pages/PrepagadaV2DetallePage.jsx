@@ -17,6 +17,23 @@ const ESTADO_BADGE = {
   cancelado:   { bg: '#f0f2f6', color: '#8A8076', label: 'Cancelado' },
 };
 
+// Tabla de descuentos del Plan Total. El cajero busca el servicio, no el
+// porcentaje, así que se lista por servicio y el % va al lado.
+const SERVICIOS_PROGRAMADOS = [
+  { label: 'Cirugía programada de tejidos blandos', pct: 60 },
+  { label: 'Radiografía adicional', pct: 60 },
+  { label: 'Ecografía diagnóstica adicional', pct: 60 },
+  { label: 'Esterilización / castración (con remisión médica)', pct: 50 },
+  { label: 'Tomografía (TAC)', pct: 50 },
+  { label: 'Consulta con especialista', pct: 50 },
+  { label: 'Hospitalización programada', pct: 50 },
+  { label: 'Otros procedimientos y tratamientos médicos', pct: 50 },
+  { label: 'Cirugía de especialista (ortopedia y similares)', pct: 40 },
+  { label: 'Limpieza dental / profilaxis', pct: 40 },
+  { label: 'Laboratorios adicionales', pct: 40 },
+  { label: 'Medicamentos de farmacia', pct: 10 },
+];
+
 const BENEFICIO_ROWS = [
   { key: 'consultas_usadas',          label: 'Consultas médicas',        tope: BENEFICIOS_TOTAL_ANUAL.consultas },
   { key: 'vacunas_usadas',            label: 'Vacunas anuales',          tope: BENEFICIOS_TOTAL_ANUAL.vacunas },
@@ -92,7 +109,8 @@ export default function PrepagadaV2DetallePage() {
   const [evCosto, setEvCosto] = useState('');
   const [evTipo, setEvTipo] = useState('');
   const [evClase, setEvClase] = useState('urgencia'); // 'urgencia' | 'programado'
-  const [evDescuento, setEvDescuento] = useState('50'); // % que asume P&P en servicios programados
+  const [evDescuento, setEvDescuento] = useState('');  // % que asume P&P en servicios programados
+  const [evServicio, setEvServicio] = useState('');    // índice del servicio elegido
   const [evNotas, setEvNotas] = useState('');
   const [evFactura, setEvFactura] = useState('');
   const [savingEvento, setSavingEvento] = useState(false);
@@ -158,7 +176,7 @@ export default function PrepagadaV2DetallePage() {
     setSavingEvento(false);
     setEventoModal(false);
     setEvCosto(''); setEvTipo(''); setEvNotas(''); setEvFactura('');
-    setEvClase('urgencia'); setEvDescuento('50');
+    setEvClase('urgencia'); setEvDescuento(''); setEvServicio(''); setEvServicio('7');
   };
 
   return (
@@ -310,12 +328,23 @@ export default function PrepagadaV2DetallePage() {
 
               {evClase === 'programado' && (
                 <>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Descuento aplicado (lo que asume P&amp;P)</label>
-                  <select value={evDescuento} onChange={e => setEvDescuento(e.target.value)} style={{ width: '100%', padding: '0.55rem 0.85rem', border: '1.5px solid #dfe3ea', borderRadius: 10, fontSize: '0.9rem', boxSizing: 'border-box', marginBottom: '1rem', fontFamily: 'inherit' }}>
-                    <option value="60">60% — Cirugía tejidos blandos · Rx adicional · Ecografía adicional</option>
-                    <option value="50">50% — Esterilización (con remisión) · TAC · Especialista · Hospitalización programada · Otros tratamientos médicos</option>
-                    <option value="40">40% — Cirugía de especialista · Profilaxis dental · Labs adicionales</option>
-                    <option value="10">10% — Medicamentos de farmacia</option>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>¿Qué servicio se le prestó?</label>
+                  <select
+                    value={evServicio}
+                    onChange={e => {
+                      const v = e.target.value;
+                      setEvServicio(v);
+                      if (v === '') { setEvDescuento(''); return; }
+                      const s = SERVICIOS_PROGRAMADOS[Number(v)];
+                      setEvDescuento(String(s.pct));
+                      if (!evTipo.trim()) setEvTipo(s.label);
+                    }}
+                    style={{ width: '100%', padding: '0.55rem 0.85rem', border: '1.5px solid #dfe3ea', borderRadius: 10, fontSize: '0.9rem', boxSizing: 'border-box', marginBottom: '1rem', fontFamily: 'inherit' }}
+                  >
+                    <option value="">— Elige el servicio —</option>
+                    {SERVICIOS_PROGRAMADOS.map((s, i) => (
+                      <option key={s.label} value={i}>{s.label} — {s.pct}%</option>
+                    ))}
                   </select>
                 </>
               )}
@@ -342,7 +371,7 @@ export default function PrepagadaV2DetallePage() {
 
               <div style={{ display: 'flex', gap: '0.7rem' }}>
                 <button onClick={() => setEventoModal(false)} style={{ flex: 1, padding: '0.7rem', background: 'white', border: '1px solid #dfe3ea', borderRadius: 10, fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
-                <button onClick={handleRegistrarEvento} disabled={savingEvento || !costoNum} style={{ flex: 2, padding: '0.7rem', background: (savingEvento || !costoNum) ? '#ccc' : (evClase === 'urgencia' ? '#c0392b' : '#316d74'), color: 'white', border: 'none', borderRadius: 10, fontWeight: 800, cursor: (savingEvento || !costoNum) ? 'not-allowed' : 'pointer' }}>
+                <button onClick={handleRegistrarEvento} disabled={savingEvento || !costoNum || (evClase === 'programado' && !evServicio)} style={{ flex: 2, padding: '0.7rem', background: (savingEvento || !costoNum || (evClase === 'programado' && !evServicio)) ? '#ccc' : (evClase === 'urgencia' ? '#c0392b' : '#316d74'), color: 'white', border: 'none', borderRadius: 10, fontWeight: 800, cursor: (savingEvento || !costoNum || (evClase === 'programado' && !evServicio)) ? 'not-allowed' : 'pointer' }}>
                   {savingEvento ? 'Guardando…' : (evClase === 'urgencia' ? 'Registrar urgencia' : 'Registrar servicio')}
                 </button>
               </div>
