@@ -332,6 +332,8 @@ export default function HospitalizationPage() {
   // ── delete application (admin) ──────────────────────────────────────────
   const [editAppHostId,    setEditAppHostId]    = useState(null); // hosp id whose apps are in edit mode
   const [pendingDeleteApp, setPendingDeleteApp] = useState(null); // { hospId, appIdx }
+  const [editAppMed,       setEditAppMed]       = useState(null); // { hospId, appIdx, medIdx }
+  const [editAppDosisValor, setEditAppDosisValor] = useState('');
 
   // ── edit insumos (admin) ─────────────────────────────────────────────────
   const [editInsumosId,   setEditInsumosId]   = useState(null); // hosp id in insumos edit mode
@@ -563,6 +565,68 @@ export default function HospitalizationPage() {
       editHosp(hospId, { aplicaciones: apps });
     }
     setPendingDeleteApp(null);
+  };
+
+  // Corregir la dosis de un medicamento ya aplicado (solo Admin).
+  // Ajusta el inventario por la diferencia: si la dosis baja, devuelve stock.
+  const handleEditAppDosis = (hospId, appIdx, medIdx, nuevaDosisStr) => {
+    const hosp = hosps.find(h => h.id === hospId);
+    if (!hosp) return;
+    const nuevaDosis = parseFloat(String(nuevaDosisStr).replace(',', '.'));
+    if (isNaN(nuevaDosis) || nuevaDosis <= 0) {
+      alert('Ingresa una dosis válida mayor a 0.');
+      return;
+    }
+
+    const apps = (hosp.aplicaciones || []).map(a => ({ ...a, medicamentos: [...(a.medicamentos || [])] }));
+    const med = apps[appIdx]?.medicamentos?.[medIdx];
+    if (!med) return;
+
+    const dosisAnterior = parseFloat(String(med.dosis).replace(',', '.')) || 0;
+    if (nuevaDosis === dosisAnterior) { setEditAppMed(null); return; }
+
+    apps[appIdx].medicamentos[medIdx] = { ...med, dosis: nuevaDosis };
+    editHosp(hospId, { aplicaciones: apps });
+
+    if (hosp.conectar_inventario) {
+      const invItem = inventario.find(i => i.nombre.toLowerCase() === med.medicamento.toLowerCase());
+      if (invItem) {
+        let deltaStock = 0; // positivo = hay que descontar más; negativo = devolver
+        let detalle = '';
+
+        if (invItem.tipo === 'ml') {
+          deltaStock = nuevaDosis - dosisAnterior;
+          detalle = `${dosisAnterior} ml → ${nuevaDosis} ml`;
+        } else if (invItem.tipo === 'ampolla') {
+          // Las ampollas se descuentan por total acumulado del medicamento en
+          // esta hospitalización, así que hay que recalcular el total completo.
+          const totalCon = (arr) => arr.reduce((sum, a) => sum + (a.medicamentos || []).reduce((s, m) =>
+            m.medicamento.toLowerCase() === med.medicamento.toLowerCase()
+              ? s + (parseFloat(String(m.dosis).replace(',', '.')) || 0) : s, 0), 0);
+          const mlDespues = totalCon(apps);
+          const mlAntes   = mlDespues - nuevaDosis + dosisAnterior;
+          const mlxAmp    = invItem.ml_por_ampolla || 1;
+          deltaStock = Math.ceil(mlDespues / mlxAmp) - Math.ceil(mlAntes / mlxAmp);
+          detalle = `${dosisAnterior} ml → ${nuevaDosis} ml (${deltaStock >= 0 ? '+' : ''}${deltaStock} amp.)`;
+        }
+
+        if (deltaStock !== 0) {
+          const newStock = parseFloat(Math.max(0, (invItem.stock || 0) - deltaStock).toFixed(4));
+          editInventario(invItem.id, { stock: newStock });
+          supabase.from('inventario_movimientos').insert({
+            inventario_id: invItem.id,
+            tipo:          deltaStock > 0 ? 'descargue_hosp' : 'ingreso',
+            cantidad:      -deltaStock,
+            motivo:        `Corrección de dosis · Hosp #${hospId} — ${med.medicamento} (${detalle})`,
+            created_by:    session?.nombre || 'Sistema',
+            hosp_id:       hospId,
+          }).then(() => {});
+        }
+      }
+    }
+
+    setEditAppMed(null);
+    setEditAppDosisValor('');
   };
 
   const handleEditAppHora = (hospId, appIdx, newHora) => {
@@ -1273,6 +1337,11 @@ export default function HospitalizationPage() {
                     )}
                   </div>
                 </div>
+                {editAppHostId === selected.id && (
+                  <div style={{ background: '#fff8e1', border: '1px solid #f5c842', borderRadius: 'var(--radius-sm)', padding: '0.5rem 0.75rem', marginBottom: '0.5rem', fontSize: '0.76rem', color: '#8a6d00', lineHeight: 1.45 }}>
+                    ✏️ Corrige la dosis si se anotó mal.{selected.conectar_inventario ? ' El inventario se ajusta solo por la diferencia y queda el movimiento registrado.' : ''} El botón ✕ elimina el medicamento de la aplicación.
+                  </div>
+                )}
                 {!selected.aplicaciones?.length ? (
                   <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', padding: '0.75rem', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>Aún no se han registrado aplicaciones.</p>
                 ) : (
@@ -1301,18 +1370,54 @@ export default function HospitalizationPage() {
                             </span>
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                            {a.medicamentos?.map((m, mi) => (
+                            {a.medicamentos?.map((m, mi) => {
+                              const editandoDosis = editAppMed && editAppMed.hospId === selected.id && editAppMed.appIdx === origIdx && editAppMed.medIdx === mi;
+                              return (
                               <div key={mi} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.3rem 0.5rem', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)', fontSize: '0.8rem', gap: '0.5rem' }}>
-                                <span>· {m.medicamento} — {m.dosis} {m.unidad}</span>
+                                {editandoDosis ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flex: 1 }}>
+                                    <span>· {m.medicamento} —</span>
+                                    <input
+                                      type="text"
+                                      autoFocus
+                                      value={editAppDosisValor}
+                                      onChange={e => setEditAppDosisValor(e.target.value)}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter') handleEditAppDosis(selected.id, origIdx, mi, editAppDosisValor);
+                                        if (e.key === 'Escape') { setEditAppMed(null); setEditAppDosisValor(''); }
+                                      }}
+                                      style={{ width: 70, padding: '0.15rem 0.35rem', fontSize: '0.78rem', border: '1px solid #e67e22', borderRadius: 'var(--radius-sm)', textAlign: 'right', fontFamily: 'var(--font-body)' }}
+                                    />
+                                    <span>{m.unidad}</span>
+                                  </div>
+                                ) : (
+                                  <span>· {m.medicamento} — {m.dosis} {m.unidad}</span>
+                                )}
                                 {inEditMode && (
-                                  <button
-                                    onClick={() => setPendingDeleteApp({ hospId: selected.id, appIdx: origIdx, medIdx: mi })}
-                                    style={{ padding: '0.1rem 0.45rem', background: 'var(--color-danger)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.3, flexShrink: 0 }}
-                                    title="Eliminar este medicamento"
-                                  >✕</button>
+                                  <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
+                                    {editandoDosis ? (
+                                      <button
+                                        onClick={() => handleEditAppDosis(selected.id, origIdx, mi, editAppDosisValor)}
+                                        style={{ padding: '0.1rem 0.45rem', background: '#e67e22', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.3 }}
+                                        title="Guardar la dosis corregida"
+                                      >✓</button>
+                                    ) : (
+                                      <button
+                                        onClick={() => { setEditAppMed({ hospId: selected.id, appIdx: origIdx, medIdx: mi }); setEditAppDosisValor(String(m.dosis ?? '')); }}
+                                        style={{ padding: '0.1rem 0.45rem', background: 'var(--color-white)', color: '#e67e22', border: '1px solid #e67e22', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.3 }}
+                                        title="Corregir la dosis (ajusta el inventario)"
+                                      >✏️</button>
+                                    )}
+                                    <button
+                                      onClick={() => setPendingDeleteApp({ hospId: selected.id, appIdx: origIdx, medIdx: mi })}
+                                      style={{ padding: '0.1rem 0.45rem', background: 'var(--color-danger)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.3 }}
+                                      title="Eliminar este medicamento"
+                                    >✕</button>
+                                  </div>
                                 )}
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                           {a.notas && <div style={{ marginTop: '0.4rem', color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>📝 {a.notas}</div>}
                         </div>
