@@ -54,7 +54,16 @@ const doc = new Document({
 
     h1('1. Objeto y naturaleza del servicio'),
     p('PETS & PETS ofrece acceso a servicios veterinarios de urgencia y, en el Plan Total, a un paquete de servicios preventivos incluidos y descuentos en procedimientos programados, a cambio de una cuota periódica, bajo las condiciones, coberturas, exclusiones y límites descritos en este documento.'),
-    p('Este plan es un servicio de medicina prepagada veterinaria prestado directamente por PETS & PETS en sus propias sedes en Cali, Colombia. NO constituye un contrato de seguro, no está respaldado por una aseguradora y no está sujeto a la vigilancia de la Superintendencia Financiera de Colombia. No incluye reembolsos por atención en clínicas de terceros, salvo autorización previa y expresa de la gerencia.'),
+    p('Este plan es un servicio de medicina prepagada veterinaria prestado directamente por PETS & PETS en sus propias sedes en Cali, Colombia. NO constituye un contrato de seguro, no está respaldado por una aseguradora y no está sujeto a la vigilancia de la Superintendencia Financiera de Colombia.'),
+
+    h2('1.1 Alcance: servicios que PETS & PETS puede prestar'),
+    p('Todas las coberturas, beneficios y descuentos de este Contrato aplican ÚNICAMENTE respecto de servicios, procedimientos y tratamientos que PETS & PETS esté en capacidad de prestar directamente en sus sedes, con su propio personal y con los equipos disponibles al momento de la atención.'),
+    ...[
+      'Cuando un tratamiento requiera tecnología, equipos o especialidades con las que PETS & PETS no cuenta, el plan no lo cubre ni le aplica descuento, aun cuando el diagnóstico corresponda a un evento que en otras circunstancias sí sería cubierto.',
+      'El plan no reembolsa ni financia atención prestada por terceros, ni gastos de traslado, desplazamiento, alojamiento o remisión a otras ciudades o instituciones.',
+      'PETS & PETS orientará al Titular sobre dónde puede acceder al tratamiento requerido, pero el costo de esa atención externa corre por su cuenta.',
+      'La capacidad instalada de PETS & PETS puede variar con el tiempo. La cobertura se evalúa según los servicios disponibles en la fecha de la atención.',
+    ].map(t => bullet(t)),
 
     h1('2. Vigencia, renovación y terminación'),
     p('El Contrato tiene una VIGENCIA ANUAL contada desde la fecha de afiliación, independientemente de que el pago se realice de forma mensual, trimestral o semestral.'),
@@ -150,6 +159,7 @@ const doc = new Document({
       new TableRow({ children: [cell('Cirugía de especialista (ortopedia y similares)'), cell('40%')] }),
       new TableRow({ children: [cell('Limpieza dental / profilaxis'), cell('40%')] }),
       new TableRow({ children: [cell('Laboratorios adicionales (más del panel incluido al año)'), cell('40%')] }),
+      new TableRow({ children: [cell('Otros procedimientos y tratamientos médicos programados, incluidos los tratamientos prolongados y los derivados de enfermedades crónicas u oncológicas', { bold: true }), cell('50%', { bold: true })] }),
       new TableRow({ children: [cell('Medicamentos de farmacia PETS & PETS'), cell('10%')] }),
     ]}),
     p(''),
@@ -172,7 +182,7 @@ const doc = new Document({
       'Condiciones preexistentes: toda enfermedad, lesión o signo clínico diagnosticado, tratado o documentado antes de la afiliación o durante el período de carencia, así como toda condición derivada de ellas.',
       'Toda condición médica observada o registrada en el examen inicial (Sección 3).',
       'Condiciones bilaterales: si la mascota presentó una condición ortopédica en un lado del cuerpo antes de la afiliación o durante la carencia, la misma condición en el lado contrario se considera preexistente. Aplica igualmente a la enfermedad de disco intervertebral (IVDD).',
-      'Enfermedades crónicas o degenerativas y su manejo continuado, salvo por los descuentos de la Sección 8 cuando apliquen.',
+      'El manejo de enfermedades crónicas, degenerativas u oncológicas NO se cubre como urgencia al 80%. Sí accede a los descuentos de la Sección 8, y la porción que asume PETS & PETS se descuenta de la bolsa anual.',
       'Procedimientos electivos o programados que no constituyan una urgencia, salvo por los descuentos de la Sección 8.',
       'Condiciones menores sin riesgo vital.',
       'Tratamientos realizados en contra del concepto del médico veterinario, y las complicaciones derivadas de ellos, incluso cuando hayan sido solicitados por el Titular.',
@@ -186,7 +196,8 @@ const doc = new Document({
       'Tratamientos experimentales o de investigación, y aquellos no reconocidos como eficaces por la comunidad veterinaria.',
       'Grooming, baños, guardería y hospedaje no derivados de una urgencia cubierta.',
       'Costos de transporte, domicilio, envío, trámites y administración.',
-      'Servicios prestados fuera de las sedes de PETS & PETS sin autorización previa y expresa de la gerencia.',
+      'Servicios prestados fuera de las sedes de PETS & PETS, y todo tratamiento que PETS & PETS no esté en capacidad de realizar por personal o equipos, según la Sección 1.1.',
+      'Traslados, desplazamientos, tiquetes, alojamiento y cualquier gasto asociado a atenderse en otra ciudad o institución.',
     ].map(t => bullet(t)),
 
     h2('10.1 Condiciones curables — período de exclusión de 12 meses'),

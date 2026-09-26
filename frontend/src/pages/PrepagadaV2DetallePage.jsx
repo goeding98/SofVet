@@ -308,7 +308,7 @@ export default function PrepagadaV2DetallePage() {
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Descuento aplicado (lo que asume P&amp;P)</label>
                   <select value={evDescuento} onChange={e => setEvDescuento(e.target.value)} style={{ width: '100%', padding: '0.55rem 0.85rem', border: '1.5px solid #dfe3ea', borderRadius: 10, fontSize: '0.9rem', boxSizing: 'border-box', marginBottom: '1rem', fontFamily: 'inherit' }}>
                     <option value="60">60% — Cirugía tejidos blandos · Rx adicional · Ecografía adicional</option>
-                    <option value="50">50% — Esterilización (con remisión) · TAC · Especialista · Hospitalización programada</option>
+                    <option value="50">50% — Esterilización (con remisión) · TAC · Especialista · Hospitalización programada · Otros tratamientos médicos</option>
                     <option value="40">40% — Cirugía de especialista · Profilaxis dental · Labs adicionales</option>
                     <option value="10">10% — Medicamentos de farmacia</option>
                   </select>

@@ -724,6 +724,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: C.ink, v
     [td('Cirugía de especialista (ortopedia)', { bold: true }), dto('40%'), td('Aunque el trauma haya sido una urgencia, la cirugía de especialista va con descuento, no al 80%.', { color: C.red })],
     [td('Limpieza dental / profilaxis', { bold: true }), dto('40%'), td('—')],
     [td('Laboratorios adicionales', { bold: true }), dto('40%'), td('Del 2º panel del año en adelante: el 1º es gratis por beneficio preventivo.')],
+    [td('Otros procedimientos y tratamientos médicos', { bold: true }), dto('50%'), td('Cajón general: cubre quimioterapia, tratamientos prolongados, manejo de enfermedad crónica y todo lo que no esté en las filas de arriba.')],
     [td('Medicamentos de farmacia P&P', { bold: true }), dto('10%'), td('Aplica a la farmacia de la clínica. No hay descuento en petshop ni alimentos.')],
   ];
   s.addTable(rows, {
@@ -732,8 +733,8 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: C.ink, v
     fontFace: 'Calibri', rowH: 0.4, valign: 'middle', autoPage: false,
   });
 
-  s.addText('OJO: el descuento que da P&P también se descuenta de la bolsa del afiliado — por eso hay que registrarlo en SofVet. El Plan Urgencias no tiene ninguno de estos descuentos.', {
-    x: M, y: 6.55, w: CW, h: 0.3, fontSize: 12, bold: true, color: C.red, fontFace: 'Calibri',
+  s.addText('Solo aplica a lo que podamos hacer nosotros: si no tenemos el equipo o el especialista, no se cubre ni se paga traslado a otra ciudad. · El descuento que da P&P sale de la bolsa del afiliado, por eso hay que registrarlo en SofVet. · El Plan Urgencias no tiene ninguno de estos descuentos.', {
+    x: M, y: 6.5, w: CW, h: 0.45, fontSize: 11.5, bold: true, color: C.red, fontFace: 'Calibri', lineSpacing: 15,
   });
 }
 
@@ -768,6 +769,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: C.ink, v
     [td('La bolsa no alcanza para el evento', { bold: true }), td('Explícale con calma que ya usó el tope anual. Ofrécele: pagar a tarifa regular, o pagar y descontarlo del próximo año. Si no puede pagar, escala a gerencia — el animal se estabiliza igual.')],
     [td('El veterinario dice que NO es urgencia cubierta', { bold: true }), td('Se cobra tarifa regular y él documenta el motivo en la historia. Si es Plan Total y le quedan consultas, puede ir como beneficio preventivo.')],
     [td('Llega con una mascota distinta a la afiliada', { bold: true }), td('El plan cubre solo a la mascota registrada. Se atiende a tarifa regular y le ofreces afiliar a esa otra mascota con descuento multimascota.')],
+    [td('Necesita algo que nosotros no podemos hacer', { bold: true }), td('El plan cubre solo lo que P&P puede realizar con su propio personal y equipos. Si hace falta tecnología o una especialidad que no tenemos, se le orienta sobre dónde hacerlo, pero el plan NO cubre esa atención externa ni los traslados. Explícaselo con claridad y sin prometer nada.')],
   ];
   s.addTable(rows, {
     x: M, y: 1.55, w: CW, colW: [3.9, 7.93],
