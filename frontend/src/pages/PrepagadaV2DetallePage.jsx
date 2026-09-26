@@ -212,7 +212,7 @@ export default function PrepagadaV2DetallePage() {
       {/* Bolsa */}
       <div style={{ background: 'white', border: '1px solid #e2e6ef', borderRadius: 14, padding: '1.2rem 1.5rem', marginBottom: '1.2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#5c6470', textTransform: 'uppercase' }}>Bolsa de urgencias {afiliado.bolsa_anio}</span>
+          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#5c6470', textTransform: 'uppercase' }}>Bolsa anual {afiliado.bolsa_anio} — urgencias y servicios programados</span>
           <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{fmtCOP(disponible)} disponibles de {fmtCOP(afiliado.bolsa_maxima_anual)}</span>
         </div>
         <div style={{ height: 10, background: '#eceff3', borderRadius: 999, overflow: 'hidden' }}>
@@ -253,11 +253,14 @@ export default function PrepagadaV2DetallePage() {
       {/* Eventos de urgencia */}
       <div style={{ background: 'white', border: '1px solid #e2e6ef', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
-          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#5c6470', textTransform: 'uppercase' }}>Eventos de urgencia ({eventosAfiliado.length})</span>
-          <button onClick={() => setEventoModal(true)} style={{ padding: '0.5rem 1rem', background: '#c0392b', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>+ Registrar evento</button>
+          <div>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#5c6470', textTransform: 'uppercase' }}>Consumos de la bolsa ({eventosAfiliado.length})</span>
+            <div style={{ fontSize: '0.75rem', color: '#8A8076', marginTop: '0.15rem' }}>Urgencias y también servicios programados con descuento</div>
+          </div>
+          <button onClick={() => setEventoModal(true)} style={{ padding: '0.5rem 1rem', background: '#316d74', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ Registrar consumo</button>
         </div>
         {eventosAfiliado.length === 0 ? (
-          <p style={{ color: '#8A8076', fontSize: '0.85rem' }}>Sin eventos registrados.</p>
+          <p style={{ color: '#8A8076', fontSize: '0.85rem' }}>Todavía no ha consumido bolsa. Registra aquí tanto las urgencias como los servicios programados con descuento del plan.</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
             {eventosAfiliado.map(e => (
@@ -285,7 +288,9 @@ export default function PrepagadaV2DetallePage() {
         <div onClick={() => setEventoModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: 18, width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
             <div style={{ padding: '1.2rem 1.5rem', borderBottom: '1px solid #eceff3' }}>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#c0392b', margin: 0 }}>🚨 Registrar evento de urgencia</h3>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: evClase === 'urgencia' ? '#c0392b' : '#316d74', margin: 0 }}>
+                {evClase === 'urgencia' ? '🚨 Registrar urgencia' : '📅 Registrar servicio programado'}
+              </h3>
               <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: '#8A8076' }}>{mascota?.name}</p>
             </div>
             <div style={{ padding: '1.5rem' }}>
@@ -337,8 +342,8 @@ export default function PrepagadaV2DetallePage() {
 
               <div style={{ display: 'flex', gap: '0.7rem' }}>
                 <button onClick={() => setEventoModal(false)} style={{ flex: 1, padding: '0.7rem', background: 'white', border: '1px solid #dfe3ea', borderRadius: 10, fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
-                <button onClick={handleRegistrarEvento} disabled={savingEvento || !costoNum} style={{ flex: 2, padding: '0.7rem', background: (savingEvento || !costoNum) ? '#ccc' : '#c0392b', color: 'white', border: 'none', borderRadius: 10, fontWeight: 800, cursor: (savingEvento || !costoNum) ? 'not-allowed' : 'pointer' }}>
-                  {savingEvento ? 'Guardando…' : 'Registrar evento'}
+                <button onClick={handleRegistrarEvento} disabled={savingEvento || !costoNum} style={{ flex: 2, padding: '0.7rem', background: (savingEvento || !costoNum) ? '#ccc' : (evClase === 'urgencia' ? '#c0392b' : '#316d74'), color: 'white', border: 'none', borderRadius: 10, fontWeight: 800, cursor: (savingEvento || !costoNum) ? 'not-allowed' : 'pointer' }}>
+                  {savingEvento ? 'Guardando…' : (evClase === 'urgencia' ? 'Registrar urgencia' : 'Registrar servicio')}
                 </button>
               </div>
             </div>
