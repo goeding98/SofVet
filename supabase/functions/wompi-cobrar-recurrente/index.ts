@@ -19,7 +19,11 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // Incentivo por dejar la tarjeta registrada: estos ciclos no se cobran.
 // Solo aplica al cobro automático — quien paga manualmente ya tiene el
 // descuento por pago anticipado, y los dos beneficios no se acumulan.
-const CICLOS_GRATIS = [4, 8];
+// Meses de cortesía por dejar la tarjeta. El 4 atrapa el arrepentimiento
+// temprano y el 12 cae justo en la decisión de renovar. Solo los recibe quien
+// tenga el cobro automático activo en ese momento: la consulta de más abajo
+// filtra por cobro_automatico, así que quien lo apague simplemente no entra.
+const CICLOS_GRATIS = [4, 12];
 
 
 // ── Vencimientos ──────────────────────────────────────────────────────────

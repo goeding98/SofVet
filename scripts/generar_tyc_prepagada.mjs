@@ -203,7 +203,7 @@ const doc = new Document({
 
     h1('11. Pago de la cuota'),
     p('La cuota puede pagarse de forma mensual, o de forma anticipada por 3 o 6 meses con un descuento del 5% y del 15% respectivamente sobre el valor total. Estos descuentos aplican únicamente a través de los canales oficiales de pago y no son acumulables con otros beneficios.'),
-    p('El Titular puede además registrar una tarjeta para pago automático. En ese caso PETS & PETS otorga como cortesía el cuarto (4º) y el octavo (8º) mes de la afiliación, sin costo. Este beneficio aplica exclusivamente al pago automático y no es acumulable con los descuentos por pago anticipado.'),
+    p('El Titular puede además registrar una tarjeta para pago automático. En ese caso PETS & PETS otorga como cortesía el cuarto (4º) y el duodécimo (12º) mes de la afiliación, sin costo. Este beneficio aplica exclusivamente mientras el pago automático permanezca activo: si el Titular lo desactiva antes de cumplirse el ciclo correspondiente, ese mes se cobra con normalidad. No es acumulable con los descuentos por pago anticipado.'),
 
     h1('12. Mora, suspensión y cancelación por no pago'),
     new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [

@@ -364,6 +364,37 @@ export default function PortalPage() {
     }
   };
 
+  // Volver al pago manual. No cancela el plan: sigue vigente hasta su
+  // vencimiento, solo deja de cobrarse solo. Se borra la fuente de pago de
+  // Wompi de nuestro lado para no dejar una tarjeta colgada que nadie usa.
+  const quitarTarjeta = async (afiliado) => {
+    const ciclos = afiliado.ciclos_prepagada || 0;
+    const prox = [4, 12].find(m => m > ciclos);
+    const aviso =
+      'Tu plan seguirá activo hasta su vencimiento, pero tendrás que pagarlo tú cada mes.'
+      + (prox ? `\n\nOJO: pierdes tu mes ${prox} de cortesía, que solo aplica con el pago automático activo.` : '')
+      + '\n\n¿Continuar?';
+    if (!window.confirm(aviso)) return;
+
+    setTjErr(''); setTjSaving(true);
+    try {
+      const { error } = await supabase
+        .from('prepagada_afiliados')
+        .update({
+          cobro_automatico: false,
+          wompi_payment_source_id: null,
+          tarjeta_marca: null,
+          tarjeta_ultimos4: null,
+        })
+        .eq('id', afiliado.id);
+      if (error) throw new Error(error.message);
+      await loadData(client);
+    } catch (e) {
+      setTjErr('No se pudo desactivar el pago automático: ' + (e.message || ''));
+    }
+    setTjSaving(false);
+  };
+
   const handlePagarPrepagada = async (afiliadoId, meses) => {
     setPagandoId(afiliadoId); setPagoErr('');
     try {
@@ -1613,7 +1644,7 @@ export default function PortalPage() {
 
                             {/* Pago automático con tarjeta */}
                             <div style={{ marginTop:'1.5rem', paddingTop:'1.2rem', borderTop:`1px solid ${C.border}` }}>
-                              {p2.cobro_automatico && p2.tarjeta_ultimos4 ? (
+                              {p2.cobro_automatico ? (
                                 <div style={{ background:'#EAF7EF', border:'1px solid #1E7D45', borderRadius:12, padding:'0.85rem 1rem', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'0.8rem', flexWrap:'wrap' }}>
                                   <div>
                                     <div style={{ fontWeight:700, fontSize:'0.88rem', color:'#1E7D45' }}>✓ Pago automático activo</div>
@@ -1623,16 +1654,21 @@ export default function PortalPage() {
                                     <div style={{ fontSize:'0.78rem', color:C.gold, marginTop:'0.3rem', fontWeight:700 }}>
                                       {(() => {
                                         const ciclos = p2.ciclos_prepagada || 0;
-                                        const prox = [4, 8].find(m => m > ciclos);
+                                        const prox = [4, 12].find(m => m > ciclos);
                                         return prox
                                           ? `🎁 Tu mes ${prox} va por cuenta de Pets & Pets`
                                           : '🎁 Ya disfrutaste tus 2 meses de cortesía';
                                       })()}
                                     </div>
                                   </div>
-                                  <button onClick={() => abrirTarjeta(p2)} disabled={tjSaving} style={{ padding:'0.45rem 0.9rem', background:'white', border:`1px solid ${C.border}`, borderRadius:10, cursor: tjSaving ? 'default' : 'pointer', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:600, color:C.muted, opacity: tjSaving ? 0.6 : 1 }}>
-                                    {tjSaving ? 'Abriendo…' : 'Cambiar tarjeta'}
-                                  </button>
+                                  <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
+                                    <button onClick={() => abrirTarjeta(p2)} disabled={tjSaving} style={{ padding:'0.45rem 0.9rem', background:'white', border:`1px solid ${C.border}`, borderRadius:10, cursor: tjSaving ? 'default' : 'pointer', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:600, color:C.muted, opacity: tjSaving ? 0.6 : 1 }}>
+                                      {tjSaving ? 'Abriendo…' : 'Cambiar tarjeta'}
+                                    </button>
+                                    <button onClick={() => quitarTarjeta(p2)} disabled={tjSaving} style={{ padding:'0.45rem 0.9rem', background:'white', border:`1px solid ${C.border}`, borderRadius:10, cursor: tjSaving ? 'default' : 'pointer', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:600, color:C.muted, opacity: tjSaving ? 0.6 : 1 }}>
+                                      Pagar yo cada mes
+                                    </button>
+                                  </div>
                                 </div>
                               ) : (
                                 <div style={{ background:C.cream, border:`1.5px solid ${C.gold}`, borderRadius:12, padding:'1rem' }}>
@@ -1641,7 +1677,7 @@ export default function PortalPage() {
                                   </div>
                                   <div style={{ fontWeight:700, fontSize:'0.9rem', color:C.tealDark, marginBottom:'0.25rem' }}>Deja tu tarjeta y te regalamos 2 meses</div>
                                   <p style={{ fontSize:'0.82rem', color:C.muted, margin:'0 0 0.8rem', lineHeight:1.5 }}>
-                                    Activa el pago automático y <strong style={{ color:C.tealDark }}>tu mes 4 y tu mes 8 van por cuenta nuestra</strong>. Tu plan se cobra solo cada mes y puedes quitar la tarjeta cuando quieras.
+                                    Activa el pago automático y <strong style={{ color:C.tealDark }}>tu mes 4 y tu mes 12 van por cuenta nuestra</strong>. Tu plan se cobra solo cada mes y puedes volver al pago manual cuando quieras.
                                   </p>
                                   <button onClick={() => abrirTarjeta(p2)} disabled={tjSaving} style={{ padding:'0.6rem 1.1rem', background: tjSaving ? '#ccc' : C.teal, color:'white', border:'none', borderRadius:10, cursor: tjSaving ? 'default' : 'pointer', fontFamily:'inherit', fontSize:'0.85rem', fontWeight:700 }}>
                                     {tjSaving ? 'Abriendo…' : '💳 Activar pago automático'}
