@@ -2,13 +2,14 @@
 // PetsPets_Planes_Prepagado_1.xlsx (corregido sept 2026).
 const PRECIOS_BASE = { urgencias: 25000, total: 70000 };
 
-// Descuento por número de mascota afiliada del mismo titular: 0/20/30/40/50%
-const DESCUENTOS = [0, 0.20, 0.30, 0.40, 0.50];
+// Descuento por número de mascota afiliada del mismo titular: la 2ª tiene 5% y
+// de la 3ª en adelante 10%, sin seguir subiendo.
+const DESCUENTOS = [0, 0.05, 0.10, 0.10, 0.10];
 
 export const BOLSA_ANUAL = 4000000; // igual para ambos planes
 
 // numeroMascota: 1 = primera mascota afiliada de ese titular, 2 = segunda, etc.
-// (máximo 5 según la política — de ahí en adelante se usa el descuento tope del 50%)
+// (máximo 5 según la política — de ahí en adelante se usa el descuento tope del 10%)
 export function calcularPrecioPrepagada(plan, numeroMascota) {
   const base = PRECIOS_BASE[plan] ?? PRECIOS_BASE.urgencias;
   const idx = Math.min(Math.max(numeroMascota, 1), 5) - 1;

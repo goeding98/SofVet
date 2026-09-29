@@ -92,21 +92,19 @@ const doc = new Document({
       new TableRow({ children: [cell('Cobertura', { bold: true }), cell('Urgencias y emergencias 24/7'), cell('Urgencias 24/7 + preventivo + descuentos')] }),
       new TableRow({ children: [cell('Copago del Afiliado', { bold: true }), cell('20% del costo del evento'), cell('20% del costo del evento')] }),
       new TableRow({ children: [cell('Bolsa anual', { bold: true }), cell('$4.000.000 COP/año'), cell('$4.000.000 COP/año')] }),
-      new TableRow({ children: [cell('Preventivo', { bold: true }), cell('No incluido'), cell('Incluido desde el día 1 (Sección 7)')] }),
+      new TableRow({ children: [cell('Preventivo', { bold: true }), cell('No incluido'), cell('Incluido a partir del día 31 (Sección 7)')] }),
     ]}),
     p(''),
 
     h1('5. Carencias'),
-    p('Las carencias se cuentan desde la fecha de afiliación y varían según el tipo de evento:'),
+    p('La carencia se cuenta desde la fecha de afiliación:'),
     new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [
       new TableRow({ children: [cell('Tipo de evento', { header: true, width: 40 }), cell('Carencia', { header: true, width: 22 }), cell('Desde cuándo hay cobertura', { header: true, width: 38 })] }),
-      new TableRow({ children: [cell('Accidente (trauma, atropellamiento, intoxicación, cuerpo extraño)', { bold: true }), cell('Ninguna', { bold: true, color: '1E7D45' }), cell('Desde el mismo día de la afiliación')] }),
-      new TableRow({ children: [cell('Enfermedad y eventos no traumáticos', { bold: true }), cell('15 días'), cell('A partir del día 16')] }),
-      new TableRow({ children: [cell('Condiciones ortopédicas y de ligamento cruzado', { bold: true }), cell('30 días'), cell('A partir del día 31')] }),
-      new TableRow({ children: [cell('Beneficios preventivos (solo Plan Total)', { bold: true }), cell('Ninguna', { bold: true, color: '1E7D45' }), cell('Desde el día 1')] }),
+      new TableRow({ children: [cell('Urgencias y emergencias veterinarias', { bold: true }), cell('Ninguna', { bold: true, color: '1E7D45' }), cell('Desde el mismo día de la afiliación')] }),
+      new TableRow({ children: [cell('Todo lo demás: beneficios preventivos del Plan Total y procedimientos programados con descuento', { bold: true }), cell('30 días'), cell('A partir del día 31')] }),
     ]}),
     p(''),
-    p('Un accidente no puede preexistir ni anticiparse, razón por la cual no se le aplica carencia. Las enfermedades y las condiciones ortopédicas sí, por el riesgo de que existieran antes de la afiliación.'),
+    p('Una urgencia no puede preexistir ni anticiparse, razón por la cual no se le aplica carencia. El resto de beneficios sí, por el riesgo de que la condición existiera antes de la afiliación.'),
 
     h1('6. Cobertura de urgencias y funcionamiento de la bolsa'),
     p('En un evento calificado como urgencia cubierta, el Afiliado paga el 20% del costo (copago) y PETS & PETS asume el 80% restante, que se descuenta de la bolsa anual de $4.000.000 COP.'),
@@ -132,7 +130,7 @@ const doc = new Document({
     p('Una vez agotada la bolsa anual, los servicios se cobran a tarifa regular por el resto del año de vigencia. La bolsa se restablece en la fecha de renovación. En ningún caso PETS & PETS negará o suspenderá la atención estabilizadora de un animal por razones administrativas o económicas.'),
 
     h1('7. Beneficios preventivos — solo Plan Total'),
-    p('Sin costo adicional y sin consumir la bolsa, por cada año de vigencia:'),
+    p('Sin costo adicional y sin consumir la bolsa, a partir del día 31 de afiliación y por cada año de vigencia:'),
     new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [
       new TableRow({ children: [cell('Beneficio', { header: true, width: 62 }), cell('Cantidad por año', { header: true, width: 38 })] }),
       new TableRow({ children: [cell('Consultas médicas veterinarias'), cell('12 (una al mes)')] }),
@@ -169,8 +167,8 @@ const doc = new Document({
     p('Hasta 5 mascotas por Titular, cada una con su propia afiliación y su propia bolsa anual de $4.000.000. El descuento aplica mientras todas permanezcan activas:'),
     new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [
       new TableRow({ children: [cell('Mascota', { header: true }), cell('Descuento', { header: true }), cell('Plan Urgencias', { header: true }), cell('Plan Total', { header: true })] }),
-      ...[['1ª','0%','$25.000','$70.000'],['2ª','20%','$20.000','$56.000'],['3ª','30%','$17.500','$49.000'],
-         ['4ª','40%','$15.000','$42.000'],['5ª','50%','$12.500','$35.000']]
+      ...[['1ª','0%','$25.000','$70.000'],['2ª','5%','$23.750','$66.500'],
+         ['3ª en adelante','10%','$22.500','$63.000']]
         .map(r => new TableRow({ children: r.map((v, i) => cell(v, { bold: i <= 1, color: i === 1 ? GOLD : '000000' })) })),
     ]}),
     p(''),

@@ -224,7 +224,7 @@ divider('01', 'El producto', 'Qué le vendemos al tutor y bajo qué condiciones'
     [td('Cobertura', { bold: true }), td('Urgencias y emergencias 24/7', { align: 'center' }), td('Urgencias 24/7 + preventivo completo', { align: 'center' })],
     [td('Copago del afiliado', { bold: true }), td('20%', { align: 'center' }), td('20%', { align: 'center' })],
     [td('Bolsa anual de urgencias', { bold: true }), td('$4.000.000', { align: 'center' }), td('$4.000.000', { align: 'center' })],
-    [td('Carencia', { bold: true }), td('Accidente 0 d · enfermedad 15 d · ortopédico 30 d', { align: 'center' }), td('Accidente 0 d · enfermedad 15 d · ortopédico 30 d', { align: 'center' })],
+    [td('Carencia', { bold: true }), td('Urgencias 0 d · todo lo demás 30 d', { align: 'center' }), td('Urgencias 0 d · todo lo demás 30 d', { align: 'center' })],
     [td('Preventivo incluido', { bold: true }), td('No', { align: 'center', color: C.muted })], // completado abajo
   ];
   rows[6].push(td('Sí — 12 consultas, vacunas, 4 desparasitaciones, panel de laboratorio e imagen diagnóstica', { align: 'center', color: C.green, bold: true }));
@@ -257,9 +257,8 @@ divider('01', 'El producto', 'Qué le vendemos al tutor y bajo qué condiciones'
 
   const rows = [
     [th('Mascota'), th('Descuento'), th('Plan Urgencias'), th('Plan Total')],
-    ...[['1ª', '0%', '$25.000', '$70.000'], ['2ª', '20%', '$20.000', '$56.000'],
-    ['3ª', '30%', '$17.500', '$49.000'], ['4ª', '40%', '$15.000', '$42.000'],
-    ['5ª', '50%', '$12.500', '$35.000']].map((r, i) => r.map((v, j) => td(v, {
+    ...[['1ª', '0%', '$25.000', '$70.000'], ['2ª', '5%', '$23.750', '$66.500'],
+    ['3ª en adelante', '10%', '$22.500', '$63.000']].map((r, i) => r.map((v, j) => td(v, {
       align: 'center', bold: j === 0 || j === 1,
       color: j === 1 ? C.brown : C.ink,
       fill: { color: i % 2 ? C.white : C.cream },
@@ -271,7 +270,7 @@ divider('01', 'El producto', 'Qué le vendemos al tutor y bajo qué condiciones'
     fontFace: 'Calibri', rowH: 0.52, valign: 'middle',
   });
 
-  s.addText('Estrategia: el descuento multimascota es más agresivo que el de SURA y eleva el ticket por hogar sin aumentar proporcionalmente el riesgo, porque la frecuencia de siniestro es por mascota, no por hogar.', {
+  s.addText('Estrategia: el descuento se mantiene moderado (5% y 10%) porque la frecuencia de siniestro es por mascota y no por hogar: un segundo animal aporta ingreso adicional pero también riesgo adicional, así que descontar de más erosiona el margen sin diluir la exposición.', {
     x: M, y: 5.6, w: CW, h: 0.6, fontSize: 12.5, color: C.muted, italic: true, fontFace: 'Calibri', lineSpacing: 18,
   });
 }
@@ -419,7 +418,7 @@ divider('02', 'La operación', 'Cómo se gestiona el plan en el día a día de l
   const s = content('Operación', 'Casos especiales que el equipo debe saber manejar');
   const rows = [
     [th('Situación'), th('Cómo se resuelve')],
-    [td('Afiliado en carencia\n(menos de 30 días)', { bold: true }), td('La cobertura de urgencias no aplica: se cobra tarifa regular. En Plan Total, el preventivo sí aplica desde el día 1. Recepción informa la fecha exacta en que inicia la cobertura.')],
+    [td('Afiliado en carencia\n(menos de 30 días)', { bold: true }), td('Las urgencias SÍ están cubiertas desde el día 1. Lo que no aplica todavía es el preventivo del Plan Total ni los descuentos en procedimientos programados: eso arranca el día 31.')],
     [td('Bolsa anual agotada', { bold: true }), td('Se informa con empatía y se ofrecen dos opciones: pagar tarifa regular, o pagar y descontarlo del siguiente año de plan. Si el tutor no puede pagar, se escala a gerencia — nunca se deja al animal sin atención.')],
     [td('El veterinario determina\nque no es urgencia', { bold: true }), td('Se documenta el motivo en la historia clínica. Si es Plan Total y le quedan consultas preventivas disponibles, puede cubrirse por esa vía. De lo contrario, tarifa regular.')],
     [td('Condición preexistente', { bold: true }), td('Si la causa ya estaba diagnosticada en la historia clínica antes de la afiliación, se cobra tarifa regular. Si es una condición nueva sin registro previo, se cubre normalmente.')],
@@ -744,7 +743,7 @@ divider('03', 'Los números', 'Supuestos, unit economics y proyección a 12 mese
     [td('Microchip', { bold: true }), td('Incluido', ok), td('No incluido', no)],
     [td('Cirugías programadas', { bold: true }), td('60% de descuento', ok), td('No cubre', no)],
     [td('Red de atención', { bold: true }), td('Propia, 24/7 en Cali', ok), td('Clínicas aliadas', no)],
-    [td('Descuento multimascota', { bold: true }), td('Hasta 50%', ok), td('Menor', no)],
+    [td('Descuento multimascota', { bold: true }), td('5% la 2ª · 10% de la 3ª', { align: 'center' }), td('Sin dato verificado', { align: 'center' })],
   ];
   s.addTable(rows, {
     x: M, y: 1.55, w: CW, colW: [4.4, 3.8, 3.43],
@@ -807,7 +806,7 @@ divider('04', 'Implementación', 'Qué está listo, qué falta y cómo salimos a
   const s = content('Gestión de riesgo', 'Riesgos principales y cómo los controlamos');
   const rows = [
     [th('Riesgo'), th('Impacto'), th('Control')],
-    [td('Selección adversa: se afilian mascotas ya enfermas', { bold: true }), td('Alto', { align: 'center', color: C.red, bold: true }), td('Examen inicial obligatorio: todo lo que aparezca ahí queda excluido. Más carencias escalonadas y exclusión de preexistentes documentadas en la historia clínica')],
+    [td('Selección adversa: se afilian mascotas ya enfermas', { bold: true }), td('Alto', { align: 'center', color: C.red, bold: true }), td('Examen inicial obligatorio: todo lo que aparezca ahí queda excluido. Más carencia de 30 días para todo lo que no sea urgencia y exclusión de preexistentes documentadas en la historia clínica')],
     [td('Siniestralidad por encima de lo modelado', { bold: true }), td('Alto', { align: 'center', color: C.red, bold: true }), td('Bolsa anual tope de $4.000.000 por afiliado; monitoreo mensual de loss ratio con alerta sobre 80%')],
     [td('Mora y cartera', { bold: true }), td('Medio', { align: 'center', color: C.amber, bold: true }), td('Cobro automatizado por pasarela y suspensión automática de cobertura al día 6 de mora')],
     [td('Uso excesivo del preventivo (Plan Total)', { bold: true }), td('Medio', { align: 'center', color: C.amber, bold: true }), td('Topes explícitos por beneficio y control de consumo en SofVet, visible para el equipo y para el tutor')],

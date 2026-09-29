@@ -220,7 +220,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: C.ink, v
   const datos = [
     { t: '20%', d: 'Es lo que paga el tutor\nen una urgencia cubierta', c: C.blue },
     { t: '$4.000.000', d: 'Tope anual de la bolsa\n(igual en los dos planes)', c: C.blue },
-    { t: '0 / 15 / 30', d: 'Días de carencia:\naccidente / enfermedad / ortopédico', c: C.red },
+    { t: '0 / 30', d: 'Días de carencia:\nurgencias / todo lo demás', c: C.red },
   ];
   datos.forEach((d, i) => {
     const x = M + i * (bw + 0.3);
@@ -398,7 +398,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: C.ink, v
 
   s.addShape(pptx.ShapeType.roundRect, { x: M + 0.7, y: 4.92, w: 5.2, h: 0.62, rectRadius: 0.05, fill: { color: 'FFF8E1' }, line: { color: 'F0D98C', width: 1 } });
   s.addText('PRECIO MENSUAL (MASCOTA #2 DEL TITULAR)', { x: M + 0.85, y: 4.96, w: 4.9, h: 0.2, fontSize: 7, bold: true, color: '8A6D00', fontFace: 'Calibri' });
-  s.addText('$ 56.000', { x: M + 0.85, y: 5.14, w: 4.9, h: 0.34, fontSize: 17, bold: true, color: C.ink, fontFace: 'Calibri' });
+  s.addText('$ 66.500', { x: M + 0.85, y: 5.14, w: 4.9, h: 0.34, fontSize: 17, bold: true, color: C.ink, fontFace: 'Calibri' });
 
   btn(s, M + 0.7, 5.62, 5.2, 0.4, 'Afiliar', C.blue);
 
@@ -410,7 +410,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: C.ink, v
   pasos(s, px, 1.8, pw, [
     { t: 'Elige la mascota que se va a afiliar', d: 'Cada afiliación cubre UNA sola mascota. Si quiere afiliar dos, se hacen dos afiliaciones separadas.' },
     { t: 'Elige el plan: Urgencias o Total', d: 'Explícale bien la diferencia antes de elegir. El Plan Total es el que incluye consultas y vacunas.' },
-    { t: 'Verifica el precio y dale "Afiliar"', d: 'El precio sale solo. Si el tutor ya tiene otra mascota afiliada, aplica el descuento automáticamente (2ª mascota 20%, 3ª 30%...).' },
+    { t: 'Verifica el precio y dale "Afiliar"', d: 'El precio sale solo. Si el tutor ya tiene otra mascota afiliada, aplica el descuento automáticamente (2ª mascota 5%, de la 3ª en adelante 10%).' },
   ], { descH: 0.85, gap: 0.14 });
 
   nota(s, px, 5.9, pw, 0.8, 'Después de afiliar', 'El sistema te lleva directo a la ficha del afiliado, donde vas a generar el link de pago.', C.green, 'EAF7EF');
@@ -458,7 +458,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: C.ink, v
   s.addText('🐾 LUNA', { x: M + 0.5, y: 2.35, w: 1.5, h: 0.3, fontSize: 15, bold: true, color: C.ink, fontFace: 'Calibri' });
   pill(s, M + 1.85, 2.4, 0.75, 0.22, 'Activo', 'EAFAF0', C.green);
   pill(s, M + 2.7, 2.4, 0.9, 0.22, 'Plan Total', 'EEF6F6', C.deep);
-  s.addText('Titular: ANA CAMPO MEJIA · $56.000/mes · Vence 22/10/2026', {
+  s.addText('Titular: ANA CAMPO MEJIA · $66.500/mes · Vence 22/10/2026', {
     x: M + 0.5, y: 2.68, w: 5, h: 0.24, fontSize: 9, color: C.muted, fontFace: 'Calibri',
   });
 
@@ -543,7 +543,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: C.ink, v
 
   s.addText('🐾 LUNA', { x: M + 0.5, y: 2.1, w: 1.5, h: 0.3, fontSize: 14, bold: true, color: C.ink, fontFace: 'Calibri' });
   pill(s, M + 1.75, 2.15, 0.75, 0.22, 'Activo', 'EAFAF0', C.green);
-  s.addText('Titular: ANA CAMPO · $56.000/mes · Afiliado desde 22/09/2026 · Vence 22/10/2026', {
+  s.addText('Titular: ANA CAMPO · $66.500/mes · Afiliado desde 22/09/2026 · Vence 22/10/2026', {
     x: M + 0.5, y: 2.42, w: 5.6, h: 0.22, fontSize: 8.5, color: C.muted, fontFace: 'Calibri',
   });
 
@@ -581,7 +581,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: C.ink, v
   ], { descH: 0.72, gap: 0.14 });
 
   nota(s, px, 5.5, pw, 1.1, 'También revisa la carencia',
-    'Mira "Afiliado desde". Accidentes cubren desde el día 1; enfermedad desde el día 16; ortopédico desde el día 31. El preventivo del Plan Total aplica desde el día 1.',
+    'Mira "Afiliado desde". Las urgencias cubren desde el día 1. Todo lo demás (preventivo del Plan Total y descuentos en programados) arranca el día 31.',
     C.red, 'FDECEA');
 }
 
@@ -765,7 +765,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: C.ink, v
   const rows = [
     [th('Situación'), th('Qué haces')],
     [td('"Yo tengo plan" pero no aparece en el módulo', { bold: true }), td('Búscalo por cédula, no por nombre. Si de verdad no está, se atiende como paciente regular y se escala a la coordinación de prepagada. No le prometas cobertura.')],
-    [td('Recién afiliado y llega por urgencia', { bold: true }), td('Depende del tipo: un ACCIDENTE (atropello, intoxicación, cuerpo extraño) está cubierto desde el día 1. Una enfermedad necesita 15 días, y lo ortopédico 30. El preventivo del Plan Total aplica desde el día 1.')],
+    [td('Recién afiliado y llega por urgencia', { bold: true }), td('Si es una urgencia, está cubierta desde el día 1, sin importar cuándo se afilió. Lo único que espera 30 días es el preventivo del Plan Total y los descuentos en procedimientos programados.')],
     [td('La bolsa no alcanza para el evento', { bold: true }), td('Explícale con calma que ya usó el tope anual. Ofrécele: pagar a tarifa regular, o pagar y descontarlo del próximo año. Si no puede pagar, escala a gerencia — el animal se estabiliza igual.')],
     [td('El veterinario dice que NO es urgencia cubierta', { bold: true }), td('Se cobra tarifa regular y él documenta el motivo en la historia. Si es Plan Total y le quedan consultas, puede ir como beneficio preventivo.')],
     [td('Llega con una mascota distinta a la afiliada', { bold: true }), td('El plan cubre solo a la mascota registrada. Se atiende a tarifa regular y le ofreces afiliar a esa otra mascota con descuento multimascota.')],
@@ -797,11 +797,11 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: C.ink, v
   s.addShape(pptx.ShapeType.line, { x: M + 0.55, y: 3.1, w: 5.3, h: 0, line: { color: C.softGray, width: 1 } });
 
   pill(s, M + 0.55, 3.25, 0.8, 0.24, 'Al día', 'EAFAF0', C.green);
-  s.addText('Plan Total · $56.000/mes · Vence 22 de octubre de 2026', {
+  s.addText('Plan Total · $66.500/mes · Vence 22 de octubre de 2026', {
     x: M + 1.45, y: 3.25, w: 4.2, h: 0.24, fontSize: 8.5, color: C.muted, valign: 'middle', fontFace: 'Calibri',
   });
   s.addText('PAGAR MI PLAN', { x: M + 0.55, y: 3.6, w: 3, h: 0.22, fontSize: 8, bold: true, color: C.deep, fontFace: 'Calibri' });
-  [['1 mes', '$56.000', ''], ['3 meses', '$159.600', '5% dto.'], ['6 meses', '$285.600', '15% dto.']].forEach((o, i) => {
+  [['1 mes', '$66.500', ''], ['3 meses', '$159.600', '5% dto.'], ['6 meses', '$285.600', '15% dto.']].forEach((o, i) => {
     const ox = M + 0.55 + i * 1.8;
     s.addShape(pptx.ShapeType.roundRect, { x: ox, y: 3.85, w: 1.65, h: 0.95, rectRadius: 0.06, fill: { color: C.white }, line: { color: i === 2 ? C.green : C.blue, width: i === 2 ? 1.75 : 1 } });
     s.addText(o[0], { x: ox, y: 3.95, w: 1.65, h: 0.22, fontSize: 9.5, bold: true, color: C.deep, align: 'center', fontFace: 'Calibri' });
@@ -847,7 +847,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: C.ink, v
 
   const reglas = [
     { n: '1', t: 'Verifica siempre por cédula', d: 'Nombre no basta: hay tutores con nombres parecidos.' },
-    { n: '2', t: 'Revisa carencia y bolsa antes', d: 'Accidente día 0 · enfermedad 15 d · ortopédico 30 d · tope $4.000.000 al año.' },
+    { n: '2', t: 'Revisa carencia y bolsa antes', d: 'Urgencias día 0 · todo lo demás 30 d · tope $4.000.000 al año.' },
     { n: '3', t: 'Cobra el copago ANTES de atender', d: '20% del costo total, factura con código COPAGO-PREP.' },
     { n: '4', t: 'Registra TODO el mismo día', d: 'Urgencias y también los servicios programados con descuento: los dos consumen bolsa.' },
     { n: '5', t: 'Manda el link de pago, no esperes', d: 'Y si el tutor sabe usar el portal, mejor: que pague él solo.' },

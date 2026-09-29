@@ -16,7 +16,7 @@ const H    = { apikey: KEY, Authorization: 'Bearer ' + KEY };
 const get  = p => fetch(new URL(p, BASE + '/'), { headers: H }).then(r => r.json());
 
 const CACHE = path.join(D, 'geocode_cache.json');
-const OUT   = path.join(D, 'mapa_clientes.html');
+const OUT   = path.join(D, 'mapa_sedes.html');
 
 console.log('Cargando cache de geocoding...');
 const cache = JSON.parse(fs.readFileSync(CACHE, 'utf8'));
@@ -193,5 +193,5 @@ buildLayers();
 </body></html>`;
 
 fs.writeFileSync(OUT, html, 'utf8');
-console.log(`\n✅ Mapa generado: scripts/mapa_clientes.html`);
+console.log(`\n✅ Mapa generado: scripts/mapa_sedes.html`);
 console.log('   Ábrelo en el navegador. Filtra por Todas / Colseguros / Ciudad Jardín.');

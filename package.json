@@ -5,6 +5,10 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.104.0",
-    "dotenv": "^18.0.1"
+    "docx": "^9.7.1",
+    "dotenv": "^18.0.1",
+    "pdf-parse": "^2.4.5",
+    "pptxgenjs": "^4.0.1",
+    "sharp": "^0.35.4"
   }
 }

@@ -1,0 +1,55 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<title>Mapa de Calor — Santa Mónica — Julio 2026</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#0f1117;color:#eee;height:100vh;display:flex;flex-direction:column}
+#hdr{padding:.7rem 1.5rem;background:#16213e;border-bottom:2px solid #2a3a6e;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+h1{font-size:1rem;color:#2e5cbf;font-weight:700}
+#sub{font-size:.68rem;color:#777;margin-top:2px}
+.n{font-size:1.4rem;font-weight:800;color:#5b8def;text-align:center}
+.nl{font-size:.65rem;color:#888}
+#ctrl{padding:.4rem 1rem;background:#1a2035;border-bottom:1px solid #2a3a6e;display:flex;gap:.5rem;align-items:center;flex-shrink:0}
+.cb{padding:.22rem .7rem;border:1px solid #5b8def;color:#5b8def;border-radius:999px;cursor:pointer;font-size:.7rem;font-weight:700;background:transparent}
+.cb.on{background:#5b8def;color:#000}
+#map{flex:1}
+.pn{font-weight:700}.pa{color:#666;font-size:.75rem}
+</style></head><body>
+<div id="hdr">
+  <div>
+    <h1>🐾 Mapa de Calor — Santa Mónica</h1>
+    <div id="sub">Clientes atendidos en julio 2026, geocodificados: 39 de 45 (27 aproximados por barrio/calle)</div>
+  </div>
+  <div><div class="n">39</div><div class="nl">en mapa</div></div>
+</div>
+<div id="ctrl">
+  <span style="font-size:.65rem;color:#666">Capas:</span>
+  <button class="cb on" onclick="tog('heat',this)">🔥 Calor</button>
+  <button class="cb on" onclick="tog('pts',this)">📍 Puntos</button>
+  <span style="font-size:.65rem;color:#666;margin-left:1rem">🔵 exacta &nbsp; 🟡 aproximada (barrio/calle)</span>
+</div>
+<div id="map"></div>
+<script>
+const D = [{"lat":3.4502874,"lng":-76.5346337,"n":"Alisson Barrera Salinas ","a":"Cra 5 #45-99","ap":false},{"lat":3.4590326,"lng":-76.5320578,"n":"Bleydy Castro Aleman ","a":"Calle 16 norte 9A norte 42 ","ap":true},{"lat":3.4215673,"lng":-76.561812,"n":"Nathalia vallejo montenegro ","a":"Cll 14 oeste # 6-62","ap":false},{"lat":3.4926752,"lng":-76.4897271,"n":"MARLON ZAMBRANO","a":"CALLE 73#1A12-35","ap":true},{"lat":3.4642755,"lng":-76.5262315,"n":"Francisco Lozano","a":"Dirección Avenida 4 Norte 1-75","ap":true},{"lat":3.4346975,"lng":-76.5140152,"n":"LEONARDO WILCHES","a":"av 9 a norte 321-59 B/Santa monica","ap":true},{"lat":3.4439993,"lng":-76.4903288,"n":"VALENTINA VELEZ","a":"CALLE 70#1A12-35","ap":true},{"lat":3.4439993,"lng":-76.4903288,"n":"MONICA ROJAS","a":"CALLE 70 #2AN-151","ap":true},{"lat":3.4747053,"lng":-76.4987527,"n":" Mayra Alejandra Velásquez Silva","a":"Dirección Carrera 1C 1 #53-62","ap":true},{"lat":3.4669025,"lng":-76.5334497,"n":"ISABEL RUIZ","a":"AV 9 A #25 N 98 · SANTA MONICA RESIDENCIAL","ap":true},{"lat":3.4890556,"lng":-76.5320678,"n":"Gilberto Villa Soto","a":"Dirección: Av 9N # 14 - 45, Apto 304","ap":true},{"lat":3.4519988,"lng":-76.5325259,"n":"ANA CRISTINA MESA ESCOBAR ","a":"1","ap":false},{"lat":3.4612255,"lng":-76.5287823,"n":"ALAN IZQUIERDO ","a":"CALLE 22 NORTE # 5BN-26 VERSALLES ","ap":true},{"lat":3.4615816,"lng":-76.5283638,"n":"Maria Isabel Vargas","a":"calle 21 norte # 9 · santa monica edificio bali ","ap":false},{"lat":3.4471087,"lng":-76.4976788,"n":"DIANA CARVAJAL","a":"Calle 64N # 4-90 apto 206 B","ap":true},{"lat":3.4683091,"lng":-76.4898368,"n":"ELIZABETH CASIERRA","a":" calle 63c #4D18","ap":false},{"lat":3.441312,"lng":-76.5272876,"n":"Monica Isabel Arias Angel ","a":" Cra 17 #3C-04 Torre 4 apto 503","ap":false},{"lat":3.492476,"lng":-76.4976554,"n":"JAMES JOSE GARCIA DIAZ","a":"AVENIDA 7 NORTE #17AN - 37 ","ap":true},{"lat":3.4236206,"lng":-76.4839906,"n":"ANDRÉS FELIPE FIGUEROA RIASCOS","a":"Cl 76 #28e6 - 71","ap":true},{"lat":3.3643221,"lng":-76.5218375,"n":"Lina Fernández","a":" cra 102 #34-133","ap":false},{"lat":3.443557,"lng":-76.5211625,"n":"ISABELLA MOTOA","a":"CALLE 21 N #9N -50","ap":true},{"lat":3.4722025,"lng":-76.5198344,"n":"María Paula Carvajal ","a":"Calle 34An #2An 63 prados del norte ","ap":true},{"lat":3.4374185,"lng":-76.5482819,"n":"Juan Carvajal","a":"Cra 31 # 7 Oeste - 11, Barrio Cristales","ap":true},{"lat":3.3656644,"lng":-76.5289778,"n":"Laura Restrepo","a":"Carrera 101 # 12-16","ap":false},{"lat":3.4647843,"lng":-76.5149759,"n":"PATRICIA TRUJILLO","a":"CARRERA 1 # 13 OESTE 215","ap":true},{"lat":3.4519988,"lng":-76.5325259,"n":"SANDRA PATRICIA CARDONA","a":"0","ap":false},{"lat":3.4108435,"lng":-76.5812127,"n":"MONICA GOMEZ","a":"-","ap":false},{"lat":3.4830776,"lng":-76.523257,"n":"MARCELA GOMEZ","a":"av 5 b norte #64 n 80 b/ la flora","ap":true},{"lat":3.4162398,"lng":-76.4901102,"n":"ANA ANGULO","a":"CALLE 78 #4N-73","ap":true},{"lat":3.4587602,"lng":-76.5526406,"n":"JOAN OTERO","a":"CARRERA 1 OESTE #9-53","ap":true},{"lat":3.4827965,"lng":-76.5293254,"n":"CRISTHIAN BELLIO","a":"CALLE 43 NORTE#2E-38","ap":false},{"lat":3.4704601,"lng":-76.4896305,"n":"Lucía Katherin Martínez Solano","a":"* carrera 2D # 13 oeste - 65 Apto 703","ap":true},{"lat":3.453215,"lng":-76.5449882,"n":"Daniela Gonzalez Garzon","a":"AV 4 OESTE # 5 - 207 NORMANDIA EDIFICIO WEST POINT APTO 101 CALI","ap":true},{"lat":3.4653404,"lng":-76.5281085,"n":"José David Caicedo Salazar ","a":"avenida séptima norte #25 n -61   santa Mónica residencial","ap":true},{"lat":3.4444091,"lng":-76.5542958,"n":"Maria Paula Sanchez","a":"Cra 29A Oeste #15-96","ap":true},{"lat":3.4860732,"lng":-76.5323061,"n":"ALEJANDRO BURBANO URIBE ","a":"AVENIDA 10 NORTE #10N-40","ap":true},{"lat":3.4275557,"lng":-76.5369585,"n":"MARIA CAMILA GUARIN","a":"CALLE 9 #29-61","ap":false},{"lat":3.4195763,"lng":-76.482718,"n":"NICOLAS CABANZO ALFONSO","a":"CALLE 82 # 27 D 119 B/ ALFONSO BONILLA","ap":true},{"lat":3.4087565,"lng":-76.4975486,"n":"Thalía Mejía","a":"Dirección Calle 53#1-126","ap":true}];
+const map = L.map('map').setView([3.4516, -76.5320], 12);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OSM &copy; CARTO', maxZoom: 19
+}).addTo(map);
+const heat = L.heatLayer(D.map(c => [c.lat, c.lng, 1]), {
+  radius: 30, blur: 25, maxZoom: 17,
+  gradient: { 0.2:'#0d2a5c', 0.5:'#2e5cbf', 0.8:'#5b8def', 1:'#a8c5ff' }
+}).addTo(map);
+const pts = L.layerGroup(D.map(c =>
+  L.circleMarker([c.lat, c.lng], { radius:6, fillColor: c.ap ? '#ffca28' : '#2e5cbf', color:'#fff', weight:1.5, fillOpacity:.85 })
+    .bindPopup('<div class=pn>' + c.n + '</div><div class=pa>📍 ' + c.a + (c.ap ? ' <i>(ubicación aproximada)</i>' : '') + '</div>')
+)).addTo(map);
+const layers = { heat, pts };
+function tog(n, b) {
+  const l = layers[n];
+  if (map.hasLayer(l)) { map.removeLayer(l); b.classList.remove('on'); }
+  else { map.addLayer(l); b.classList.add('on'); }
+}
+</script>
+</body></html>
