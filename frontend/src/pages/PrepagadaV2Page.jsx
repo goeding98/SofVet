@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
 import { calcularPrecioPrepagada, BOLSA_ANUAL } from '../utils/prepagadaPrecios';
+import { vencimientoAlAfiliar } from '../utils/prepagadaFacturacion';
 import { calcularEstadoVencimiento } from '../utils/prepagadaEstado';
 import { nowDate } from '../utils/nowLocal';
 
@@ -160,8 +161,9 @@ export default function PrepagadaV2Page() {
     if (yaAfiliada) return setErr(`${mascotaSel.name} ya tiene una afiliación activa.`);
     setSaving(true); setErr('');
 
-    const fechaVenc = new Date(fechaAfiliacion); fechaVenc.setMonth(fechaVenc.getMonth() + 1);
-    const vencStr = fechaVenc.toISOString().slice(0, 10);
+    // Vencimiento tentativo: cubre a la mascota desde ya, y el primer pago lo
+    // reemplaza con el definitivo (ver prepagadaFacturacion).
+    const vencStr = vencimientoAlAfiliar(fechaAfiliacion, 1);
 
     let saveErr = null;
     const nuevo = await addAfiliado({

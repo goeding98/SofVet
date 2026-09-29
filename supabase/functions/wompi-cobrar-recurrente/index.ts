@@ -21,10 +21,41 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // descuento por pago anticipado, y los dos beneficios no se acumulan.
 const CICLOS_GRATIS = [4, 8];
 
-function sumarMeses(fechaISO: string, meses: number): string {
-  const d = new Date(fechaISO + 'T00:00:00');
-  d.setMonth(d.getMonth() + meses);
-  return d.toISOString().slice(0, 10);
+
+// ── Vencimientos ──────────────────────────────────────────────────────────
+// Todos los afiliados vencen el ÚLTIMO DÍA DEL MES, para que el cobro de todos
+// caiga en los primeros 5 días del mes siguiente. Al afiliar: si fue el día 15
+// o antes queda cubierto hasta el fin de ese mes; del 16 en adelante se le
+// regalan los días sueltos y queda hasta el fin del mes siguiente.
+//
+// OJO: es una copia de frontend/src/utils/prepagadaFacturacion.js. Si cambia
+// allá, hay que cambiarla acá.
+const DIA_CORTE = 15;
+
+function fmtFecha(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function finDeMes(fechaISO: string, offsetMeses = 0): string {
+  const [y, m] = fechaISO.split('-').map(Number);
+  return fmtFecha(new Date(y, m + offsetMeses, 0));
+}
+
+function vencimientoAlAfiliar(fechaAfiliacionISO: string, meses = 1): string {
+  const dia = Number(fechaAfiliacionISO.slice(8, 10));
+  return finDeMes(fechaAfiliacionISO, dia <= DIA_CORTE ? meses - 1 : meses);
+}
+
+// El primer pago REEMPLAZA el vencimiento tentativo que se puso al afiliar, no
+// le suma: si no, afiliarse y pagar el primer mes daba dos meses de cobertura.
+function vencimientoTrasPago(o: {
+  fechaAfiliacion?: string | null; vencimientoActual?: string | null;
+  hoy: string; meses?: number; primerPago?: boolean;
+}): string {
+  const meses = o.meses ?? 1;
+  if (o.primerPago) return vencimientoAlAfiliar(o.fechaAfiliacion || o.hoy, meses);
+  if (!o.vencimientoActual || o.vencimientoActual < o.hoy) return vencimientoAlAfiliar(o.hoy, meses);
+  return finDeMes(o.vencimientoActual, meses);
 }
 
 const CORS_HEADERS = {
@@ -53,13 +84,15 @@ async function cobrar(afiliado: any, hoy: string) {
   // ¿A este ciclo le toca ser gratis?
   const proximoCiclo = (afiliado.ciclos_prepagada || 0) + 1;
   if (CICLOS_GRATIS.includes(proximoCiclo)) {
-    const base = afiliado.fecha_vencimiento && afiliado.fecha_vencimiento > hoy
-      ? afiliado.fecha_vencimiento
-      : hoy;
     await supabase
       .from('prepagada_afiliados')
       .update({
-        fecha_vencimiento: sumarMeses(base, 1),
+        fecha_vencimiento: vencimientoTrasPago({
+          fechaAfiliacion: afiliado.fecha_afiliacion,
+          vencimientoActual: afiliado.fecha_vencimiento,
+          hoy,
+          meses: 1,
+        }),
         estado: 'activo',
         ciclos_prepagada: proximoCiclo,
         ultimo_cobro_auto_fecha: hoy,

@@ -4,6 +4,7 @@ import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
 import { supabase } from '../utils/supabaseClient';
 import { BENEFICIOS_TOTAL_ANUAL, DESCUENTO_POR_MESES, calcularTotalMeses } from '../utils/prepagadaPrecios';
+import { vencimientoTrasPago } from '../utils/prepagadaFacturacion';
 import { calcularEstadoVencimiento } from '../utils/prepagadaEstado';
 import { nowDate } from '../utils/nowLocal';
 
@@ -79,10 +80,20 @@ export default function PrepagadaV2DetallePage() {
   const handleMarcarPagado = () => {
     if (!afiliado) return;
     const hoy = nowDate();
-    const base = afiliado.fecha_vencimiento && afiliado.fecha_vencimiento > hoy ? afiliado.fecha_vencimiento : hoy;
-    const nuevaFecha = new Date(base);
-    nuevaFecha.setMonth(nuevaFecha.getMonth() + 1);
-    editAfiliado(afiliado.id, { fecha_vencimiento: nuevaFecha.toISOString().slice(0, 10), estado: 'activo' });
+    const nuevaFecha = vencimientoTrasPago({
+      fechaAfiliacion: afiliado.fecha_afiliacion,
+      vencimientoActual: afiliado.fecha_vencimiento,
+      hoy,
+      meses: mesesLink,
+      primerPago: !afiliado.ultimo_pago_fecha,
+    });
+    editAfiliado(afiliado.id, {
+      fecha_vencimiento: nuevaFecha,
+      estado: 'activo',
+      // Marca que ya hubo un pago, para que el siguiente extienda en vez de reemplazar.
+      ultimo_pago_fecha: hoy,
+      ultimo_pago_metodo: 'manual',
+    });
   };
 
   const [linkPago, setLinkPago] = useState(null);
@@ -251,10 +262,10 @@ export default function PrepagadaV2DetallePage() {
           </div>
           <button
             onClick={handleMarcarPagado}
-            title="Solo para pagos en efectivo/transferencia que caja sube a mano — con Wompi esto será automático"
+            title={`Registra un pago en efectivo o transferencia por ${mesesLink === 1 ? "1 mes" : mesesLink + " meses"}. Usa el mismo selector de la izquierda. Los pagos por Wompi entran solos.`}
             style={{ padding: '0.5rem 0.9rem', background: '#eafaf0', color: '#1e7d45', border: '1px solid #1e7d45', borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
           >
-            ✅ Marcar pagado
+            ✅ Marcar pagado{mesesLink > 1 ? ` (${mesesLink}m)` : ""}
           </button>
           <select value={afiliado.estado} onChange={e => editAfiliado(afiliadoId, { estado: e.target.value })} style={{ padding: '0.5rem 0.8rem', borderRadius: 10, border: '1.5px solid #dfe3ea', fontSize: '0.85rem', fontWeight: 600 }}>
             {ESTADO_OPTS.map(o => <option key={o} value={o}>{ESTADO_BADGE[o].label}</option>)}

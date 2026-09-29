@@ -27,6 +27,43 @@ function nowBogotaDateStr(): string {
   return bogota.toISOString().slice(0, 10);
 }
 
+// ── Vencimientos ──────────────────────────────────────────────────────────
+// Todos los afiliados vencen el ÚLTIMO DÍA DEL MES, para que el cobro de todos
+// caiga en los primeros 5 días del mes siguiente. Al afiliar: si fue el día 15
+// o antes queda cubierto hasta el fin de ese mes; del 16 en adelante se le
+// regalan los días sueltos y queda hasta el fin del mes siguiente.
+//
+// OJO: es una copia de frontend/src/utils/prepagadaFacturacion.js. Si cambia
+// allá, hay que cambiarla acá.
+const DIA_CORTE = 15;
+
+function fmtFecha(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function finDeMes(fechaISO: string, offsetMeses = 0): string {
+  const [y, m] = fechaISO.split('-').map(Number);
+  return fmtFecha(new Date(y, m + offsetMeses, 0));
+}
+
+function vencimientoAlAfiliar(fechaAfiliacionISO: string, meses = 1): string {
+  const dia = Number(fechaAfiliacionISO.slice(8, 10));
+  return finDeMes(fechaAfiliacionISO, dia <= DIA_CORTE ? meses - 1 : meses);
+}
+
+// El primer pago REEMPLAZA el vencimiento tentativo que se puso al afiliar, no
+// le suma: si no, afiliarse y pagar el primer mes daba dos meses de cobertura.
+function vencimientoTrasPago(o: {
+  fechaAfiliacion?: string | null; vencimientoActual?: string | null;
+  hoy: string; meses?: number; primerPago?: boolean;
+}): string {
+  const meses = o.meses ?? 1;
+  if (o.primerPago) return vencimientoAlAfiliar(o.fechaAfiliacion || o.hoy, meses);
+  if (!o.vencimientoActual || o.vencimientoActual < o.hoy) return vencimientoAlAfiliar(o.hoy, meses);
+  return finDeMes(o.vencimientoActual, meses);
+}
+
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
@@ -70,23 +107,24 @@ Deno.serve(async (req) => {
       const meses = Number(match[2]) || 1;
       const { data: afiliado } = await supabase
         .from('prepagada_afiliados')
-        .select('id, fecha_vencimiento, ultimo_pago_id, ciclos_prepagada')
+        .select('id, fecha_afiliacion, fecha_vencimiento, ultimo_pago_id, ultimo_pago_fecha, ciclos_prepagada')
         .eq('id', afiliadoId)
         .single();
 
       if (afiliado && afiliado.ultimo_pago_id !== tx.id) {
         const hoy = nowBogotaDateStr();
-        const base =
-          afiliado.fecha_vencimiento && afiliado.fecha_vencimiento > hoy
-            ? afiliado.fecha_vencimiento
-            : hoy;
-        const nuevaFecha = new Date(base + 'T00:00:00');
-        nuevaFecha.setMonth(nuevaFecha.getMonth() + meses);
+        const nuevaFecha = vencimientoTrasPago({
+          fechaAfiliacion: afiliado.fecha_afiliacion,
+          vencimientoActual: afiliado.fecha_vencimiento,
+          hoy,
+          meses,
+          primerPago: !afiliado.ultimo_pago_fecha,
+        });
 
         await supabase
           .from('prepagada_afiliados')
           .update({
-            fecha_vencimiento: nuevaFecha.toISOString().slice(0, 10),
+            fecha_vencimiento: nuevaFecha,
             estado: 'activo',
             ultimo_pago_id: tx.id,
             ultimo_pago_metodo: tx.payment_method_type ?? null,
