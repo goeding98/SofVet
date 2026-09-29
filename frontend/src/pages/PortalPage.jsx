@@ -6,6 +6,7 @@ import { calcularTotalMeses } from '../utils/prepagadaPrecios';
 const fmtCOP = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v || 0);
 const PREP_ESTADO_BADGE = {
   activo:      { bg: '#eafaf0', color: '#1e7d45', label: 'Al día' },
+  pendiente_pago: { bg: '#fff1e6', color: '#c05621', label: 'Pendiente de pago' },
   en_gracia:   { bg: '#fff8e1', color: '#b8860b', label: 'En gracia' },
   suspendido:  { bg: '#fdecea', color: '#c0392b', label: 'Suspendido' },
   cancelado:   { bg: '#f0f2f6', color: '#8A8076', label: 'Cancelado' },
@@ -1570,6 +1571,11 @@ export default function PortalPage() {
                           <span style={{ fontSize:'0.85rem', color:C.muted }}>Plan {p2.plan === 'total' ? 'Total' : 'Urgencias'} · {fmtCOP(p2.precio_mensual)}/mes · Vence {fmt(p2.fecha_vencimiento)}</span>
                         </div>
 
+                        {p2.estado === 'pendiente_pago' && (
+                          <div style={{ background:'#fff1e6', color:'#c05621', borderRadius:10, padding:'0.6rem 0.8rem', fontSize:'0.8rem', fontWeight:600, marginTop:'0.5rem' }}>
+                            ⏳ Tu plan se activa apenas recibamos el primer pago. Todavía no tiene cobertura.
+                          </div>
+                        )}
                         {(p2.estado === 'en_gracia' || p2.estado === 'suspendido') && (
                           <div style={{ background:'#fff8e1', border:'1px solid #f0d98c', borderRadius:12, padding:'0.7rem 1rem', marginBottom:'1rem', fontSize:'0.82rem', color:'#8a6d00' }}>
                             ⚠️ Tu plan {p2.estado === 'en_gracia' ? 'está vencido' : 'está suspendido'}. Ponte al día para seguir usando tus beneficios.

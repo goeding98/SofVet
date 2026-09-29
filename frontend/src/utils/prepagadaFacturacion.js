@@ -44,7 +44,12 @@ export function vencimientoAlAfiliar(fechaAfiliacionISO, meses = 1) {
 // sumarle. Sin esto, afiliarse y pagar el primer mes daba dos meses de
 // cobertura por un solo pago.
 export function vencimientoTrasPago({ fechaAfiliacion, vencimientoActual, hoy, meses = 1, primerPago = false }) {
-  if (primerPago) return vencimientoAlAfiliar(fechaAfiliacion || hoy, meses);
+  if (primerPago) {
+    const desdeAfiliacion = vencimientoAlAfiliar(fechaAfiliacion || hoy, meses);
+    // Si se afilió hace semanas y apenas viene a pagar, contar desde la
+    // afiliación lo dejaría vencido el mismo día del pago.
+    return desdeAfiliacion >= hoy ? desdeAfiliacion : vencimientoAlAfiliar(hoy, meses);
+  }
   // Si ya se venció, no se arrastra el tiempo perdido: cuenta desde hoy con la
   // misma regla del día 15.
   if (!vencimientoActual || vencimientoActual < hoy) return vencimientoAlAfiliar(hoy, meses);

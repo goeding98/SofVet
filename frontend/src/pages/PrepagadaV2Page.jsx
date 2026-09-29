@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
 import { calcularPrecioPrepagada, BOLSA_ANUAL } from '../utils/prepagadaPrecios';
-import { vencimientoAlAfiliar } from '../utils/prepagadaFacturacion';
 import { calcularEstadoVencimiento } from '../utils/prepagadaEstado';
 import { nowDate } from '../utils/nowLocal';
 
@@ -11,6 +10,7 @@ const fmtCOP = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', curren
 
 const ESTADO_BADGE = {
   activo:      { bg: '#eafaf0', color: '#1e7d45', label: 'Activo' },
+  pendiente_pago: { bg: '#fff1e6', color: '#c05621', label: 'Pendiente de pago' },
   en_gracia:   { bg: '#fff8e1', color: '#b8860b', label: 'En gracia' },
   suspendido:  { bg: '#fdecea', color: '#c0392b', label: 'Suspendido' },
   cancelado:   { bg: '#f0f2f6', color: '#8A8076', label: 'Cancelado' },
@@ -161,9 +161,9 @@ export default function PrepagadaV2Page() {
     if (yaAfiliada) return setErr(`${mascotaSel.name} ya tiene una afiliación activa.`);
     setSaving(true); setErr('');
 
-    // Vencimiento tentativo: cubre a la mascota desde ya, y el primer pago lo
-    // reemplaza con el definitivo (ver prepagadaFacturacion).
-    const vencStr = vencimientoAlAfiliar(fechaAfiliacion, 1);
+    // Sin cobertura hasta que entre el primer pago: queda 'pendiente_pago' y sin
+    // vencimiento. El pago (webhook de Wompi o "Marcar pagado" de caja) lo activa y
+    // calcula la fecha real desde la afiliación.
 
     let saveErr = null;
     const nuevo = await addAfiliado({
@@ -173,8 +173,8 @@ export default function PrepagadaV2Page() {
       plan,
       precio_mensual: precioCalculado,
       fecha_afiliacion: fechaAfiliacion,
-      fecha_vencimiento: vencStr,
-      estado: 'activo',
+      fecha_vencimiento: null,
+      estado: 'pendiente_pago',
       bolsa_maxima_anual: BOLSA_ANUAL,
       bolsa_consumida_anual: 0,
       bolsa_anio: new Date().getFullYear(),

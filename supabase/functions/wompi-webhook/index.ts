@@ -58,7 +58,12 @@ function vencimientoTrasPago(o: {
   hoy: string; meses?: number; primerPago?: boolean;
 }): string {
   const meses = o.meses ?? 1;
-  if (o.primerPago) return vencimientoAlAfiliar(o.fechaAfiliacion || o.hoy, meses);
+  if (o.primerPago) {
+    const desdeAfiliacion = vencimientoAlAfiliar(o.fechaAfiliacion || o.hoy, meses);
+    // Si se afilió hace semanas y apenas viene a pagar, contar desde la
+    // afiliación lo dejaría vencido el mismo día del pago.
+    return desdeAfiliacion >= o.hoy ? desdeAfiliacion : vencimientoAlAfiliar(o.hoy, meses);
+  }
   if (!o.vencimientoActual || o.vencimientoActual < o.hoy) return vencimientoAlAfiliar(o.hoy, meses);
   return finDeMes(o.vencimientoActual, meses);
 }

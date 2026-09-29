@@ -10,9 +10,10 @@ import { nowDate } from '../utils/nowLocal';
 
 const fmtCOP = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v || 0);
 const PLAN_LABEL = { urgencias: 'Urgencias', total: 'Total' };
-const ESTADO_OPTS = ['activo', 'en_gracia', 'suspendido', 'cancelado'];
+const ESTADO_OPTS = ['pendiente_pago', 'activo', 'en_gracia', 'suspendido', 'cancelado'];
 const ESTADO_BADGE = {
   activo:      { bg: '#eafaf0', color: '#1e7d45', label: 'Activo' },
+  pendiente_pago: { bg: '#fff1e6', color: '#c05621', label: 'Pendiente de pago' },
   en_gracia:   { bg: '#fff8e1', color: '#b8860b', label: 'En gracia' },
   suspendido:  { bg: '#fdecea', color: '#c0392b', label: 'Suspendido' },
   cancelado:   { bg: '#f0f2f6', color: '#8A8076', label: 'Cancelado' },
