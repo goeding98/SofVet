@@ -4,6 +4,7 @@ import { useAuth } from '../utils/useAuth';
 import { nowDate, nowTime } from '../utils/nowLocal';
 import { ageLabel } from '../utils/ageLabel';
 import { getTP } from '../utils/vetCards';
+import { useSede, sedeById, SITIO_WEB } from '../utils/useSede';
 
 const BRAND = {
   teal:    '#316d74',
@@ -30,7 +31,10 @@ function estadoBadge(estado) {
 }
 
 // ── PDF generator ─────────────────────────────────────────────────────────────
-function buildPDFHtml(formula, pet, client) {
+function buildPDFHtml(formula, pet, client, sedeFallback) {
+  // Las fórmulas viejas no guardaron sede_id (la columna existía pero nunca se
+  // llenó), así que se cae a la sede activa de quien está imprimiendo.
+  const sede = sedeById(formula.sede_id) || sedeFallback || null;
   const prods = Array.isArray(formula.productos) ? formula.productos : [];
   const vetTP = formula.veterinario ? getTP(formula.veterinario) : null;
   const rows = prods.map((p, i) => `
@@ -114,11 +118,11 @@ function buildPDFHtml(formula, pet, client) {
 
     <div class="footer">
       <div class="footer-left">
-        📞 3152946916 &nbsp;·&nbsp; WhatsApp: 6024812930<br/>
-        📍 Calle 10 # 31-143, Cali
+        ${sede ? `📞 ${sede.telefono}` : '📞 315 294 6916'}${sede?.nombre ? ` &nbsp;·&nbsp; ${sede.nombre}` : ''}<br/>
+        ${sede?.direccion ? `📍 ${sede.direccion}` : '📍 Cali, Colombia'}
       </div>
       <div class="footer-right">
-        🌐 www.petspets.com.co<br/>
+        🌐 ${SITIO_WEB}<br/>
         Generado: ${new Date().toLocaleDateString('es-CO')}
       </div>
     </div>
@@ -129,6 +133,8 @@ const EMPTY_PROD = { producto: '', cantidad: '', instrucciones: '' };
 
 // ── main component ────────────────────────────────────────────────────────────
 export default function FormulasModal({ isOpen, onClose, pet, client, formulas }) {
+  const { sedeActual } = useSede();
+  const sedeImpresion = sedeById(sedeActual);
   const { add: addFormula, edit: editFormula, remove: removeFormula } = useStore('formulas_medicas');
   const { session } = useAuth();
   const isAdmin = session?.rol === 'Administrador';
@@ -150,7 +156,7 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
   if (!isOpen || !pet) return null;
 
   const handleDownload = (formula) => {
-    const html = buildPDFHtml(formula, pet, client);
+    const html = buildPDFHtml(formula, pet, client, sedeImpresion);
     const w = window.open('', '_blank');
     w.document.write(html);
     w.document.close();
@@ -159,7 +165,7 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
 
   const handlePrintAll = () => {
     if (petFormulas.length === 0) return;
-    const allHtml = petFormulas.map(f => buildPDFHtml(f, pet, client)).join(
+    const allHtml = petFormulas.map(f => buildPDFHtml(f, pet, client, sedeImpresion)).join(
       '<div style="page-break-after:always"></div>'
     );
     const w = window.open('', '_blank');

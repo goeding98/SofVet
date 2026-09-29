@@ -361,7 +361,7 @@ export default function PetDetailPage() {
     if (hasFormula) {
       let fxError = null;
       const fxResult = await addFormula(
-        { patient_id: petId, patient_name: pet.name, fecha: data.date || nowDate(), productos: formula_productos || [], estado: 'Pendiente', veterinario: session?.nombre || null, observaciones: data.observaciones || null },
+        { patient_id: petId, patient_name: pet.name, sede_id: data.sede_id, fecha: data.date || nowDate(), productos: formula_productos || [], estado: 'Pendiente', veterinario: session?.nombre || null, observaciones: data.observaciones || null },
         { onError: (msg) => { fxError = msg; } }
       );
       if (!fxResult) alert('⚠️ Error al guardar fórmula médica:\n\n' + fxError);

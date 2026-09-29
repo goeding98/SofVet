@@ -95,6 +95,7 @@ export default function ControlModal({ isOpen, onClose, onSave, onDelete, pet, i
         addFormula({
           patient_id:    pet.id,
           patient_name:  pet.name,
+          sede_id:       sedeId || null,
           fecha:         form.date,
           productos:     prods,
           estado:        'Pendiente',

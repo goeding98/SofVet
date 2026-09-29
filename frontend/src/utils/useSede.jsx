@@ -1,11 +1,20 @@
 import { createContext, useContext, useState } from 'react';
 
+// Los teléfonos están confirmados por gerencia (sept 2026). Las direcciones de
+// Santa Mónica y Ciudad Jardín siguen SIN VERIFICAR contra el Perfil de Empresa
+// de Google — se imprimen en las fórmulas médicas, así que conviene confirmarlas.
 export const SEDES = [
-  { id: 1, nombre: 'Santa Mónica',  color: '#2e5cbf', bg: '#e8f0ff' },
-  { id: 2, nombre: 'Colseguros',    color: '#2e7d50', bg: 'var(--color-success-bg)' },
-  { id: 3, nombre: 'Ciudad Jardín', color: '#b8860b', bg: '#fff8e1' },
-  { id: 4, nombre: 'Domicilio',     color: '#7c5cbf', bg: '#f0ebff', domicilio: true },
+  { id: 1, nombre: 'Santa Mónica',  color: '#2e5cbf', bg: '#e8f0ff',
+    telefono: '314 606 2066', direccion: 'Avenida 8N # 22-06, Cali' },
+  { id: 2, nombre: 'Colseguros',    color: '#2e7d50', bg: 'var(--color-success-bg)',
+    telefono: '315 294 6916', direccion: 'Calle 10 # 31-143, Cali' },
+  { id: 3, nombre: 'Ciudad Jardín', color: '#b8860b', bg: '#fff8e1',
+    telefono: '320 800 0002', direccion: 'Avenida Cañasgordas # 106-74, Cali' },
+  { id: 4, nombre: 'Domicilio',     color: '#7c5cbf', bg: '#f0ebff', domicilio: true,
+    telefono: '315 294 6916', direccion: null },
 ];
+
+export const SITIO_WEB = 'petspets.co';
 
 export function sedeById(id) {
   return SEDES.find(s => s.id === id) || null;
