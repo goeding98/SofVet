@@ -68,12 +68,22 @@ Deno.serve(async (req) => {
       return json({ error: 'Wompi no aceptó la tarjeta', detalle: ps?.error ?? ps }, 400);
     }
 
+    // El widget de tokenización no devuelve marca ni últimos 4 al navegador, a
+    // diferencia del formulario propio que teníamos antes. Se intentan leer de la
+    // respuesta de Wompi, pero su documentación dice que public_data solo trae
+    // el campo "type", así que puede quedar en null: la UI entonces muestra solo
+    // "Tarjeta registrada". Los parámetros del body quedan como respaldo para
+    // quien llame esta función a la antigua.
+    const pub = ps.data.public_data ?? {};
+    const marca = pub.brand ?? tarjeta_marca ?? null;
+    const ultimos4 = pub.last_four ?? tarjeta_ultimos4 ?? null;
+
     await supabase
       .from('prepagada_afiliados')
       .update({
         wompi_payment_source_id: ps.data.id,
-        tarjeta_marca: tarjeta_marca ?? null,
-        tarjeta_ultimos4: tarjeta_ultimos4 ?? null,
+        tarjeta_marca: marca,
+        tarjeta_ultimos4: ultimos4,
         cobro_automatico: true,
         ultimo_cobro_auto_estado: null,
       })
@@ -82,8 +92,8 @@ Deno.serve(async (req) => {
     return json({
       ok: true,
       payment_source_id: ps.data.id,
-      tarjeta_marca: tarjeta_marca ?? null,
-      tarjeta_ultimos4: tarjeta_ultimos4 ?? null,
+      tarjeta_marca: marca,
+      tarjeta_ultimos4: ultimos4,
     });
   } catch (e) {
     console.error('[registrar-tarjeta]', e);
