@@ -140,6 +140,9 @@ export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsu
     cost_center: centroCostoDe(sedeUsuario),
     seller: VENDEDOR,
     stamp: { send: true },   // se envía a la DIAN al crearla
+    // Siigo le manda la factura al correo que tenga el cliente en su ficha. Sin
+    // esto queda en 'not_sent' y el tutor nunca la recibe.
+    mail: { send: true },
     observations: `Prepagada ${afiliado.plan === 'total' ? 'Plan Total' : 'Plan Urgencias'}`
       + ` · ${mascota?.name || 'mascota'} · afiliado ${afiliado.id}`,
     items: [

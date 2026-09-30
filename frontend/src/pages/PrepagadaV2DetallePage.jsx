@@ -137,7 +137,7 @@ export default function PrepagadaV2DetallePage() {
         : `  ${d.items.servicio.desc}: ${fmtCOP(d.servicio)} + IVA ${fmtCOP(d.iva)}\n`
           + `  ${d.items.insumos.desc}: ${fmtCOP(d.insumos)} (sin IVA)\n\n`
           + `Total: ${fmtCOP(d.totalConIva)}\n\n`)
-      + 'Se envía a la DIAN de inmediato y no se puede deshacer. ¿Continuar?'
+      + 'Se envía a la DIAN y le llega por correo al tutor. No se puede deshacer. ¿Continuar?'
     );
     if (!ok) return;
 
