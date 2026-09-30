@@ -123,7 +123,9 @@ exports.handler = async (event) => {
       result = await siigoFetch('GET', '/v1/document-types?type=FV');
 
     } else if (method === 'GET' && subPath === '/payment-types') {
-      result = await siigoFetch('GET', '/v1/payment-types');
+      // Siigo exige document_type; sin el parámetro devuelve 400. FV = factura de venta.
+      const dt = (event.queryStringParameters || {}).document_type || 'FV';
+      result = await siigoFetch('GET', `/v1/payment-types?document_type=${encodeURIComponent(dt)}`);
 
     } else if (method === 'POST' && subPath === '/invoices') {
       result = await siigoFetch('POST', '/v1/invoices', body);
