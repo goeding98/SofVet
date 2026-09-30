@@ -164,6 +164,7 @@ export default function PrepagadaV2DetallePage() {
       editAfiliado(afiliado.id, {
         ultima_factura_numero: r.completo,
         ultima_factura_fecha: nowDate(),
+        ultima_factura_url: r.url,
       });
     } catch (e) {
       setFacturaErr(e.message || 'No se pudo emitir la factura.');
@@ -333,9 +334,27 @@ export default function PrepagadaV2DetallePage() {
 
       {(afiliado.ultima_factura_numero || facturaErr) && (
         <div style={{ background: facturaErr ? '#fdecea' : '#fff7e6', border: `1px solid ${facturaErr ? '#c0392b' : '#8a6d00'}`, borderRadius: 12, padding: '0.7rem 1.2rem', marginBottom: '1.2rem', fontSize: '0.85rem', color: facturaErr ? '#c0392b' : '#8a6d00', fontWeight: 600 }}>
-          {facturaErr
-            ? `⚠️ ${facturaErr}`
-            : `🧾 Última factura: ${afiliado.ultima_factura_numero}${afiliado.ultima_factura_fecha ? ` · ${afiliado.ultima_factura_fecha}` : ''}`}
+          {facturaErr ? (
+            `⚠️ ${facturaErr}`
+          ) : (
+            <>
+              🧾 Última factura: {afiliado.ultima_factura_numero}
+              {afiliado.ultima_factura_fecha ? ` · ${afiliado.ultima_factura_fecha}` : ''}
+              {afiliado.ultima_factura_url && (
+                <>
+                  {' · '}
+                  <a
+                    href={afiliado.ultima_factura_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: '#8a6d00', textDecoration: 'underline', fontWeight: 700 }}
+                  >
+                    Ver factura
+                  </a>
+                </>
+              )}
+            </>
+          )}
         </div>
       )}
 

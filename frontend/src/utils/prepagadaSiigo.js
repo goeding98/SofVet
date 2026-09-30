@@ -158,5 +158,8 @@ export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsu
     prefijo: creada.prefix,
     id: creada.id,
     completo: [creada.prefix, creada.number].filter(Boolean).join('-'),
+    // Siigo devuelve un enlace público al documento; sirve para abrirlo o
+    // reenviárselo al tutor sin tener que entrar a Siigo.
+    url: creada.public_url || null,
   };
 }
