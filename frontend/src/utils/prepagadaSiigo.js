@@ -22,12 +22,18 @@ const PROPORCION_SERVICIO = 0.5;
 // mover plata. Poner en false cuando los precios reales estén en Siigo.
 const PRECIOS_DE_PRUEBA = true;
 
-// Trae el precio con el que está cargado un producto en Siigo.
-async function precioEnSiigo(code) {
+// Trae la ficha del producto en Siigo: precio e impuesto. El impuesto hay que
+// mandarlo explícito en cada renglón de la factura; si no se manda, Siigo NO lo
+// aplica y la factura sale sin IVA aunque el producto sí lo tenga configurado.
+async function fichaEnSiigo(code) {
   const cat = await siigo.getAllProducts();
   const prod = (cat.results || []).find((x) => String(x.code) === String(code));
   if (!prod) throw new Error(`El producto ${code} no existe en Siigo.`);
-  return Math.round(Number(prod.price) || 0);
+  return {
+    precio: Math.round(Number(prod.price) || 0),
+    taxId: prod.tax_id ?? null,
+    taxPct: Number(prod.tax_pct) || 0,
+  };
 }
 
 const ITEMS_POR_PLAN = {
@@ -108,10 +114,17 @@ export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsu
   const calculado = desglosarFactura(valorMensual, afiliado.plan);
   const items = calculado.items;
 
+  const fServicio = await fichaEnSiigo(items.servicio.code);
+  const fInsumos  = await fichaEnSiigo(items.insumos.code);
+
   // En modo prueba manda el precio del catálogo de Siigo; si no, el 50/50 real.
-  const servicio = PRECIOS_DE_PRUEBA ? await precioEnSiigo(items.servicio.code) : calculado.servicio;
-  const insumos  = PRECIOS_DE_PRUEBA ? await precioEnSiigo(items.insumos.code)  : calculado.insumos;
-  const iva = Math.round(servicio * 0.19);
+  const servicio = PRECIOS_DE_PRUEBA ? fServicio.precio : calculado.servicio;
+  const insumos  = PRECIOS_DE_PRUEBA ? fInsumos.precio  : calculado.insumos;
+
+  // El total lo tiene que calcular igual que Siigo o rechaza la factura con
+  // "The total payments must be equal to the total invoice".
+  const c2 = (n) => Math.round(n * 100) / 100;
+  const total = c2(servicio * (1 + fServicio.taxPct / 100) + insumos * (1 + fInsumos.taxPct / 100));
 
   const customer = await resolverCliente(cliente);
 
@@ -125,11 +138,13 @@ export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsu
     observations: `Prepagada ${afiliado.plan === 'total' ? 'Plan Total' : 'Plan Urgencias'}`
       + ` · ${mascota?.name || 'mascota'} · afiliado ${afiliado.id}`,
     items: [
-      // El precio va SIN IVA: Siigo lo suma encima según el impuesto del producto.
-      { code: items.servicio.code, description: items.servicio.desc, quantity: 1, price: servicio, discount: 0 },
-      { code: items.insumos.code,  description: items.insumos.desc,  quantity: 1, price: insumos,  discount: 0 },
+      // El precio va SIN impuesto: Siigo lo suma encima según el tax que se le mande.
+      { code: items.servicio.code, description: items.servicio.desc, quantity: 1, price: servicio, discount: 0,
+        taxes: fServicio.taxId ? [{ id: fServicio.taxId }] : [] },
+      { code: items.insumos.code,  description: items.insumos.desc,  quantity: 1, price: insumos,  discount: 0,
+        taxes: fInsumos.taxId ? [{ id: fInsumos.taxId }] : [] },
     ],
-    payments: [{ id: PAGO_WOMPI, value: servicio + insumos + iva, due_date: hoyISO() }],
+    payments: [{ id: PAGO_WOMPI, value: total, due_date: hoyISO() }],
   };
 
   const creada = await siigo.createInvoice(factura);
