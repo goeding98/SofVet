@@ -88,13 +88,21 @@ const doc = new Document({
     h1('4. Planes disponibles'),
     new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [
       new TableRow({ children: [cell('Concepto', { header: true, width: 26 }), cell('Plan Urgencias', { header: true, width: 37 }), cell('Plan Total', { header: true, width: 37 })] }),
-      new TableRow({ children: [cell('Cuota mensual (1ª mascota)', { bold: true }), cell('$25.000 COP'), cell('$70.000 COP')] }),
+      new TableRow({ children: [cell('Cuota mensual (1ª mascota)', { bold: true }), cell('$30.000 COP + IVA'), cell('$70.000 COP + IVA')] }),
       new TableRow({ children: [cell('Cobertura', { bold: true }), cell('Urgencias y emergencias 24/7'), cell('Urgencias 24/7 + preventivo + descuentos')] }),
       new TableRow({ children: [cell('Copago del Afiliado', { bold: true }), cell('20% del costo del evento'), cell('20% del costo del evento')] }),
       new TableRow({ children: [cell('Bolsa anual', { bold: true }), cell('$4.000.000 COP/año'), cell('$4.000.000 COP/año')] }),
       new TableRow({ children: [cell('Preventivo', { bold: true }), cell('No incluido'), cell('Incluido a partir del día 31 (Sección 7)')] }),
     ]}),
     p(''),
+
+    ...caja('Los valores de este contrato son antes de IVA',
+      'Todas las cifras expresadas en este documento corresponden al valor antes '
+      + 'de impuestos. Al valor mensual se le suma el impuesto sobre las ventas que '
+      + 'corresponda según la normativa vigente para servicios veterinarios, y así se '
+      + 'refleja en la factura electrónica que PETS & PETS emite y remite al correo '
+      + 'del Titular. La porción del plan destinada a insumos no está gravada, de modo '
+      + 'que el impuesto recae únicamente sobre la porción de servicio.'),
 
     h1('5. Carencias'),
     p('La carencia se cuenta desde la fecha de afiliación:'),
@@ -138,7 +146,7 @@ const doc = new Document({
       new TableRow({ children: [cell('Desparasitación interna'), cell('4')] }),
       new TableRow({ children: [cell('Panel básico de laboratorio (hemograma + química)'), cell('1')] }),
       new TableRow({ children: [cell('Imagen diagnóstica preventiva (Rx o ecografía)'), cell('1')] }),
-      new TableRow({ children: [cell('Telemedicina / línea veterinaria'), cell('24/7 ilimitada')] }),
+      new TableRow({ children: [cell('Teleconsulta veterinaria agendada'), cell('Según disponibilidad de agenda')] }),
     ]}),
     p(''),
     p('Los beneficios no utilizados dentro del año NO son acumulables ni redimibles en dinero.'),
@@ -167,8 +175,8 @@ const doc = new Document({
     p('Hasta 5 mascotas por Titular, cada una con su propia afiliación y su propia bolsa anual de $4.000.000. El descuento aplica mientras todas permanezcan activas:'),
     new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [
       new TableRow({ children: [cell('Mascota', { header: true }), cell('Descuento', { header: true }), cell('Plan Urgencias', { header: true }), cell('Plan Total', { header: true })] }),
-      ...[['1ª','0%','$25.000','$70.000'],['2ª','5%','$23.750','$66.500'],
-         ['3ª en adelante','10%','$22.500','$63.000']]
+      ...[['1ª','0%','$30.000','$70.000'],['2ª','5%','$28.500','$66.500'],
+         ['3ª en adelante','10%','$27.000','$63.000']]
         .map(r => new TableRow({ children: r.map((v, i) => cell(v, { bold: i <= 1, color: i === 1 ? GOLD : '000000' })) })),
     ]}),
     p(''),

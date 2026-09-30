@@ -195,7 +195,7 @@ const td = (t, o = {}) => ({ text: t, options: { fontSize: 11.5, color: C.ink, v
   const cw = (CW - 0.35) / 2;
 
   card(s, M, 1.55, cw, 2.15, C.cream);
-  s.addText('PLAN URGENCIAS — $25.000/mes', { x: M + 0.3, y: 1.72, w: cw - 0.6, h: 0.3, fontSize: 14, bold: true, color: C.deep, fontFace: 'Calibri' });
+  s.addText('PLAN URGENCIAS — $30.000/mes + IVA', { x: M + 0.3, y: 1.72, w: cw - 0.6, h: 0.3, fontSize: 14, bold: true, color: C.deep, fontFace: 'Calibri' });
   s.addText([
     'Cubre SOLO urgencias y emergencias',
     'El tutor paga 20% del evento, P&P cubre el 80% con cargo a la bolsa',

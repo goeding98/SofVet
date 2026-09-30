@@ -1,6 +1,9 @@
-// Precios de los planes prepagados y descuento multimascota, según
-// PetsPets_Planes_Prepagado_1.xlsx (corregido sept 2026).
-const PRECIOS_BASE = { urgencias: 25000, total: 70000 };
+// Precios de los planes prepagados y descuento multimascota.
+// OJO: son valores ANTES DE IVA. Los servicios veterinarios no están excluidos
+// del impuesto (art. 476 del E.T. cubre solo la salud humana), así que al
+// facturar se le suma encima. Ver prepagadaSiigo.js, que parte el plan en dos
+// renglones para que el IVA recaiga solo sobre la porción de servicio.
+const PRECIOS_BASE = { urgencias: 30000, total: 70000 };
 
 // Descuento por número de mascota afiliada del mismo titular: la 2ª tiene 5% y
 // de la 3ª en adelante 10%, sin seguir subiendo.

@@ -220,7 +220,7 @@ divider('01', 'El producto', 'Qué le vendemos al tutor y bajo qué condiciones'
   const s = content('Producto', 'Los dos planes');
   const rows = [
     [th('Concepto'), th('Plan Urgencias'), th('Plan Total')],
-    [td('Prima mensual (1ª mascota)', { bold: true }), td('$25.000', { align: 'center', bold: true, color: C.blue }), td('$70.000', { align: 'center', bold: true, color: C.blue })],
+    [td('Prima mensual (1ª mascota, antes de IVA)', { bold: true }), td('$30.000', { align: 'center', bold: true, color: C.blue }), td('$70.000', { align: 'center', bold: true, color: C.blue })],
     [td('Cobertura', { bold: true }), td('Urgencias y emergencias 24/7', { align: 'center' }), td('Urgencias 24/7 + preventivo completo', { align: 'center' })],
     [td('Copago del afiliado', { bold: true }), td('20%', { align: 'center' }), td('20%', { align: 'center' })],
     [td('Bolsa anual de urgencias', { bold: true }), td('$4.000.000', { align: 'center' }), td('$4.000.000', { align: 'center' })],
@@ -257,8 +257,8 @@ divider('01', 'El producto', 'Qué le vendemos al tutor y bajo qué condiciones'
 
   const rows = [
     [th('Mascota'), th('Descuento'), th('Plan Urgencias'), th('Plan Total')],
-    ...[['1ª', '0%', '$25.000', '$70.000'], ['2ª', '5%', '$23.750', '$66.500'],
-    ['3ª en adelante', '10%', '$22.500', '$63.000']].map((r, i) => r.map((v, j) => td(v, {
+    ...[['1ª', '0%', '$30.000', '$70.000'], ['2ª', '5%', '$28.500', '$66.500'],
+    ['3ª en adelante', '10%', '$27.000', '$63.000']].map((r, i) => r.map((v, j) => td(v, {
       align: 'center', bold: j === 0 || j === 1,
       color: j === 1 ? C.brown : C.ink,
       fill: { color: i % 2 ? C.white : C.cream },
@@ -636,7 +636,7 @@ divider('03', 'Los números', 'Supuestos, unit economics y proyección a 12 mese
   const s = content('Modelo financiero', 'Unit economics por afiliado — escenario base (20%)');
   const rows = [
     [th('Por afiliado / mes'), th('Plan Urgencias'), th('Plan Total')],
-    [td('Prima mensual', { bold: true }), td('$25.000', { align: 'center' }), td('$70.000', { align: 'center' })],
+    [td('Prima mensual', { bold: true }), td('$30.000', { align: 'center' }), td('$70.000', { align: 'center' })],
     [td('(−) Pérdida esperada por urgencia'), td('$7.570', { align: 'center', color: C.red }), td('$7.570', { align: 'center', color: C.red })],
     [td('(−) Costo preventivo'), td('—', { align: 'center', color: C.muted }), td('$38.000', { align: 'center', color: C.red })],
     [td('(−) Comisión de pasarela (Wompi)'), td('$1.363', { align: 'center', color: C.red }), td('$2.555', { align: 'center', color: C.red })],
