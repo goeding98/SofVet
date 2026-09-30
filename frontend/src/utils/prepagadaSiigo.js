@@ -13,6 +13,7 @@
 // Los códigos y los impuestos los configuró contabilidad en Siigo; acá solo se
 // referencian. Si cambian allá, hay que cambiarlos acá.
 import { siigo } from './siigo';
+import { precioLista, DESCUENTO_TARJETA } from './prepagadaPrecios';
 
 const PROPORCION_SERVICIO = 0.5;
 
@@ -114,6 +115,20 @@ async function resolverCliente(cliente) {
   return { id: creado.id, identification: cedula, branch_office: 0 };
 }
 
+// Texto de las observaciones: además del plan y la mascota, explica de dónde
+// sale el descuento, para que el tutor entienda por qué paga menos que la tarifa.
+function descripcionDescuentos(afiliado, mascota, valorMensual) {
+  const nombrePlan = afiliado.plan === 'total' ? 'Plan Total' : 'Plan Urgencias';
+  const partes = [`Prepagada ${nombrePlan}`, mascota?.name || 'mascota'];
+
+  const lista = precioLista(afiliado.plan);
+  const dtoMulti = lista > 0 ? Math.round((1 - afiliado.precio_mensual / lista) * 100) : 0;
+  if (dtoMulti > 0) partes.push(`descuento multimascota ${dtoMulti}%`);
+  if (afiliado.cobro_automatico) partes.push(`pago automático ${Math.round(DESCUENTO_TARJETA * 100)}%`);
+
+  return partes.join(' · ') + ` · afiliado ${afiliado.id}`;
+}
+
 // Emite la factura electrónica del mes de un afiliado y devuelve su número.
 export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsuario, valorMensual }) {
   const calculado = desglosarFactura(valorMensual, afiliado.plan);
@@ -122,13 +137,21 @@ export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsu
   const fServicio = await fichaEnSiigo(items.servicio.code);
   const fInsumos  = await fichaEnSiigo(items.insumos.code);
 
-  // En modo prueba manda el precio del catálogo de Siigo; si no, el 50/50 real.
-  const servicio = PRECIOS_DE_PRUEBA ? fServicio.precio : calculado.servicio;
-  const insumos  = PRECIOS_DE_PRUEBA ? fInsumos.precio  : calculado.insumos;
+  // Cuánto descuento acumulado lleva este afiliado contra la tarifa publicada:
+  // el de multimascota ya viene dentro de precio_mensual, y el de la tarjeta se
+  // aplica encima al cobrar.
+  const lista = precioLista(afiliado.plan);
+  const factor = lista > 0 ? Math.min(1, valorMensual / lista) : 1;
+
+  // En modo prueba manda el precio del catálogo de Siigo, pero escalado con el
+  // mismo descuento: así se puede comprobar que el descuento llega a la factura
+  // sin tener que facturar el valor real del plan.
+  const c2 = (n) => Math.round(n * 100) / 100;
+  const servicio = PRECIOS_DE_PRUEBA ? c2(fServicio.precio * factor) : calculado.servicio;
+  const insumos  = PRECIOS_DE_PRUEBA ? c2(fInsumos.precio * factor)  : calculado.insumos;
 
   // El total lo tiene que calcular igual que Siigo o rechaza la factura con
   // "The total payments must be equal to the total invoice".
-  const c2 = (n) => Math.round(n * 100) / 100;
   const total = c2(servicio * (1 + fServicio.taxPct / 100) + insumos * (1 + fInsumos.taxPct / 100));
 
   const customer = await resolverCliente(cliente);
@@ -143,8 +166,7 @@ export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsu
     // Siigo le manda la factura al correo que tenga el cliente en su ficha. Sin
     // esto queda en 'not_sent' y el tutor nunca la recibe.
     mail: { send: true },
-    observations: `Prepagada ${afiliado.plan === 'total' ? 'Plan Total' : 'Plan Urgencias'}`
-      + ` · ${mascota?.name || 'mascota'} · afiliado ${afiliado.id}`,
+    observations: descripcionDescuentos(afiliado, mascota, valorMensual),
     items: [
       // El precio va SIN impuesto: Siigo lo suma encima según el tax que se le mande.
       { code: items.servicio.code, description: items.servicio.desc, quantity: 1, price: servicio, discount: 0,

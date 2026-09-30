@@ -8,6 +8,10 @@ const DESCUENTOS = [0, 0.05, 0.10, 0.10, 0.10];
 
 export const BOLSA_ANUAL = 4000000; // igual para ambos planes
 
+// Tarifa de lista del plan, sin ningún descuento. Sirve para saber cuánto
+// descuento acumulado lleva un afiliado respecto al precio publicado.
+export const precioLista = (plan) => PRECIOS_BASE[plan] ?? PRECIOS_BASE.urgencias;
+
 // numeroMascota: 1 = primera mascota afiliada de ese titular, 2 = segunda, etc.
 // (máximo 5 según la política — de ahí en adelante se usa el descuento tope del 10%)
 export function calcularPrecioPrepagada(plan, numeroMascota) {
