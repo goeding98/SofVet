@@ -266,6 +266,9 @@ export default function PrepagadaV2DetallePage() {
   const delItem = (i) => setEvItems(arr => arr.length === 1 ? [{ ...ITEM_VACIO }] : arr.filter((_, idx) => idx !== i));
 
   const [consumoErr, setConsumoErr] = useState('');
+  // Queda visible después de cerrar el modal: emitir una factura electrónica no
+  // puede pasar en silencio.
+  const [consumoFactura, setConsumoFactura] = useState(null);
 
   const handleRegistrarEvento = async () => {
     if (!puedeGuardar) return;
@@ -323,6 +326,7 @@ export default function PrepagadaV2DetallePage() {
         copago: c.copago,
         cubierto_pp: c.cubierto,
         factura_copago: factura?.completo || evFactura.trim() || null,
+        factura_url: factura?.url || null,
         notas: evNotas.trim() || null,
         registrado_por: session?.nombre || session?.username || null,
       }, { onError: (m) => { err = m; } });
@@ -333,6 +337,7 @@ export default function PrepagadaV2DetallePage() {
 
     setSavingEvento(false);
     setEventoModal(false);
+    if (factura) setConsumoFactura(factura);
     setEvItems([{ ...ITEM_VACIO }]);
     setEvNotas(''); setEvFactura(''); setEvClase('urgencia');
   };
@@ -394,6 +399,22 @@ export default function PrepagadaV2DetallePage() {
           </select>
         </div>
       </div>
+
+      {consumoFactura && (
+        <div style={{ background: '#eafaf0', border: '1px solid #1e7d45', borderRadius: 12, padding: '0.8rem 1.2rem', marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.88rem', color: '#1e7d45', fontWeight: 700 }}>
+            ✅ Consumo registrado y facturado · {consumoFactura.completo} · {fmtCOP(consumoFactura.total)}
+          </span>
+          {consumoFactura.url && (
+            <a href={consumoFactura.url} target="_blank" rel="noreferrer" style={{ color: '#1e7d45', fontWeight: 700, fontSize: '0.85rem' }}>Ver factura</a>
+          )}
+          <span style={{ fontSize: '0.78rem', color: '#4a7a5c' }}>Se le envió al correo del tutor.</span>
+          <button
+            onClick={() => setConsumoFactura(null)}
+            style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#4a7a5c', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' }}
+          >✕</button>
+        </div>
+      )}
 
       {(afiliado.ultima_factura_numero || facturaErr) && (
         <div style={{ background: facturaErr ? '#fdecea' : '#fff7e6', border: `1px solid ${facturaErr ? '#c0392b' : '#8a6d00'}`, borderRadius: 12, padding: '0.7rem 1.2rem', marginBottom: '1.2rem', fontSize: '0.85rem', color: facturaErr ? '#c0392b' : '#8a6d00', fontWeight: 600 }}>
@@ -499,7 +520,19 @@ export default function PrepagadaV2DetallePage() {
                     </span>
                     {e.tipo_evento || 'Evento'}
                   </div>
-                  <div style={{ color: '#8A8076', fontSize: '0.78rem' }}>{e.fecha} · {e.registrado_por}</div>
+                  <div style={{ color: '#8A8076', fontSize: '0.78rem' }}>
+                    {e.fecha} · {e.registrado_por}
+                    {e.factura_copago && (
+                      <>
+                        {' · '}
+                        {e.factura_url ? (
+                          <a href={e.factura_url} target="_blank" rel="noreferrer" style={{ color: '#8a6d00', fontWeight: 700 }}>🧾 {e.factura_copago}</a>
+                        ) : (
+                          <span style={{ color: '#8a6d00', fontWeight: 700 }}>🧾 {e.factura_copago}</span>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div>Total: {fmtCOP(e.costo_total)}</div>
