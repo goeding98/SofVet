@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { ageLabel } from '../utils/ageLabel';
-import { calcularTotalMeses } from '../utils/prepagadaPrecios';
+import { DESCUENTO_TARJETA, precioConDescuento } from '../utils/prepagadaPrecios';
 
 const fmtCOP = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v || 0);
 const PREP_ESTADO_BADGE = {
@@ -368,11 +368,9 @@ export default function PortalPage() {
   // vencimiento, solo deja de cobrarse solo. Se borra la fuente de pago de
   // Wompi de nuestro lado para no dejar una tarjeta colgada que nadie usa.
   const quitarTarjeta = async (afiliado) => {
-    const ciclos = afiliado.ciclos_prepagada || 0;
-    const prox = [4, 12].find(m => m > ciclos);
     const aviso =
       'Tu plan seguirá activo hasta su vencimiento, pero tendrás que pagarlo tú cada mes.'
-      + (prox ? `\n\nOJO: pierdes tu mes ${prox} de cortesía, que solo aplica con el pago automático activo.` : '')
+      + `\n\nOJO: pierdes el ${Math.round(DESCUENTO_TARJETA * 100)}% de descuento, que solo aplica con el pago automático activo.`
       + '\n\n¿Continuar?';
     if (!window.confirm(aviso)) return;
 
@@ -1368,6 +1366,42 @@ export default function PortalPage() {
             );
           })()}
 
+          {/* Aviso de planes por pagar. Mientras no exista el pago unificado, al
+              menos el tutor ve de una cuántas mascotas le faltan, y el contador
+              baja solo a medida que va pagando. */}
+          {(() => {
+            const pendientes = data.pets.filter(
+              p => p.prepV2 && p.prepV2.estado !== 'activo' && p.prepV2.estado !== 'cancelado'
+            );
+            if (pendientes.length === 0) return null;
+            const n = pendientes.length;
+            return (
+              <div style={{ background:'#FFF4E5', border:'1.5px solid #C05621', borderRadius:14, padding:'1rem 1.2rem', marginBottom:'1.2rem' }}>
+                <div style={{ fontWeight:800, color:'#C05621', fontSize:'0.95rem', marginBottom:'0.3rem' }}>
+                  ⚠️ {n === 1
+                    ? `El plan de ${pendientes[0].name} está pendiente de pago`
+                    : `Tienes ${n} planes pendientes de pago`}
+                </div>
+                <p style={{ fontSize:'0.83rem', color:'#7a4a1d', margin:'0 0 0.6rem', lineHeight:1.5 }}>
+                  {n === 1
+                    ? 'Entra a su pestaña «Mi Plan» para ponerte al día.'
+                    : 'Cada mascota se paga por separado. Entra a la pestaña «Mi Plan» de cada una para ponerte al día.'}
+                </p>
+                <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap' }}>
+                  {pendientes.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => { setTab(p.id, 'prepagada'); document.getElementById(`pet-${p.id}`)?.scrollIntoView({ behavior:'smooth', block:'start' }); }}
+                      style={{ padding:'0.35rem 0.8rem', background:'white', border:'1px solid #C05621', borderRadius:999, cursor:'pointer', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:700, color:'#C05621' }}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           {data.pets.length === 0 ? (
             <div style={{ background:'white', borderRadius:16, padding:'3rem', textAlign:'center', color:C.muted }}>
               <div style={{ fontSize:'3rem', marginBottom:'0.5rem' }}>🐾</div>
@@ -1386,7 +1420,7 @@ export default function PortalPage() {
               { key:'hospitalizacion',  label:'Hospitalización', icon:'🏥', count: pet.hosps.length },
             ].filter(Boolean);
             return (
-              <div key={pet.id} style={{ background:'white', borderRadius:20, boxShadow:'0 2px 20px rgba(0,0,0,0.07)', marginBottom:'1.75rem', overflow:'hidden' }}>
+              <div key={pet.id} id={`pet-${pet.id}`} style={{ background:'white', borderRadius:20, boxShadow:'0 2px 20px rgba(0,0,0,0.07)', marginBottom:'1.75rem', overflow:'hidden' }}>
 
                 {/* Pet header */}
                 <div style={{ background:`linear-gradient(135deg,${C.teal}18,${C.cream})`, borderBottom:`1px solid ${C.border}`, padding:'1.1rem 1.5rem', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
@@ -1621,24 +1655,31 @@ export default function PortalPage() {
                         {puedePagar ? (
                           <>
                             <div style={{ fontSize:'0.78rem', fontWeight:700, color:C.tealDark, textTransform:'uppercase', marginBottom:'0.6rem' }}>Pagar mi plan</div>
-                            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'0.7rem' }}>
-                              {[1, 3, 6].map(meses => {
-                                const total = calcularTotalMeses(p2.precio_mensual, meses);
-                                const dto = meses === 3 ? '5% dto.' : meses === 6 ? '15% dto.' : null;
-                                return (
-                                  <button
-                                    key={meses}
-                                    disabled={pagandoId !== null}
-                                    onClick={() => handlePagarPrepagada(p2.id, meses)}
-                                    style={{ padding:'0.9rem 0.8rem', background:'white', border:`1.5px solid ${C.teal}`, borderRadius:14, cursor: pagandoId ? 'default' : 'pointer', fontFamily:'inherit', textAlign:'center', opacity: pagandoId && pagandoId !== p2.id ? 0.5 : 1 }}
-                                  >
-                                    <div style={{ fontWeight:700, fontSize:'0.85rem', color:C.tealDark }}>{meses === 1 ? '1 mes' : `${meses} meses`}</div>
-                                    <div style={{ fontWeight:800, fontSize:'1.05rem', color:C.teal, margin:'0.2rem 0' }}>{fmtCOP(total)}</div>
-                                    {dto && <div style={{ fontSize:'0.7rem', color:'#1e7d45', fontWeight:700 }}>{dto}</div>}
-                                  </button>
-                                );
-                              })}
-                            </div>
+                            {(() => {
+                              // El pago manual es de un mes. El 10% solo aparece si hay
+                              // tarjeta registrada: es todo el punto del incentivo.
+                              const aCobrar = precioConDescuento(p2.precio_mensual, p2.cobro_automatico);
+                              return (
+                                <button
+                                  disabled={pagandoId !== null}
+                                  onClick={() => handlePagarPrepagada(p2.id, 1)}
+                                  style={{ width:'100%', padding:'1rem', background:C.teal, border:'none', borderRadius:14, cursor: pagandoId ? 'default' : 'pointer', fontFamily:'inherit', textAlign:'center', opacity: pagandoId && pagandoId !== p2.id ? 0.5 : 1 }}
+                                >
+                                  <div style={{ fontWeight:700, fontSize:'0.8rem', color:'rgba(255,255,255,0.85)' }}>Pagar este mes</div>
+                                  <div style={{ fontWeight:800, fontSize:'1.3rem', color:'white', margin:'0.15rem 0' }}>
+                                    {p2.cobro_automatico && (
+                                      <span style={{ fontSize:'0.9rem', fontWeight:600, textDecoration:'line-through', opacity:0.7, marginRight:'0.4rem' }}>{fmtCOP(p2.precio_mensual)}</span>
+                                    )}
+                                    {fmtCOP(aCobrar)}
+                                  </div>
+                                  {p2.cobro_automatico && (
+                                    <div style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.9)', fontWeight:700 }}>
+                                      {Math.round(DESCUENTO_TARJETA * 100)}% menos por tener tarjeta
+                                    </div>
+                                  )}
+                                </button>
+                              );
+                            })()}
                             {pagandoId === p2.id && <p style={{ fontSize:'0.8rem', color:C.muted, marginTop:'0.8rem' }}>Redirigiendo a la pasarela de pago…</p>}
                             {pagoErr && <p style={{ fontSize:'0.8rem', color:C.danger, marginTop:'0.8rem' }}>⚠️ {pagoErr}</p>}
 
@@ -1652,13 +1693,7 @@ export default function PortalPage() {
                                       {p2.tarjeta_ultimos4 ? `${p2.tarjeta_marca || 'Tarjeta'} terminada en ${p2.tarjeta_ultimos4}` : 'Tarjeta registrada'} · se cobra sola cada mes
                                     </div>
                                     <div style={{ fontSize:'0.78rem', color:C.gold, marginTop:'0.3rem', fontWeight:700 }}>
-                                      {(() => {
-                                        const ciclos = p2.ciclos_prepagada || 0;
-                                        const prox = [4, 12].find(m => m > ciclos);
-                                        return prox
-                                          ? `🎁 Tu mes ${prox} va por cuenta de Pets & Pets`
-                                          : '🎁 Ya disfrutaste tus 2 meses de cortesía';
-                                      })()}
+                                      🎁 Tienes {Math.round(DESCUENTO_TARJETA * 100)}% de descuento todos los meses
                                     </div>
                                   </div>
                                   <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
@@ -1673,11 +1708,11 @@ export default function PortalPage() {
                               ) : (
                                 <div style={{ background:C.cream, border:`1.5px solid ${C.gold}`, borderRadius:12, padding:'1rem' }}>
                                   <div style={{ display:'inline-block', background:C.gold, color:'white', fontSize:'0.68rem', fontWeight:800, padding:'3px 10px', borderRadius:999, marginBottom:'0.5rem', letterSpacing:'0.04em' }}>
-                                    2 MESES GRATIS
+                                    {Math.round(DESCUENTO_TARJETA * 100)}% DE DESCUENTO
                                   </div>
-                                  <div style={{ fontWeight:700, fontSize:'0.9rem', color:C.tealDark, marginBottom:'0.25rem' }}>Deja tu tarjeta y te regalamos 2 meses</div>
+                                  <div style={{ fontWeight:700, fontSize:'0.9rem', color:C.tealDark, marginBottom:'0.25rem' }}>Deja tu tarjeta y paga {Math.round(DESCUENTO_TARJETA * 100)}% menos, siempre</div>
                                   <p style={{ fontSize:'0.82rem', color:C.muted, margin:'0 0 0.8rem', lineHeight:1.5 }}>
-                                    Activa el pago automático y <strong style={{ color:C.tealDark }}>tu mes 4 y tu mes 12 van por cuenta nuestra</strong>. Tu plan se cobra solo cada mes y puedes volver al pago manual cuando quieras.
+                                    Activa el pago automático y <strong style={{ color:C.tealDark }}>te descontamos {Math.round(DESCUENTO_TARJETA * 100)}% de cada mes, desde el primero</strong>. Tu plan se cobra solo y puedes volver al pago manual cuando quieras.
                                   </p>
                                   <button onClick={() => abrirTarjeta(p2)} disabled={tjSaving} style={{ padding:'0.6rem 1.1rem', background: tjSaving ? '#ccc' : C.teal, color:'white', border:'none', borderRadius:10, cursor: tjSaving ? 'default' : 'pointer', fontFamily:'inherit', fontSize:'0.85rem', fontWeight:700 }}>
                                     {tjSaving ? 'Abriendo…' : '💳 Activar pago automático'}

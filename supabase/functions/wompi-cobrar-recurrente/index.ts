@@ -19,11 +19,11 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // Incentivo por dejar la tarjeta registrada: estos ciclos no se cobran.
 // Solo aplica al cobro automático — quien paga manualmente ya tiene el
 // descuento por pago anticipado, y los dos beneficios no se acumulan.
-// Meses de cortesía por dejar la tarjeta. El 4 atrapa el arrepentimiento
-// temprano y el 12 cae justo en la decisión de renovar. Solo los recibe quien
-// tenga el cobro automático activo en ese momento: la consulta de más abajo
-// filtra por cobro_automatico, así que quien lo apague simplemente no entra.
-const CICLOS_GRATIS = [4, 12];
+// Descuento permanente por tener tarjeta registrada. Reemplazó a los meses de
+// cortesía: el tutor ve el beneficio en cada recibo en vez de esperar al mes 4.
+// Solo lo recibe quien tenga el cobro automático activo, porque la consulta de
+// más abajo filtra por cobro_automatico.
+const DESCUENTO_TARJETA = 0.10;
 
 
 // ── Vencimientos ──────────────────────────────────────────────────────────
@@ -90,34 +90,6 @@ async function cobrar(afiliado: any, hoy: string) {
     return { afiliado_id: afiliado.id, estado: 'OMITIDO', motivo: 'Sin tarjeta registrada' };
   }
 
-  // ¿A este ciclo le toca ser gratis?
-  const proximoCiclo = (afiliado.ciclos_prepagada || 0) + 1;
-  if (CICLOS_GRATIS.includes(proximoCiclo)) {
-    await supabase
-      .from('prepagada_afiliados')
-      .update({
-        fecha_vencimiento: vencimientoTrasPago({
-          fechaAfiliacion: afiliado.fecha_afiliacion,
-          vencimientoActual: afiliado.fecha_vencimiento,
-          hoy,
-          meses: 1,
-        }),
-        estado: 'activo',
-        ciclos_prepagada: proximoCiclo,
-        ultimo_cobro_auto_fecha: hoy,
-        ultimo_cobro_auto_estado: `GRATIS (mes ${proximoCiclo} de cortesía)`,
-      })
-      .eq('id', afiliado.id);
-
-    console.log(`[cobrar] afiliado ${afiliado.id}: mes ${proximoCiclo} de cortesía, no se cobra`);
-    return {
-      afiliado_id: afiliado.id,
-      estado: 'GRATIS',
-      ciclo: proximoCiclo,
-      motivo: `Mes ${proximoCiclo} de cortesía por pago automático`,
-    };
-  }
-
   const { data: cliente } = await supabase
     .from('clients')
     .select('email')
@@ -126,7 +98,7 @@ async function cobrar(afiliado: any, hoy: string) {
 
   const reference = `pp-${afiliado.id}-1-${Date.now()}`;
   const body = {
-    amount_in_cents: Math.round(afiliado.precio_mensual * 100),
+    amount_in_cents: Math.round(afiliado.precio_mensual * (1 - DESCUENTO_TARJETA)) * 100,
     currency: 'COP',
     customer_email: cliente?.email || 'pagos@petspets.co',
     reference,

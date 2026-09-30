@@ -9,8 +9,10 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// Descuento por pagar varios meses de una vez (definido por el negocio, sin anual por ahora).
-const DESCUENTO_POR_MESES: Record<number, number> = { 1: 0, 3: 0.05, 6: 0.15 };
+// Descuento permanente por tener tarjeta con cobro automático. Aplica sobre
+// cada mes. Ya no hay descuento por pagar varios meses por adelantado: el pago
+// manual es mensual. Debe coincidir con frontend/src/utils/prepagadaPrecios.js.
+const DESCUENTO_TARJETA = 0.10;
 
 async function sha256Hex(text: string): Promise<string> {
   const data = new TextEncoder().encode(text);
@@ -29,8 +31,8 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
 
   try {
-    const { afiliado_id, meses: mesesRaw, redirect_url } = await req.json();
-    const meses = [1, 3, 6].includes(mesesRaw) ? mesesRaw : 1;
+    const { afiliado_id, redirect_url } = await req.json();
+    const meses = 1; // el pago manual siempre es de un mes
 
     if (!afiliado_id) {
       return new Response(JSON.stringify({ error: 'afiliado_id es requerido' }), {
@@ -41,7 +43,7 @@ Deno.serve(async (req) => {
 
     const { data: afiliado, error } = await supabase
       .from('prepagada_afiliados')
-      .select('id, precio_mensual')
+      .select('id, precio_mensual, cobro_automatico')
       .eq('id', afiliado_id)
       .single();
 
@@ -52,8 +54,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const descuento = DESCUENTO_POR_MESES[meses];
-    const totalPesos = Math.round(afiliado.precio_mensual * meses * (1 - descuento));
+    // El 10% se calcula acá y no se confía en lo que mande el navegador: es lo
+    // que firma la integridad del checkout.
+    const descuento = afiliado.cobro_automatico ? DESCUENTO_TARJETA : 0;
+    const totalPesos = Math.round(afiliado.precio_mensual * (1 - descuento));
     const reference = `pp-${afiliado.id}-${meses}-${Date.now()}`;
     const amountInCents = totalPesos * 100;
     const currency = 'COP';

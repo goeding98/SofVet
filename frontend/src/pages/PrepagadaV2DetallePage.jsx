@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
 import { supabase } from '../utils/supabaseClient';
-import { BENEFICIOS_TOTAL_ANUAL, DESCUENTO_POR_MESES, calcularTotalMeses } from '../utils/prepagadaPrecios';
+import { BENEFICIOS_TOTAL_ANUAL, DESCUENTO_TARJETA, precioConDescuento } from '../utils/prepagadaPrecios';
 import { vencimientoTrasPago } from '../utils/prepagadaFacturacion';
 import { calcularEstadoVencimiento } from '../utils/prepagadaEstado';
 import { nowDate } from '../utils/nowLocal';
@@ -85,7 +85,7 @@ export default function PrepagadaV2DetallePage() {
       fechaAfiliacion: afiliado.fecha_afiliacion,
       vencimientoActual: afiliado.fecha_vencimiento,
       hoy,
-      meses: mesesLink,
+      meses: 1,
       primerPago: !afiliado.ultimo_pago_fecha,
     });
     editAfiliado(afiliado.id, {
@@ -100,12 +100,6 @@ export default function PrepagadaV2DetallePage() {
   const [linkPago, setLinkPago] = useState(null);
   const [generandoLink, setGenerandoLink] = useState(false);
   const [linkCopiado, setLinkCopiado] = useState(false);
-  // El tutor puede querer adelantar varios meses. El descuento lo recalcula la
-  // Edge Function; acá solo se muestra para que quien afilia sepa qué va a cobrar.
-  const [mesesLink, setMesesLink] = useState(1);
-
-  // Cambiar los meses invalida el link ya generado: apunta a otro monto.
-  const cambiarMeses = (m) => { setMesesLink(m); setLinkPago(null); setLinkCopiado(false); };
 
   const handleGenerarLink = async () => {
     if (!afiliado) return;
@@ -113,7 +107,7 @@ export default function PrepagadaV2DetallePage() {
     setLinkCopiado(false);
     try {
       const { data, error } = await supabase.functions.invoke('wompi-generar-link', {
-        body: { afiliado_id: afiliado.id, meses: mesesLink },
+        body: { afiliado_id: afiliado.id },
       });
       if (error || !data?.url) throw new Error(error?.message || 'Sin URL en la respuesta');
       setLinkPago({ url: data.url, meses: data.meses, total: data.total });
@@ -141,6 +135,10 @@ export default function PrepagadaV2DetallePage() {
       </div>
     );
   }
+
+  // Lo que de verdad se cobra este mes: la tarifa lleva 10% menos si el tutor
+  // dejó tarjeta. precio_mensual se conserva como tarifa plena.
+  const aCobrar = precioConDescuento(afiliado.precio_mensual, afiliado.cobro_automatico);
 
   const disponible = afiliado.bolsa_maxima_anual - afiliado.bolsa_consumida_anual;
   const pctUsado = Math.min(100, (afiliado.bolsa_consumida_anual / afiliado.bolsa_maxima_anual) * 100);
@@ -232,41 +230,32 @@ export default function PrepagadaV2DetallePage() {
             <span style={{ background: badge.bg, color: badge.color, padding: '3px 10px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 700 }}>{badge.label}</span>
             <span style={{ background: '#eef6f6', color: '#1e4e54', padding: '3px 10px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 700 }}>Plan {PLAN_LABEL[afiliado.plan]}</span>
           </div>
-          <p style={{ color: '#8A8076', fontSize: '0.9rem' }}>Titular: {cliente?.name || '—'} · {fmtCOP(afiliado.precio_mensual)}/mes · Afiliado desde {afiliado.fecha_afiliacion} · Vence {afiliado.fecha_vencimiento || '—'}</p>
+          <p style={{ color: '#8A8076', fontSize: '0.9rem' }}>
+            Titular: {cliente?.name || '—'} ·{' '}
+            {afiliado.cobro_automatico ? (
+              <>
+                <span style={{ textDecoration: 'line-through' }}>{fmtCOP(afiliado.precio_mensual)}</span>{' '}
+                <strong style={{ color: '#1e7d45' }}>{fmtCOP(aCobrar)}/mes</strong>{' '}
+                <span style={{ color: '#1e7d45', fontWeight: 700 }}>(−{Math.round(DESCUENTO_TARJETA * 100)}% por tarjeta)</span>
+              </>
+            ) : `${fmtCOP(afiliado.precio_mensual)}/mes`} · Afiliado desde {afiliado.fecha_afiliacion} · Vence {afiliado.fecha_vencimiento || '—'}
+          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'stretch' }}>
-            <select
-              value={mesesLink}
-              onChange={e => cambiarMeses(Number(e.target.value))}
-              title="Cuántos meses va a pagar el tutor de una vez"
-              style={{ padding: '0.5rem 0.6rem', background: '#eef4ff', color: '#2a4d9e', border: '1px solid #2a4d9e', borderRight: 'none', borderRadius: '10px 0 0 10px', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}
-            >
-              {[1, 3, 6].map(m => {
-                const dto = DESCUENTO_POR_MESES[m];
-                return (
-                  <option key={m} value={m}>
-                    {m === 1 ? '1 mes' : `${m} meses`} · {fmtCOP(calcularTotalMeses(afiliado.precio_mensual, m))}
-                    {dto ? ` (−${Math.round(dto * 100)}%)` : ''}
-                  </option>
-                );
-              })}
-            </select>
-            <button
-              onClick={handleGenerarLink}
-              disabled={generandoLink}
-              title="Genera un link de pago de Wompi para enviarle al tutor"
-              style={{ padding: '0.5rem 0.9rem', background: '#eef4ff', color: '#2a4d9e', border: '1px solid #2a4d9e', borderRadius: '0 10px 10px 0', fontWeight: 700, fontSize: '0.85rem', cursor: generandoLink ? 'default' : 'pointer', whiteSpace: 'nowrap', opacity: generandoLink ? 0.6 : 1 }}
-            >
-              💳 {generandoLink ? 'Generando...' : 'Generar link'}
-            </button>
-          </div>
+          <button
+            onClick={handleGenerarLink}
+            disabled={generandoLink}
+            title={`Genera un link de pago de Wompi por ${fmtCOP(aCobrar)} para enviarle al tutor`}
+            style={{ padding: '0.5rem 0.9rem', background: '#eef4ff', color: '#2a4d9e', border: '1px solid #2a4d9e', borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', cursor: generandoLink ? 'default' : 'pointer', whiteSpace: 'nowrap', opacity: generandoLink ? 0.6 : 1 }}
+          >
+            💳 {generandoLink ? 'Generando...' : `Generar link · ${fmtCOP(aCobrar)}`}
+          </button>
           <button
             onClick={handleMarcarPagado}
-            title={`Registra un pago en efectivo o transferencia por ${mesesLink === 1 ? "1 mes" : mesesLink + " meses"}. Usa el mismo selector de la izquierda. Los pagos por Wompi entran solos.`}
+            title={`Registra un pago en efectivo o transferencia de ${fmtCOP(aCobrar)} por un mes. Los pagos por Wompi entran solos.`}
             style={{ padding: '0.5rem 0.9rem', background: '#eafaf0', color: '#1e7d45', border: '1px solid #1e7d45', borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
           >
-            ✅ Marcar pagado{mesesLink > 1 ? ` (${mesesLink}m)` : ""}
+            ✅ Marcar pagado
           </button>
           <select value={afiliado.estado} onChange={e => editAfiliado(afiliadoId, { estado: e.target.value })} style={{ padding: '0.5rem 0.8rem', borderRadius: 10, border: '1.5px solid #dfe3ea', fontSize: '0.85rem', fontWeight: 600 }}>
             {ESTADO_OPTS.map(o => <option key={o} value={o}>{ESTADO_BADGE[o].label}</option>)}

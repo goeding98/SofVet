@@ -17,13 +17,19 @@ export function calcularPrecioPrepagada(plan, numeroMascota) {
   return Math.round(base * (1 - descuento));
 }
 
-// Descuento por pagar varios meses de una vez desde el Portal del Cliente
-// (sin anual por ahora). Debe coincidir con supabase/functions/wompi-generar-link.
-export const DESCUENTO_POR_MESES = { 1: 0, 3: 0.05, 6: 0.15 };
+// Descuento permanente por tener tarjeta registrada con cobro automático. Se
+// aplica sobre CADA mes, no una sola vez, y reemplazó a los meses de cortesía:
+// el tutor ve el beneficio en su primer recibo en vez de esperar al mes 4.
+// Ya no hay descuento por pagar varios meses por adelantado: el pago manual es
+// mensual y sin descuento. Debe coincidir con las Edge Functions de Wompi.
+export const DESCUENTO_TARJETA = 0.10;
 
-export function calcularTotalMeses(precioMensual, meses) {
-  const descuento = DESCUENTO_POR_MESES[meses] ?? 0;
-  return Math.round(precioMensual * meses * (1 - descuento));
+// Lo que realmente se cobra un mes dado. precio_mensual se guarda siempre como
+// tarifa plena, así que apagar el cobro automático devuelve el precio completo
+// sin tener que reescribir el registro del afiliado.
+export function precioConDescuento(precioMensual, cobroAutomatico) {
+  const base = Number(precioMensual) || 0;
+  return cobroAutomatico ? Math.round(base * (1 - DESCUENTO_TARJETA)) : base;
 }
 
 export const BENEFICIOS_TOTAL_ANUAL = {
