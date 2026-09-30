@@ -174,7 +174,16 @@ export default function PrepagadaV2DetallePage() {
   };
 
   const [eventoModal, setEventoModal] = useState(false);
+
+  // Un afiliado de Plan Urgencias no puede quedar con la clase 'programado',
+  // ni siquiera si el modal se abrió antes de que cargaran sus datos.
+  useEffect(() => {
+    if (!permiteProgramado && evClase !== 'urgencia') setEvClase('urgencia');
+  }, [permiteProgramado, evClase]);
   const [evClase, setEvClase] = useState('urgencia'); // 'urgencia' | 'programado'
+  // Los descuentos en procedimientos programados son solo del Plan Total: el
+  // Plan Urgencias cubre únicamente urgencias. Ver el contrato, sección 8.
+  const permiteProgramado = afiliado?.plan === 'total';
   // Una visita puede traer varios servicios (labs + Rx, por ejemplo), así que
   // el modal trabaja con filas y cada fila queda como un consumo aparte.
   // Cada fila queda amarrada a un concepto de Siigo: de ahí salen el nombre, el
@@ -513,10 +522,16 @@ export default function PrepagadaV2DetallePage() {
             </div>
             <div style={{ padding: '1.5rem' }}>
               <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>¿Qué tipo de servicio fue?</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '1rem' }}>
+              {!permiteProgramado && (
+                <p style={{ fontSize: '0.75rem', color: '#8A8076', margin: '0 0 0.5rem', lineHeight: 1.45 }}>
+                  El Plan Urgencias cubre únicamente urgencias. Los descuentos en procedimientos
+                  programados son exclusivos del Plan Total.
+                </p>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: permiteProgramado ? '1fr 1fr' : '1fr', gap: '0.6rem', marginBottom: '1rem' }}>
                 {[
                   { k: 'urgencia',   t: '🚨 Urgencia', s: 'Copago 20%' },
-                  { k: 'programado', t: '📅 Programado', s: 'Con descuento' },
+                  ...(permiteProgramado ? [{ k: 'programado', t: '📅 Programado', s: 'Con descuento' }] : []),
                 ].map(o => (
                   <button key={o.k} onClick={() => setEvClase(o.k)}
                     style={{ padding: '0.6rem', background: evClase === o.k ? (o.k === 'urgencia' ? '#c0392b' : '#316d74') : 'white', color: evClase === o.k ? 'white' : '#1c2333', border: `1.5px solid ${evClase === o.k ? (o.k === 'urgencia' ? '#c0392b' : '#316d74') : '#dfe3ea'}`, borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.85rem' }}>
