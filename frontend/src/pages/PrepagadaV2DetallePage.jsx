@@ -143,8 +143,21 @@ export default function PrepagadaV2DetallePage() {
 
     setFacturando(true); setFacturaErr('');
     try {
+      // useStore cachea los clientes en memoria, así que la copia que tiene esta
+      // pantalla puede ser vieja: si el tutor se creó después de que cargara la
+      // lista, llega sin cédula. Para facturar se relee de la base.
+      let tutor = cliente;
+      if (!tutor?.cedula && !tutor?.document) {
+        const { data } = await supabase
+          .from('clients')
+          .select('id,name,cedula,document,email,phone')
+          .eq('id', afiliado.client_id)
+          .single();
+        if (data) tutor = data;
+      }
+
       const r = await facturarMesPrepagada({
-        afiliado, cliente, mascota,
+        afiliado, cliente: tutor, mascota,
         sedeUsuario: session?.sede_id,
         valorMensual: aCobrar,
       });

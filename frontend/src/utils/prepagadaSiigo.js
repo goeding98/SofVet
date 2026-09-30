@@ -81,8 +81,13 @@ export function desglosarFactura(valorMensual, plan) {
 
 // Busca al tutor en Siigo por cédula y lo crea si no existe.
 async function resolverCliente(cliente) {
-  const cedula = String(cliente?.cedula || cliente?.document || '').trim();
-  if (!cedula) throw new Error('El tutor no tiene cédula registrada en SofVet.');
+  const cedula = String(cliente?.cedula || cliente?.document || '').replace(/\D/g, '').trim();
+  if (!cedula) {
+    throw new Error(
+      `El tutor ${cliente?.name || '(sin nombre)'} no tiene cédula registrada en SofVet. `
+      + 'Edítalo en Clientes y vuelve a intentar.'
+    );
+  }
 
   const encontrado = await siigo.searchCustomer(cedula);
   if ((encontrado.results || []).length > 0) {
