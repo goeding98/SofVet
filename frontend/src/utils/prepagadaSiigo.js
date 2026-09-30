@@ -188,3 +188,60 @@ export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsu
     url: creada.public_url || null,
   };
 }
+
+// ── Factura de un consumo del plan ──────────────────────────────────────────
+// Cuando el afiliado usa el plan —una urgencia o un servicio programado— el
+// tutor paga solo su parte. La factura sale con el valor completo y el
+// descuento que le cubrió el plan, para que vea el beneficio y no solo lo que
+// pagó. Siigo aplica el descuento como PORCENTAJE (discount_type = Percentage
+// en el tipo de documento), que es justo como está definido el producto.
+//
+// items: [{ code, nombre, valor, pct, taxId }]
+//   valor = tarifa plena del concepto (editable por caja)
+//   pct   = lo que cubre P&P; lo que paga el tutor es el resto
+export async function facturarConsumoPrepagada({ afiliado, cliente, mascota, sedeUsuario, items, notas }) {
+  const lineas = (items || []).filter((i) => i.code && Number(i.valor) > 0);
+  if (lineas.length === 0) throw new Error('No hay conceptos con valor para facturar.');
+
+  const customer = await resolverCliente(cliente);
+  const c2 = (n) => Math.round(n * 100) / 100;
+
+  // Siigo calcula: precio × (1 − descuento%) y sobre eso aplica el impuesto.
+  // El total tiene que coincidir con el pago o rechaza la factura.
+  const total = c2(lineas.reduce((suma, l) => {
+    const neto = Number(l.valor) * (1 - (Number(l.pct) || 0) / 100);
+    return suma + neto * (1 + (Number(l.taxPct) || 0) / 100);
+  }, 0));
+
+  const factura = {
+    document: { id: DOC_FACTURA_ELECTRONICA },
+    date: hoyISO(),
+    customer,
+    cost_center: centroCostoDe(sedeUsuario),
+    seller: VENDEDOR,
+    stamp: { send: true },
+    mail: { send: true },
+    observations: [
+      `Uso del plan prepagado · ${mascota?.name || 'mascota'} · afiliado ${afiliado.id}`,
+      notas ? notas.trim() : null,
+    ].filter(Boolean).join(' · '),
+    items: lineas.map((l) => ({
+      code: l.code,
+      description: l.nombre,
+      quantity: 1,
+      price: Number(l.valor),
+      discount: Number(l.pct) || 0,   // porcentaje que cubre el plan
+      taxes: l.taxId ? [{ id: l.taxId }] : [],
+    })),
+    payments: [{ id: PAGO_WOMPI, value: total, due_date: hoyISO() }],
+  };
+
+  const creada = await siigo.createInvoice(factura);
+  return {
+    numero: creada.number,
+    prefijo: creada.prefix,
+    completo: [creada.prefix, creada.number].filter(Boolean).join('-'),
+    url: creada.public_url || null,
+    total,
+  };
+}

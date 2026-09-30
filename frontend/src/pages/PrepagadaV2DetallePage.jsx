@@ -5,7 +5,8 @@ import { useAuth } from '../utils/useAuth';
 import { supabase } from '../utils/supabaseClient';
 import { BENEFICIOS_TOTAL_ANUAL, DESCUENTO_TARJETA, precioConDescuento } from '../utils/prepagadaPrecios';
 import { vencimientoTrasPago } from '../utils/prepagadaFacturacion';
-import { facturarMesPrepagada, desglosarFactura } from '../utils/prepagadaSiigo';
+import { facturarMesPrepagada, desglosarFactura, facturarConsumoPrepagada } from '../utils/prepagadaSiigo';
+import SiigoConceptoPicker from '../components/SiigoConceptoPicker';
 import { calcularEstadoVencimiento } from '../utils/prepagadaEstado';
 import { nowDate } from '../utils/nowLocal';
 
@@ -176,7 +177,9 @@ export default function PrepagadaV2DetallePage() {
   const [evClase, setEvClase] = useState('urgencia'); // 'urgencia' | 'programado'
   // Una visita puede traer varios servicios (labs + Rx, por ejemplo), así que
   // el modal trabaja con filas y cada fila queda como un consumo aparte.
-  const ITEM_VACIO = { servicio: '', desc: '', costo: '' };
+  // Cada fila queda amarrada a un concepto de Siigo: de ahí salen el nombre, el
+  // valor sugerido y el impuesto, sin que caja tenga que teclearlos.
+  const ITEM_VACIO = { servicio: '', desc: '', costo: '', code: '', taxId: null, taxPct: 0 };
   const [evItems, setEvItems] = useState([{ ...ITEM_VACIO }]);
   const [evNotas, setEvNotas] = useState('');
   const [evFactura, setEvFactura] = useState('');
@@ -231,16 +234,67 @@ export default function PrepagadaV2DetallePage() {
     const c = calcItem(it);
     return { costo: a.costo + c.costo, cubierto: a.cubierto + c.cubierto, copago: a.copago + c.copago };
   }, { costo: 0, cubierto: 0, copago: 0 });
+  // Lo que el tutor paga en caja NO es el copago pelado: la factura le suma el
+  // IVA de cada concepto sobre la porción que le queda a él.
+  const ivaCopago = itemsConValor.reduce((suma, it) => {
+    const c = calcItem(it);
+    return suma + Math.round(c.copago * (Number(it.taxPct) || 0) / 100);
+  }, 0);
+  const aCobrarEnCaja = totalEv.copago + ivaCopago;
+  const hayFacturables = itemsConValor.some(it => it.code);
+
   const faltaServicio = evClase === 'programado' && itemsConValor.some(it => it.servicio === '');
   const puedeGuardar = itemsConValor.length > 0 && !faltaServicio;
 
   const setItem = (i, campo, valor) => setEvItems(arr => arr.map((it, idx) => idx === i ? { ...it, [campo]: valor } : it));
+
+  // El valor llega del catálogo pero queda editable: en una urgencia el costo
+  // real casi nunca es la tarifa de lista.
+  const elegirConcepto = (i, c) => setEvItems(arr => arr.map((it, idx) => idx === i ? {
+    ...it, code: c.code, desc: c.nombre, costo: String(c.precio), taxId: c.taxId, taxPct: c.taxPct,
+  } : it));
   const addItem = () => setEvItems(arr => [...arr, { ...ITEM_VACIO }]);
   const delItem = (i) => setEvItems(arr => arr.length === 1 ? [{ ...ITEM_VACIO }] : arr.filter((_, idx) => idx !== i));
+
+  const [consumoErr, setConsumoErr] = useState('');
 
   const handleRegistrarEvento = async () => {
     if (!puedeGuardar) return;
     setSavingEvento(true);
+    setConsumoErr('');
+
+    // Se factura ANTES de tocar la bolsa: si la factura falla, no queda un
+    // consumo descontado sin respaldo. Si sale bien ya no hay vuelta atrás,
+    // así que lo demás tiene que poder completarse.
+    let factura = null;
+    const conCodigo = itemsConValor.filter(it => it.code);
+    if (conCodigo.length > 0) {
+      const d = conCodigo.map(it => {
+        const c = calcItem(it);
+        return `  ${it.desc}: ${fmtCOP(c.costo)} − ${c.pct}% = ${fmtCOP(c.copago)}`;
+      }).join('\n');
+      const ok = window.confirm(
+        `Se va a emitir la factura electrónica a ${cliente?.name || 'el tutor'}:\n\n${d}\n\n`
+        + `El tutor paga ${fmtCOP(totalEv.copago)}.\n\n`
+        + 'Se envía a la DIAN y le llega por correo. No se puede deshacer. ¿Continuar?'
+      );
+      if (!ok) { setSavingEvento(false); return; }
+      try {
+        factura = await facturarConsumoPrepagada({
+          afiliado, cliente, mascota,
+          sedeUsuario: session?.sede_id,
+          notas: evNotas.trim() || null,
+          items: conCodigo.map(it => {
+            const c = calcItem(it);
+            return { code: it.code, nombre: it.desc, valor: c.costo, pct: c.pct, taxId: it.taxId, taxPct: it.taxPct };
+          }),
+        });
+      } catch (e) {
+        setSavingEvento(false);
+        setConsumoErr('No se pudo facturar, no se registró el consumo: ' + (e.message || ''));
+        return;
+      }
+    }
 
     // Cada fila queda como un consumo independiente, para poder reportar
     // después por tipo de servicio.
@@ -259,7 +313,7 @@ export default function PrepagadaV2DetallePage() {
         costo_total: c.costo,
         copago: c.copago,
         cubierto_pp: c.cubierto,
-        factura_copago: evFactura.trim() || null,
+        factura_copago: factura?.completo || evFactura.trim() || null,
         notas: evNotas.trim() || null,
         registrado_por: session?.nombre || session?.username || null,
       }, { onError: (m) => { err = m; } });
@@ -476,54 +530,73 @@ export default function PrepagadaV2DetallePage() {
                 {evClase === 'programado' ? 'Servicios prestados en esta visita' : 'Conceptos de la urgencia'}
               </label>
 
-              {/* Encabezados */}
-              <div style={{ display: 'flex', gap: '0.5rem', padding: '0 0.1rem 0.3rem', fontSize: '0.65rem', fontWeight: 700, color: '#8A8076', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                <span style={{ flex: 1 }}>{evClase === 'programado' ? 'Servicio' : 'Concepto'}</span>
-                <span style={{ width: 105, textAlign: 'right' }}>Costo total</span>
-                <span style={{ width: 92, textAlign: 'right' }}>Sale de bolsa</span>
-                <span style={{ width: 24 }} />
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '0.6rem' }}>
+              {/* Cada ítem es una tarjeta: arriba el concepto de Siigo, abajo la
+                  cobertura y el valor. Meter las cuatro cosas en una sola línea
+                  quedaba ilegible. */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.6rem' }}>
                 {evItems.map((item, i) => {
                   const c = calcItem(item);
                   const falta = evClase === 'programado' && c.costo > 0 && item.servicio === '';
                   return (
-                    <div key={i} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      {evClase === 'programado' ? (
-                        <select
-                          value={item.servicio}
-                          onChange={e => setItem(i, 'servicio', e.target.value)}
-                          style={{ flex: 1, minWidth: 0, padding: '0.5rem 0.6rem', border: `1.5px solid ${falta ? '#c0392b' : '#dfe3ea'}`, borderRadius: 9, fontSize: '0.82rem', fontFamily: 'inherit', background: 'white' }}
-                        >
-                          <option value="">— Elige el servicio —</option>
-                          {SERVICIOS_PROGRAMADOS.map((s, si) => (
-                            <option key={s.label} value={si}>{s.label} — {s.pct}%</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          value={item.desc}
-                          onChange={e => setItem(i, 'desc', e.target.value)}
-                          placeholder="Ej: Trauma por atropello"
-                          style={{ flex: 1, minWidth: 0, padding: '0.5rem 0.6rem', border: '1.5px solid #dfe3ea', borderRadius: 9, fontSize: '0.82rem', fontFamily: 'inherit', boxSizing: 'border-box' }}
-                        />
+                    <div key={i} style={{ border: `1.5px solid ${falta ? '#c0392b' : '#e8ecf2'}`, borderRadius: 11, padding: '0.6rem', background: '#fbfcfd' }}>
+
+                      <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'flex-start', marginBottom: '0.45rem' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <SiigoConceptoPicker
+                            valor={item.desc}
+                            onElegir={(cp) => elegirConcepto(i, cp)}
+                            placeholder={evClase === 'programado' ? 'Buscar el servicio en Siigo…' : 'Buscar el concepto en Siigo…'}
+                          />
+                        </div>
+                        <button
+                          onClick={() => delItem(i)}
+                          title="Quitar esta fila"
+                          style={{ width: 26, height: 30, flexShrink: 0, background: '#fdecea', color: '#c0392b', border: 'none', borderRadius: 7, cursor: 'pointer', fontWeight: 700, fontSize: '0.75rem', lineHeight: 1 }}
+                        >✕</button>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {evClase === 'programado' && (
+                          <select
+                            value={item.servicio}
+                            onChange={e => setItem(i, 'servicio', e.target.value)}
+                            title="Determina qué porcentaje cubre el plan"
+                            style={{ flex: 1, minWidth: 180, padding: '0.45rem 0.5rem', border: `1.5px solid ${falta ? '#c0392b' : '#dfe3ea'}`, borderRadius: 8, fontSize: '0.78rem', fontFamily: 'inherit', background: 'white' }}
+                          >
+                            <option value="">— Cobertura del plan —</option>
+                            {SERVICIOS_PROGRAMADOS.map((s, si) => (
+                              <option key={s.label} value={si}>{s.label} — {s.pct}%</option>
+                            ))}
+                          </select>
+                        )}
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <span style={{ fontSize: '0.7rem', color: '#8A8076' }}>Valor</span>
+                          <input
+                            inputMode="numeric"
+                            value={item.costo}
+                            onChange={e => setItem(i, 'costo', e.target.value)}
+                            placeholder="0"
+                            title="Llega del catálogo de Siigo, pero se puede ajustar"
+                            style={{ width: 100, padding: '0.45rem 0.5rem', border: '1.5px solid #dfe3ea', borderRadius: 8, fontSize: '0.82rem', textAlign: 'right', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                          />
+                        </div>
+
+                        <div style={{ marginLeft: 'auto', textAlign: 'right', fontSize: '0.75rem' }}>
+                          <div style={{ color: '#8A8076' }}>
+                            Paga el tutor <strong style={{ color: '#1c2333' }}>{c.costo > 0 ? fmtCOP(c.copago) : '—'}</strong>
+                          </div>
+                          <div style={{ color: '#8A8076' }}>
+                            Sale de bolsa <strong style={{ color: c.cubierto > 0 ? '#316d74' : '#c8ccd2' }}>{c.cubierto > 0 ? fmtCOP(c.cubierto) : '—'}</strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      {!item.code && c.costo > 0 && (
+                        <p style={{ fontSize: '0.7rem', color: '#8a6d00', margin: '0.4rem 0 0' }}>
+                          ⚠️ Sin concepto de Siigo: este ítem se registra pero no se factura.
+                        </p>
                       )}
-                      <input
-                        inputMode="numeric"
-                        value={item.costo}
-                        onChange={e => setItem(i, 'costo', e.target.value)}
-                        placeholder="0"
-                        style={{ width: 105, padding: '0.5rem 0.6rem', border: '1.5px solid #dfe3ea', borderRadius: 9, fontSize: '0.82rem', textAlign: 'right', fontFamily: 'inherit', boxSizing: 'border-box' }}
-                      />
-                      <span style={{ width: 92, textAlign: 'right', fontSize: '0.8rem', fontWeight: 700, color: c.cubierto > 0 ? '#316d74' : '#c8ccd2' }}>
-                        {c.cubierto > 0 ? fmtCOP(c.cubierto) : '—'}
-                      </span>
-                      <button
-                        onClick={() => delItem(i)}
-                        title="Quitar esta fila"
-                        style={{ width: 24, height: 24, flexShrink: 0, background: '#fdecea', color: '#c0392b', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontSize: '0.75rem', lineHeight: 1 }}
-                      >✕</button>
                     </div>
                   );
                 })}
@@ -540,8 +613,17 @@ export default function PrepagadaV2DetallePage() {
               {totalEv.costo > 0 && (
                 <div style={{ background: '#f7f9fc', borderRadius: 10, padding: '0.8rem 1rem', marginBottom: '1rem', fontSize: '0.85rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Costo total de la visita</span><strong>{fmtCOP(totalEv.costo)}</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Paga el tutor</span><strong>{fmtCOP(totalEv.copago)}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Paga el tutor (antes de IVA)</span><strong>{fmtCOP(totalEv.copago)}</strong></div>
+                  {ivaCopago > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#8A8076' }}><span>IVA sobre lo que paga el tutor</span><strong>{fmtCOP(ivaCopago)}</strong></div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Asume P&amp;P — sale de la bolsa</span><strong style={{ color: '#316d74' }}>{fmtCOP(totalEv.cubierto)}</strong></div>
+                  {hayFacturables && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.35rem', paddingTop: '0.35rem', borderTop: '1px solid #dfe3ea', fontSize: '0.95rem' }}>
+                      <span style={{ fontWeight: 700 }}>TOTAL A COBRAR EN CAJA</span>
+                      <strong style={{ color: '#1e7d45' }}>{fmtCOP(aCobrarEnCaja)}</strong>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.35rem', paddingTop: '0.35rem', borderTop: '1px dashed #dfe3ea' }}>
                     <span>Bolsa después de esta visita</span>
                     <strong style={{ color: (disponible - totalEv.cubierto) < 0 ? '#c0392b' : '#1c2333' }}>{fmtCOP(disponible - totalEv.cubierto)}</strong>
@@ -549,7 +631,20 @@ export default function PrepagadaV2DetallePage() {
                 </div>
               )}
 
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Factura del copago (opcional)</label>
+              {consumoErr && (
+                <div style={{ background: '#fdecea', border: '1px solid #c0392b', borderRadius: 10, padding: '0.7rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: '#c0392b', fontWeight: 600 }}>
+                  ⚠️ {consumoErr}
+                </div>
+              )}
+
+              {hayFacturables && (
+                <div style={{ background: '#fff7e6', border: '1px solid #8a6d00', borderRadius: 10, padding: '0.7rem 0.9rem', marginBottom: '1rem', fontSize: '0.8rem', color: '#8a6d00' }}>
+                  🧾 Al guardar se emite la factura electrónica en Siigo y se le envía al tutor por correo.
+                  La bolsa se descuenta solo si la factura sale bien.
+                </div>
+              )}
+
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Factura del copago (solo si se facturó aparte)</label>
               <input value={evFactura} onChange={e => setEvFactura(e.target.value)} placeholder="Nº de factura" style={{ width: '100%', padding: '0.55rem 0.85rem', border: '1.5px solid #dfe3ea', borderRadius: 10, fontSize: '0.9rem', boxSizing: 'border-box', marginBottom: '1rem' }} />
 
               <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Notas</label>
