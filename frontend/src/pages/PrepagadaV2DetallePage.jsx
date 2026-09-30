@@ -130,9 +130,13 @@ export default function PrepagadaV2DetallePage() {
     const d = desglosarFactura(aCobrar, afiliado.plan);
     const ok = window.confirm(
       `Se va a emitir la factura electrónica a nombre de ${cliente?.name || 'el tutor'}:\n\n`
-      + `  ${d.items.servicio.desc}: ${fmtCOP(d.servicio)} + IVA ${fmtCOP(d.iva)}\n`
-      + `  ${d.items.insumos.desc}: ${fmtCOP(d.insumos)} (sin IVA)\n\n`
-      + `Total: ${fmtCOP(d.totalConIva)}\n\n`
+      + (d.modoPrueba
+        ? `  ${d.items.servicio.desc}\n  ${d.items.insumos.desc}\n\n`
+          + 'MODO PRUEBA: los renglones salen con el precio que tienen los productos '
+          + `en Siigo (unos pocos pesos), no con los ${fmtCOP(d.total)} del plan.\n\n`
+        : `  ${d.items.servicio.desc}: ${fmtCOP(d.servicio)} + IVA ${fmtCOP(d.iva)}\n`
+          + `  ${d.items.insumos.desc}: ${fmtCOP(d.insumos)} (sin IVA)\n\n`
+          + `Total: ${fmtCOP(d.totalConIva)}\n\n`)
       + 'Se envía a la DIAN de inmediato y no se puede deshacer. ¿Continuar?'
     );
     if (!ok) return;
@@ -300,7 +304,9 @@ export default function PrepagadaV2DetallePage() {
             title={
               !puedeFacturar ? 'Primero tiene que entrar el pago'
                 : yaFacturado ? `Ya se facturó (${afiliado.ultima_factura_numero}). Volver a hacerlo emite otra factura.`
-                : `Emite la factura electrónica en Siigo por ${fmtCOP(desglosarFactura(aCobrar, afiliado.plan).totalConIva)}`
+                : desglosarFactura(aCobrar, afiliado.plan).modoPrueba
+                  ? 'MODO PRUEBA: emite la factura con los precios de los productos en Siigo, no con el valor del plan'
+                  : `Emite la factura electrónica en Siigo por ${fmtCOP(desglosarFactura(aCobrar, afiliado.plan).totalConIva)}`
             }
             style={{ padding: '0.5rem 0.9rem', background: puedeFacturar ? '#fff7e6' : '#f2f2f2', color: puedeFacturar ? '#8a6d00' : '#aaa', border: `1px solid ${puedeFacturar ? '#8a6d00' : '#ddd'}`, borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', cursor: puedeFacturar && !facturando ? 'pointer' : 'default', whiteSpace: 'nowrap' }}
           >

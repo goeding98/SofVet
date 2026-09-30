@@ -16,6 +16,20 @@ import { siigo } from './siigo';
 
 const PROPORCION_SERVICIO = 0.5;
 
+// MODO PRUEBA. Mientras contabilidad no cargue los precios definitivos, los
+// renglones se facturan con el precio que tenga el producto en Siigo ($1, $2...)
+// en vez del valor real del plan. Sirve para emitir facturas de prueba sin
+// mover plata. Poner en false cuando los precios reales estén en Siigo.
+const PRECIOS_DE_PRUEBA = true;
+
+// Trae el precio con el que está cargado un producto en Siigo.
+async function precioEnSiigo(code) {
+  const cat = await siigo.getAllProducts();
+  const prod = (cat.results || []).find((x) => String(x.code) === String(code));
+  if (!prod) throw new Error(`El producto ${code} no existe en Siigo.`);
+  return Math.round(Number(prod.price) || 0);
+}
+
 const ITEMS_POR_PLAN = {
   urgencias: {
     servicio: { code: '99991', desc: 'Plan Mensual Prepagada Emergencias' },
@@ -56,7 +70,7 @@ export function desglosarFactura(valorMensual, plan) {
   const insumos = total - servicio;
   const iva = Math.round(servicio * 0.19);
 
-  return { total, servicio, insumos, iva, totalConIva: total + iva, items };
+  return { total, servicio, insumos, iva, totalConIva: total + iva, items, modoPrueba: PRECIOS_DE_PRUEBA };
 }
 
 // Busca al tutor en Siigo por cédula y lo crea si no existe.
@@ -91,7 +105,14 @@ async function resolverCliente(cliente) {
 
 // Emite la factura electrónica del mes de un afiliado y devuelve su número.
 export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsuario, valorMensual }) {
-  const { servicio, insumos, items } = desglosarFactura(valorMensual, afiliado.plan);
+  const calculado = desglosarFactura(valorMensual, afiliado.plan);
+  const items = calculado.items;
+
+  // En modo prueba manda el precio del catálogo de Siigo; si no, el 50/50 real.
+  const servicio = PRECIOS_DE_PRUEBA ? await precioEnSiigo(items.servicio.code) : calculado.servicio;
+  const insumos  = PRECIOS_DE_PRUEBA ? await precioEnSiigo(items.insumos.code)  : calculado.insumos;
+  const iva = Math.round(servicio * 0.19);
+
   const customer = await resolverCliente(cliente);
 
   const factura = {
@@ -108,7 +129,7 @@ export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsu
       { code: items.servicio.code, description: items.servicio.desc, quantity: 1, price: servicio, discount: 0 },
       { code: items.insumos.code,  description: items.insumos.desc,  quantity: 1, price: insumos,  discount: 0 },
     ],
-    payments: [{ id: PAGO_WOMPI, value: servicio + insumos + Math.round(servicio * 0.19), due_date: hoyISO() }],
+    payments: [{ id: PAGO_WOMPI, value: servicio + insumos + iva, due_date: hoyISO() }],
   };
 
   const creada = await siigo.createInvoice(factura);
