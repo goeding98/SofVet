@@ -5,6 +5,7 @@ import { useAuth } from '../utils/useAuth';
 import { supabase } from '../utils/supabaseClient';
 import { BENEFICIOS_TOTAL_ANUAL, DESCUENTO_TARJETA, precioConDescuento } from '../utils/prepagadaPrecios';
 import { vencimientoTrasPago } from '../utils/prepagadaFacturacion';
+import { facturarMesPrepagada, desglosarFactura } from '../utils/prepagadaSiigo';
 import { calcularEstadoVencimiento } from '../utils/prepagadaEstado';
 import { nowDate } from '../utils/nowLocal';
 
@@ -115,6 +116,42 @@ export default function PrepagadaV2DetallePage() {
       alert('No se pudo generar el link de pago: ' + e.message);
     }
     setGenerandoLink(false);
+  };
+
+  // ── Facturación en Siigo ───────────────────────────────────────────────────
+  const [facturando, setFacturando] = useState(false);
+  const [facturaErr, setFacturaErr] = useState('');
+  const yaFacturado = !!afiliado?.ultima_factura_numero;
+  // Solo tiene sentido facturar lo que ya se cobró.
+  const puedeFacturar = !!afiliado?.ultimo_pago_fecha;
+
+  const handleFacturar = async () => {
+    if (!afiliado || facturando) return;
+    const d = desglosarFactura(aCobrar, afiliado.plan);
+    const ok = window.confirm(
+      `Se va a emitir la factura electrónica a nombre de ${cliente?.name || 'el tutor'}:\n\n`
+      + `  ${d.items.servicio.desc}: ${fmtCOP(d.servicio)} + IVA ${fmtCOP(d.iva)}\n`
+      + `  ${d.items.insumos.desc}: ${fmtCOP(d.insumos)} (sin IVA)\n\n`
+      + `Total: ${fmtCOP(d.totalConIva)}\n\n`
+      + 'Se envía a la DIAN de inmediato y no se puede deshacer. ¿Continuar?'
+    );
+    if (!ok) return;
+
+    setFacturando(true); setFacturaErr('');
+    try {
+      const r = await facturarMesPrepagada({
+        afiliado, cliente, mascota,
+        sedeUsuario: session?.sede_id,
+        valorMensual: aCobrar,
+      });
+      editAfiliado(afiliado.id, {
+        ultima_factura_numero: r.completo,
+        ultima_factura_fecha: nowDate(),
+      });
+    } catch (e) {
+      setFacturaErr(e.message || 'No se pudo emitir la factura.');
+    }
+    setFacturando(false);
   };
 
   const [eventoModal, setEventoModal] = useState(false);
@@ -257,11 +294,31 @@ export default function PrepagadaV2DetallePage() {
           >
             ✅ Marcar pagado
           </button>
+          <button
+            onClick={handleFacturar}
+            disabled={!puedeFacturar || facturando}
+            title={
+              !puedeFacturar ? 'Primero tiene que entrar el pago'
+                : yaFacturado ? `Ya se facturó (${afiliado.ultima_factura_numero}). Volver a hacerlo emite otra factura.`
+                : `Emite la factura electrónica en Siigo por ${fmtCOP(desglosarFactura(aCobrar, afiliado.plan).totalConIva)}`
+            }
+            style={{ padding: '0.5rem 0.9rem', background: puedeFacturar ? '#fff7e6' : '#f2f2f2', color: puedeFacturar ? '#8a6d00' : '#aaa', border: `1px solid ${puedeFacturar ? '#8a6d00' : '#ddd'}`, borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', cursor: puedeFacturar && !facturando ? 'pointer' : 'default', whiteSpace: 'nowrap' }}
+          >
+            🧾 {facturando ? 'Facturando…' : yaFacturado ? 'Facturar de nuevo' : 'Facturar'}
+          </button>
           <select value={afiliado.estado} onChange={e => editAfiliado(afiliadoId, { estado: e.target.value })} style={{ padding: '0.5rem 0.8rem', borderRadius: 10, border: '1.5px solid #dfe3ea', fontSize: '0.85rem', fontWeight: 600 }}>
             {ESTADO_OPTS.map(o => <option key={o} value={o}>{ESTADO_BADGE[o].label}</option>)}
           </select>
         </div>
       </div>
+
+      {(afiliado.ultima_factura_numero || facturaErr) && (
+        <div style={{ background: facturaErr ? '#fdecea' : '#fff7e6', border: `1px solid ${facturaErr ? '#c0392b' : '#8a6d00'}`, borderRadius: 12, padding: '0.7rem 1.2rem', marginBottom: '1.2rem', fontSize: '0.85rem', color: facturaErr ? '#c0392b' : '#8a6d00', fontWeight: 600 }}>
+          {facturaErr
+            ? `⚠️ ${facturaErr}`
+            : `🧾 Última factura: ${afiliado.ultima_factura_numero}${afiliado.ultima_factura_fecha ? ` · ${afiliado.ultima_factura_fecha}` : ''}`}
+        </div>
+      )}
 
       {linkPago && (
         <div style={{ background: '#eef4ff', border: '1px solid #2a4d9e', borderRadius: 12, padding: '0.9rem 1.2rem', marginBottom: '1.2rem', display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
