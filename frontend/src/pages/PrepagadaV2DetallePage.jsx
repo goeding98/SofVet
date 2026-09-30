@@ -137,7 +137,9 @@ export default function PrepagadaV2DetallePage() {
         : `  ${d.items.servicio.desc}: ${fmtCOP(d.servicio)} + IVA ${fmtCOP(d.iva)}\n`
           + `  ${d.items.insumos.desc}: ${fmtCOP(d.insumos)} (sin IVA)\n\n`
           + `Total: ${fmtCOP(d.totalConIva)}\n\n`)
-      + 'Se envía a la DIAN de inmediato y no se puede deshacer. ¿Continuar?'
+      + (d.modoPrueba
+        ? 'NO se envía a la DIAN mientras esté en modo prueba. ¿Continuar?'
+        : 'Se envía a la DIAN de inmediato y no se puede deshacer. ¿Continuar?')
     );
     if (!ok) return;
 

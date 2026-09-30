@@ -121,7 +121,10 @@ export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsu
     customer,
     cost_center: centroCostoDe(sedeUsuario),
     seller: VENDEDOR,
-    stamp: { send: true },   // se envía a la DIAN al crearla
+    // En modo prueba NO se estampa: la factura queda en Siigo pero no se envía a
+    // la DIAN, así se puede borrar sin nota crédito. Al quitar el modo prueba
+    // vuelve a enviarse, que es lo que corresponde en producción.
+    stamp: { send: !PRECIOS_DE_PRUEBA },
     observations: `Prepagada ${afiliado.plan === 'total' ? 'Plan Total' : 'Plan Urgencias'}`
       + ` · ${mascota?.name || 'mascota'} · afiliado ${afiliado.id}`,
     items: [
