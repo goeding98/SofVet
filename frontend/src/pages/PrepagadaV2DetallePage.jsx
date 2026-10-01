@@ -123,11 +123,30 @@ export default function PrepagadaV2DetallePage() {
   const [facturando, setFacturando] = useState(false);
   const [facturaErr, setFacturaErr] = useState('');
   const yaFacturado = !!afiliado?.ultima_factura_numero;
+  // Los pagos por Wompi los factura el webhook solo. Si la última factura es
+  // igual o posterior al último pago, ese pago YA tiene su factura y volver a
+  // emitirla crearía un segundo documento ante la DIAN.
+  const pagoYaFacturado = !!(
+    afiliado?.ultima_factura_fecha &&
+    afiliado?.ultimo_pago_fecha &&
+    afiliado.ultima_factura_fecha >= afiliado.ultimo_pago_fecha
+  );
   // Solo tiene sentido facturar lo que ya se cobró.
   const puedeFacturar = !!afiliado?.ultimo_pago_fecha;
 
   const handleFacturar = async () => {
     if (!afiliado || facturando) return;
+    if (pagoYaFacturado) {
+      const insistir = window.confirm(
+        `⚠️ Este pago YA está facturado con ${afiliado.ultima_factura_numero}.\n\n`
+        + 'Los pagos por Wompi se facturan solos; este botón es para los de efectivo '
+        + 'o transferencia.\n\n'
+        + 'Si continúas se emite una SEGUNDA factura electrónica del mismo pago, y para '
+        + 'deshacerla toca nota crédito.\n\n¿Seguro que quieres facturar otra vez?'
+      );
+      if (!insistir) return;
+    }
+
     const d = desglosarFactura(aCobrar, afiliado.plan);
     const ok = window.confirm(
       `Se va a emitir la factura electrónica a nombre de ${cliente?.name || 'el tutor'}:\n\n`
@@ -388,14 +407,15 @@ export default function PrepagadaV2DetallePage() {
             disabled={!puedeFacturar || facturando}
             title={
               !puedeFacturar ? 'Primero tiene que entrar el pago'
-                : yaFacturado ? `Ya se facturó (${afiliado.ultima_factura_numero}). Volver a hacerlo emite otra factura.`
+                : pagoYaFacturado ? `Este pago ya está facturado (${afiliado.ultima_factura_numero}). Los pagos por Wompi se facturan solos; este botón es para efectivo o transferencia.`
+                : yaFacturado ? `La última factura fue ${afiliado.ultima_factura_numero}, pero hay un pago más reciente sin facturar.`
                 : desglosarFactura(aCobrar, afiliado.plan).modoPrueba
                   ? 'MODO PRUEBA: emite la factura con los precios de los productos en Siigo, no con el valor del plan'
                   : `Emite la factura electrónica en Siigo por ${fmtCOP(desglosarFactura(aCobrar, afiliado.plan).totalConIva)}`
             }
-            style={{ padding: '0.5rem 0.9rem', background: puedeFacturar ? '#fff7e6' : '#f2f2f2', color: puedeFacturar ? '#8a6d00' : '#aaa', border: `1px solid ${puedeFacturar ? '#8a6d00' : '#ddd'}`, borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', cursor: puedeFacturar && !facturando ? 'pointer' : 'default', whiteSpace: 'nowrap' }}
+            style={{ padding: '0.5rem 0.9rem', background: !puedeFacturar || pagoYaFacturado ? '#f2f2f2' : '#fff7e6', color: !puedeFacturar || pagoYaFacturado ? '#999' : '#8a6d00', border: `1px solid ${!puedeFacturar || pagoYaFacturado ? '#ddd' : '#8a6d00'}`, borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', cursor: puedeFacturar && !facturando ? 'pointer' : 'default', whiteSpace: 'nowrap' }}
           >
-            🧾 {facturando ? 'Facturando…' : yaFacturado ? 'Facturar de nuevo' : 'Facturar'}
+            🧾 {facturando ? 'Facturando…' : pagoYaFacturado ? 'Ya facturado' : 'Facturar'}
           </button>
           <select value={afiliado.estado} onChange={e => editAfiliado(afiliadoId, { estado: e.target.value })} style={{ padding: '0.5rem 0.8rem', borderRadius: 10, border: '1.5px solid #dfe3ea', fontSize: '0.85rem', fontWeight: 600 }}>
             {ESTADO_OPTS.map(o => <option key={o} value={o}>{ESTADO_BADGE[o].label}</option>)}
