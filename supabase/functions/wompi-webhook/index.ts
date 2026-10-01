@@ -69,6 +69,130 @@ function vencimientoTrasPago(o: {
 }
 
 
+
+// ── Facturación en Siigo ────────────────────────────────────────────────────
+// El pago dispara la factura: así el tutor la recibe en minutos y nadie tiene
+// que acordarse de emitirla. Si falla, el plan se activa igual y el afiliado
+// queda con pago más reciente que su última factura, que es como se detecta
+// después lo que quedó pendiente.
+//
+// OJO: estas credenciales son distintas de las de Netlify. El webhook no pasa
+// por el proxy /api/siigo a propósito: es una función pública sin autenticación.
+const SIIGO_API = 'https://api.siigo.com';
+const SIIGO_USER = Deno.env.get('SIIGO_USER') ?? '';
+const SIIGO_ACCESS_KEY = Deno.env.get('SIIGO_ACCESS_KEY') ?? '';
+
+const DOC_FACTURA_ELECTRONICA = 26273;
+const VENDEDOR = 953;          // Jenni Soralla Cuero Granja
+const PAGO_WOMPI = 11061;
+const CENTRO_COSTO: Record<number, number> = { 1: 917, 2: 865, 3: 863, 4: 863 };
+const CENTRO_POR_DEFECTO = 863;
+
+// El plan se parte en dos renglones: el servicio lleva IVA, los insumos no.
+const ITEMS_POR_PLAN: Record<string, { servicio: string; insumos: string; descS: string; descI: string }> = {
+  urgencias: { servicio: '99991', insumos: '99992',
+    descS: 'Plan Mensual Prepagada Emergencias', descI: 'Insumos Prepagados Plan Mensual Emergencias' },
+  total: { servicio: '99994', insumos: '99995',
+    descS: 'Plan Mensual Prepagada Total', descI: 'Insumos Prepagados Plan Total' },
+};
+
+async function siigoToken(): Promise<string> {
+  const r = await fetch(`${SIIGO_API}/auth`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: SIIGO_USER, access_key: SIIGO_ACCESS_KEY }),
+  });
+  const d = await r.json();
+  if (!d?.access_token) throw new Error('No se pudo autenticar contra Siigo');
+  return d.access_token;
+}
+
+async function siigoFetch(token: string, method: string, path: string, body?: unknown) {
+  const r = await fetch(SIIGO_API + path, {
+    method,
+    headers: { Authorization: token, 'Partner-Id': 'SofVet', 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(`Siigo ${path}: ${JSON.stringify(d?.Errors ?? d).slice(0, 300)}`);
+  return d;
+}
+
+// Busca el tercero por cédula y lo crea si no existe.
+async function resolverTercero(token: string, cliente: any) {
+  const cedula = String(cliente?.cedula || cliente?.document || '').replace(/\D/g, '');
+  if (!cedula) throw new Error('El tutor no tiene cédula registrada');
+
+  const hallado = await siigoFetch(token, 'GET', `/v1/customers?identification=${cedula}`);
+  if ((hallado.results || []).length > 0) {
+    return { id: hallado.results[0].id, identification: cedula, branch_office: 0 };
+  }
+
+  const partes = String(cliente?.name || 'Cliente SofVet').trim().split(/\s+/);
+  const nombre = partes[0];
+  const apellido = partes.length > 1 ? partes.slice(1).join(' ') : partes[0];
+  const creado = await siigoFetch(token, 'POST', '/v1/customers', {
+    type: 'Customer', person_type: 'Person', id_type: { code: '13' },
+    identification: cedula, name: [nombre, apellido],
+    fiscal_responsibilities: [{ code: 'R-99-PN' }],
+    contacts: [{
+      first_name: nombre, last_name: apellido,
+      email: cliente?.email || '',
+      phone: { number: String(cliente?.phone || '').replace(/\D/g, '').slice(0, 10) || '0000000000' },
+    }],
+  });
+  return { id: creado.id, identification: cedula, branch_office: 0 };
+}
+
+// Emite la factura del mes y devuelve lo que hay que guardar en el afiliado.
+async function facturarMes(supabaseCli: any, afiliado: any, valorMes: number, hoy: string) {
+  if (!SIIGO_USER || !SIIGO_ACCESS_KEY) {
+    console.warn('[wompi-webhook] sin credenciales de Siigo, no se factura');
+    return null;
+  }
+
+  const items = ITEMS_POR_PLAN[afiliado.plan];
+  if (!items) throw new Error(`Plan desconocido: ${afiliado.plan}`);
+
+  const { data: cliente } = await supabaseCli
+    .from('clients').select('id,name,cedula,document,email,phone')
+    .eq('id', afiliado.client_id).single();
+  const { data: mascota } = await supabaseCli
+    .from('patients').select('name').eq('id', afiliado.patient_id).single();
+
+  const servicio = Math.round(valorMes * 0.5);
+  const insumos = valorMes - servicio;   // el resto, para que sumen exacto
+  const total = Math.round((servicio * 1.19 + insumos) * 100) / 100;
+
+  const token = await siigoToken();
+  const customer = await resolverTercero(token, cliente);
+
+  const creada = await siigoFetch(token, 'POST', '/v1/invoices', {
+    document: { id: DOC_FACTURA_ELECTRONICA },
+    date: hoy,
+    customer,
+    cost_center: CENTRO_COSTO[afiliado.sede_id] ?? CENTRO_POR_DEFECTO,
+    seller: VENDEDOR,
+    stamp: { send: true },
+    mail: { send: true },
+    observations: `Prepagada ${afiliado.plan === 'total' ? 'Plan Total' : 'Plan Urgencias'}`
+      + ` · ${mascota?.name || 'mascota'} · afiliado ${afiliado.id} · pago automático`,
+    items: [
+      { code: items.servicio, description: items.descS, quantity: 1, price: servicio, discount: 0,
+        taxes: [{ id: 9124 }] },   // IVA 19%
+      { code: items.insumos, description: items.descI, quantity: 1, price: insumos, discount: 0,
+        taxes: [{ id: 14095 }] },  // excluido
+    ],
+    payments: [{ id: PAGO_WOMPI, value: total, due_date: hoy }],
+  });
+
+  return {
+    ultima_factura_numero: [creada.prefix, creada.number].filter(Boolean).join('-'),
+    ultima_factura_fecha: hoy,
+    ultima_factura_url: creada.public_url ?? null,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
@@ -112,7 +236,7 @@ Deno.serve(async (req) => {
       const meses = Number(match[2]) || 1;
       const { data: afiliado } = await supabase
         .from('prepagada_afiliados')
-        .select('id, fecha_afiliacion, fecha_vencimiento, ultimo_pago_id, ultimo_pago_fecha, ciclos_prepagada')
+        .select('id, plan, sede_id, client_id, patient_id, precio_mensual, cobro_automatico, fecha_afiliacion, fecha_vencimiento, ultimo_pago_id, ultimo_pago_fecha, ciclos_prepagada')
         .eq('id', afiliadoId)
         .single();
 
@@ -141,6 +265,23 @@ Deno.serve(async (req) => {
           .eq('id', afiliadoId);
 
         console.log(`[wompi-webhook] afiliado ${afiliadoId} pagado, tx ${tx.id}`);
+
+        // La factura va DESPUÉS de activar: si Siigo falla, el plan igual queda
+        // al día y el afiliado se queda con pago más reciente que su factura,
+        // que es como se detecta lo pendiente.
+        try {
+          const valorMes = Math.round(
+            afiliado.precio_mensual * (afiliado.cobro_automatico ? 0.9 : 1)
+          );
+          const datosFactura = await facturarMes(supabase, afiliado, valorMes, hoy);
+          if (datosFactura) {
+            await supabase.from('prepagada_afiliados').update(datosFactura).eq('id', afiliadoId);
+            console.log(`[wompi-webhook] afiliado ${afiliadoId} facturado: ${datosFactura.ultima_factura_numero}`);
+          }
+        } catch (e) {
+          // No se relanza: el pago ya quedó aplicado y eso es lo que no se puede perder.
+          console.error(`[wompi-webhook] afiliado ${afiliadoId} NO se pudo facturar:`, String(e));
+        }
       }
     } else {
       console.warn('[wompi-webhook] referencia sin match:', tx.reference);
