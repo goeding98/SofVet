@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
@@ -52,7 +52,7 @@ export default function PrepagadaV2DetallePage() {
   const { session } = useAuth();
   const afiliadoId = parseInt(id);
 
-  const { items: afiliados, edit: editAfiliado } = useStore('prepagadaAfiliados');
+  const { items: afiliados, edit: editAfiliado, refresh: refrescarAfiliados } = useStore('prepagadaAfiliados');
   const { items: beneficios, add: addBeneficios, edit: editBeneficios } = useStore('prepagadaBeneficios');
   const { items: eventos, add: addEvento } = useStore('prepagadaEventos');
   const { items: clients } = useStore('clients');
@@ -102,6 +102,14 @@ export default function PrepagadaV2DetallePage() {
   const [linkPago, setLinkPago] = useState(null);
   const [generandoLink, setGenerandoLink] = useState(false);
   const [linkCopiado, setLinkCopiado] = useState(false);
+
+  useEffect(() => {
+    if (!linkPago) return;
+    const t = setInterval(() => {
+      if (document.visibilityState === 'visible') recargar();
+    }, 15000);
+    return () => clearInterval(t);
+  }, [linkPago, recargar]);
 
   const handleGenerarLink = async () => {
     if (!afiliado) return;
@@ -193,6 +201,27 @@ export default function PrepagadaV2DetallePage() {
   };
 
   const [eventoModal, setEventoModal] = useState(false);
+
+  // El pago lo aplica el webhook de Wompi en segundo plano, así que la ficha se
+  // queda vieja: el cajero genera el link, el tutor paga en otra pestaña y acá
+  // seguiría diciendo "pendiente de pago". Se recarga al volver a la pestaña y,
+  // mientras haya un link abierto, cada 15 segundos.
+  const [refrescando, setRefrescando] = useState(false);
+  const recargar = useCallback(async () => {
+    setRefrescando(true);
+    try { await refrescarAfiliados(); } finally { setRefrescando(false); }
+  }, [refrescarAfiliados]);
+
+  useEffect(() => {
+    const alVolver = () => { if (document.visibilityState === 'visible') recargar(); };
+    window.addEventListener('focus', alVolver);
+    document.addEventListener('visibilitychange', alVolver);
+    return () => {
+      window.removeEventListener('focus', alVolver);
+      document.removeEventListener('visibilitychange', alVolver);
+    };
+  }, [recargar]);
+
   const [evClase, setEvClase] = useState('urgencia'); // 'urgencia' | 'programado'
 
   // Los descuentos en procedimientos programados son solo del Plan Total: el
@@ -417,6 +446,12 @@ export default function PrepagadaV2DetallePage() {
           >
             🧾 {facturando ? 'Facturando…' : pagoYaFacturado ? 'Ya facturado' : 'Facturar'}
           </button>
+          <button
+            onClick={recargar}
+            disabled={refrescando}
+            title="Vuelve a leer el estado desde la base, por si el pago acaba de entrar"
+            style={{ padding: '0.5rem 0.7rem', background: 'white', color: '#5c6470', border: '1.5px solid #dfe3ea', borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', cursor: refrescando ? 'default' : 'pointer' }}
+          >{refrescando ? '…' : '↻'}</button>
           <select value={afiliado.estado} onChange={e => editAfiliado(afiliadoId, { estado: e.target.value })} style={{ padding: '0.5rem 0.8rem', borderRadius: 10, border: '1.5px solid #dfe3ea', fontSize: '0.85rem', fontWeight: 600 }}>
             {ESTADO_OPTS.map(o => <option key={o} value={o}>{ESTADO_BADGE[o].label}</option>)}
           </select>
