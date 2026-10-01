@@ -6,7 +6,7 @@ import { supabase } from '../utils/supabaseClient';
 import { BENEFICIOS_TOTAL_ANUAL, DESCUENTO_TARJETA, precioConDescuento, totalConIva } from '../utils/prepagadaPrecios';
 import { vencimientoTrasPago } from '../utils/prepagadaFacturacion';
 import { facturarMesPrepagada, desglosarFactura, facturarConsumoPrepagada } from '../utils/prepagadaSiigo';
-import { registrarTarjeta, cobrarAhora } from '../utils/wompiTarjeta';
+import { cobrarAhora } from '../utils/wompiTarjeta';
 import SiigoConceptoPicker from '../components/SiigoConceptoPicker';
 import { calcularEstadoVencimiento } from '../utils/prepagadaEstado';
 import { nowDate } from '../utils/nowLocal';
@@ -106,6 +106,7 @@ export default function PrepagadaV2DetallePage() {
   const [tarjetaMsg, setTarjetaMsg] = useState('');
   const [tarjetaErr, setTarjetaErr] = useState('');
   const [tarjetaBusy, setTarjetaBusy] = useState(false);
+  const [linkTarjeta, setLinkTarjeta] = useState(null);
 
   // El pago lo aplica el webhook de Wompi en segundo plano, así que la ficha se
   // queda vieja: el cajero genera el link, el tutor paga en otra pestaña y acá
@@ -137,43 +138,53 @@ export default function PrepagadaV2DetallePage() {
 
 
 
-  // El tutor puede dejar la tarjeta al afiliarse. En ese caso se registra y se
-  // le cobra el primer mes de una vez; de ahí en adelante lo toma el cobro
-  // mensual. El cobro crea una transacción en Wompi, así que el webhook se
-  // encarga de activar el plan y emitir la factura: acá no hay que hacer nada más.
-  const handleDejarTarjeta = async () => {
+  // El tutor registra la tarjeta en SU celular, no en el computador del cajero:
+  // acá solo se genera un enlace de un solo uso para mandárselo. Así nadie tiene
+  // que entregar su tarjeta ni teclearla en el mostrador de la clínica.
+  const handleLinkTarjeta = async () => {
     if (!afiliado || tarjetaBusy) return;
     setTarjetaErr(''); setTarjetaMsg(''); setTarjetaBusy(true);
     try {
-      const reg = await registrarTarjeta({ afiliadoId: afiliado.id, email: cliente?.email });
-      if (!reg) { setTarjetaBusy(false); return; }   // cerró el widget
+      const token = crypto.randomUUID().replace(/-/g, '');
+      const expira = new Date(Date.now() + 48 * 3600 * 1000).toISOString();
+      const { error } = await supabase
+        .from('prepagada_afiliados')
+        .update({ tarjeta_token: token, tarjeta_token_expira: expira })
+        .eq('id', afiliado.id);
+      if (error) throw new Error(error.message);
 
-      const tarjeta = reg.tarjeta_ultimos4
-        ? `${reg.tarjeta_marca || 'Tarjeta'} terminada en ${reg.tarjeta_ultimos4}`
-        : 'Tarjeta registrada';
-
-      // Si todavía no ha pagado nada, se le cobra el primer mes ahora mismo.
-      if (!afiliado.ultimo_pago_fecha) {
-        const cobrar = window.confirm(
-          `${tarjeta}. Ya tiene el ${Math.round(DESCUENTO_TARJETA * 100)}% de descuento.\n\n`
-          + `¿Cobrarle ahora el primer mes, ${fmtCOP(totalConIva(afiliado.precio_mensual, true))}?
-
-`
-          + 'Si dices que no, queda la tarjeta guardada y se le cobrará en el próximo ciclo.'
-        );
-        if (cobrar) {
-          const r = await cobrarAhora(afiliado.id);
-          setTarjetaMsg(`${tarjeta} · cobro ${r.estado}. El plan se activa y se factura en unos segundos.`);
-          setTimeout(recargar, 6000);
-        } else {
-          setTarjetaMsg(`${tarjeta}. Se le cobrará en el próximo ciclo.`);
-        }
-      } else {
-        setTarjetaMsg(`${tarjeta}. Desde el próximo mes se le cobra sola.`);
-      }
-      await recargar();
+      const url = `${window.location.origin}/tarjeta/${token}`;
+      setLinkTarjeta(url);
+      try { await navigator.clipboard.writeText(url); setTarjetaMsg('Enlace copiado. Mándaselo al tutor por WhatsApp.'); }
+      catch { setTarjetaMsg('Enlace listo para copiar y mandárselo al tutor.'); }
     } catch (e) {
-      setTarjetaErr(e.message || 'No se pudo registrar la tarjeta.');
+      setTarjetaErr(e.message || 'No se pudo generar el enlace.');
+    }
+    setTarjetaBusy(false);
+  };
+
+  // Con el enlace, el tutor registra la tarjeta en su celular pero nadie le cobra
+  // el primer mes. Este botón lo dispara desde caja: el cobro crea una
+  // transacción en Wompi y el webhook activa el plan y factura.
+  // Con el enlace, el tutor registra la tarjeta en su celular pero nadie le cobra
+  // el primer mes. Este botón lo dispara desde caja: el cobro crea una
+  // transacción en Wompi y el webhook se encarga de activar el plan y facturar.
+  const handleCobrarAhora = async () => {
+    if (!afiliado || tarjetaBusy) return;
+    const monto = totalConIva(afiliado.precio_mensual, afiliado.cobro_automatico);
+    const ok = window.confirm(
+      `Se le va a cobrar ${fmtCOP(monto)} a la tarjeta registrada.\n\n`
+      + 'El plan se activa y se factura en cuanto Wompi apruebe. ¿Continuar?'
+    );
+    if (!ok) return;
+
+    setTarjetaErr(''); setTarjetaMsg(''); setTarjetaBusy(true);
+    try {
+      const r = await cobrarAhora(afiliado.id);
+      setTarjetaMsg(`Cobro ${r.estado}. El plan se activa y se factura en unos segundos.`);
+      setTimeout(recargar, 6000);
+    } catch (e) {
+      setTarjetaErr(e.message || 'No se pudo cobrar.');
     }
     setTarjetaBusy(false);
   };
@@ -472,15 +483,25 @@ export default function PrepagadaV2DetallePage() {
             💳 {generandoLink ? 'Generando...' : `Generar link · ${fmtCOP(aCobrarConIva)}`}
           </button>
           <button
-            onClick={handleDejarTarjeta}
+            onClick={handleLinkTarjeta}
             disabled={tarjetaBusy}
             title={afiliado.cobro_automatico
-              ? 'Ya tiene tarjeta registrada. Volver a hacerlo la reemplaza.'
-              : `El tutor deja su tarjeta y queda con ${Math.round(DESCUENTO_TARJETA * 100)}% de descuento todos los meses`}
+              ? 'Ya tiene tarjeta. El enlace sirve para reemplazarla.'
+              : `Genera un enlace para que el tutor registre su tarjeta desde su celular y quede con ${Math.round(DESCUENTO_TARJETA * 100)}% de descuento`}
             style={{ padding: '0.5rem 0.9rem', background: afiliado.cobro_automatico ? '#eafaf0' : 'white', color: afiliado.cobro_automatico ? '#1e7d45' : '#5c6470', border: `1.5px solid ${afiliado.cobro_automatico ? '#1e7d45' : '#dfe3ea'}`, borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', cursor: tarjetaBusy ? 'default' : 'pointer', whiteSpace: 'nowrap' }}
           >
-            {tarjetaBusy ? '…' : afiliado.cobro_automatico ? '💳 Cambiar tarjeta' : '💳 Dejar tarjeta'}
+            {tarjetaBusy ? '…' : afiliado.cobro_automatico ? '💳 Cambiar tarjeta' : '💳 Link de tarjeta'}
           </button>
+          {afiliado.cobro_automatico && !afiliado.ultimo_pago_fecha && (
+            <button
+              onClick={handleCobrarAhora}
+              disabled={tarjetaBusy}
+              title="Cobra el primer mes a la tarjeta que acaba de registrar el tutor"
+              style={{ padding: '0.5rem 0.9rem', background: '#f3f0ff', color: '#6b4bbf', border: '1.5px solid #6b4bbf', borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', cursor: tarjetaBusy ? 'default' : 'pointer', whiteSpace: 'nowrap' }}
+            >
+              {tarjetaBusy ? '…' : '⚡ Cobrar ahora'}
+            </button>
+          )}
           <button
             onClick={handleMarcarPagado}
             title={`Registra un pago en efectivo o transferencia de ${fmtCOP(aCobrar)} por un mes. Los pagos por Wompi entran solos.`}
@@ -514,6 +535,18 @@ export default function PrepagadaV2DetallePage() {
           </select>
         </div>
       </div>
+
+      {linkTarjeta && (
+        <div style={{ background: '#f3f0ff', border: '1px solid #6b4bbf', borderRadius: 12, padding: '0.9rem 1.2rem', marginBottom: '1.2rem', display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#6b4bbf', whiteSpace: 'nowrap' }}>Enlace de tarjeta:</span>
+          <a href={linkTarjeta} target="_blank" rel="noreferrer" style={{ color: '#6b4bbf', fontSize: '0.85rem', wordBreak: 'break-all', flex: 1 }}>{linkTarjeta}</a>
+          <button
+            onClick={() => navigator.clipboard.writeText(linkTarjeta)}
+            style={{ padding: '0.4rem 0.8rem', background: '#6b4bbf', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}
+          >Copiar</button>
+          <span style={{ fontSize: '0.75rem', color: '#6b4bbf', width: '100%' }}>Sirve una sola vez y vence en 48 horas.</span>
+        </div>
+      )}
 
       {(tarjetaMsg || tarjetaErr) && (
         <div style={{ background: tarjetaErr ? '#fdecea' : '#eafaf0', border: `1px solid ${tarjetaErr ? '#c0392b' : '#1e7d45'}`, borderRadius: 12, padding: '0.8rem 1.2rem', marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '0.86rem', fontWeight: 600, color: tarjetaErr ? '#c0392b' : '#1e7d45' }}>

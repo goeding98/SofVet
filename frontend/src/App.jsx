@@ -26,6 +26,7 @@ import PrepagadaPage from './pages/PrepagadaPage';
 import HCRequestsPage from './pages/HCRequestsPage';
 import CertificadosViajePage from './pages/CertificadosViajePage';
 import PortalPage from './pages/PortalPage';
+import TarjetaPage from './pages/TarjetaPage';
 import RemisionesPage from './pages/RemisionesPage';
 import PersonalPage from './pages/PersonalPage';
 import ImagenesPage from './pages/ImagenesPage';
@@ -70,6 +71,7 @@ function AppRoutes() {
     return (
       <Routes>
         <Route path="/portal" element={<PortalPage />} />
+        <Route path="/tarjeta/:token" element={<TarjetaPage />} />
         <Route path="/login"  element={<LoginPage />} />
         <Route path="/prueba/kiosco"          element={<KioscoPage />} />
         <Route path="/prueba/turno/:id"       element={<TurnoFormPage />} />
@@ -82,6 +84,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/portal" element={<PortalPage />} />
+        <Route path="/tarjeta/:token" element={<TarjetaPage />} />
       <Route path="/login"  element={<Navigate to="/" />} />
 
       <Route path="/prueba/kiosco"          element={<KioscoPage />} />
