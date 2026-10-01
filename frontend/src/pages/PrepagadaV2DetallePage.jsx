@@ -103,6 +103,26 @@ export default function PrepagadaV2DetallePage() {
   const [generandoLink, setGenerandoLink] = useState(false);
   const [linkCopiado, setLinkCopiado] = useState(false);
 
+  // El pago lo aplica el webhook de Wompi en segundo plano, así que la ficha se
+  // queda vieja: el cajero genera el link, el tutor paga en otra pestaña y acá
+  // seguiría diciendo "pendiente de pago". Se recarga al volver a la pestaña y,
+  // mientras haya un link abierto, cada 15 segundos.
+  const [refrescando, setRefrescando] = useState(false);
+  const recargar = useCallback(async () => {
+    setRefrescando(true);
+    try { await refrescarAfiliados(); } finally { setRefrescando(false); }
+  }, [refrescarAfiliados]);
+
+  useEffect(() => {
+    const alVolver = () => { if (document.visibilityState === 'visible') recargar(); };
+    window.addEventListener('focus', alVolver);
+    document.addEventListener('visibilitychange', alVolver);
+    return () => {
+      window.removeEventListener('focus', alVolver);
+      document.removeEventListener('visibilitychange', alVolver);
+    };
+  }, [recargar]);
+
   useEffect(() => {
     if (!linkPago) return;
     const t = setInterval(() => {
@@ -110,6 +130,8 @@ export default function PrepagadaV2DetallePage() {
     }, 15000);
     return () => clearInterval(t);
   }, [linkPago, recargar]);
+
+
 
   const handleGenerarLink = async () => {
     if (!afiliado) return;
@@ -201,26 +223,6 @@ export default function PrepagadaV2DetallePage() {
   };
 
   const [eventoModal, setEventoModal] = useState(false);
-
-  // El pago lo aplica el webhook de Wompi en segundo plano, así que la ficha se
-  // queda vieja: el cajero genera el link, el tutor paga en otra pestaña y acá
-  // seguiría diciendo "pendiente de pago". Se recarga al volver a la pestaña y,
-  // mientras haya un link abierto, cada 15 segundos.
-  const [refrescando, setRefrescando] = useState(false);
-  const recargar = useCallback(async () => {
-    setRefrescando(true);
-    try { await refrescarAfiliados(); } finally { setRefrescando(false); }
-  }, [refrescarAfiliados]);
-
-  useEffect(() => {
-    const alVolver = () => { if (document.visibilityState === 'visible') recargar(); };
-    window.addEventListener('focus', alVolver);
-    document.addEventListener('visibilitychange', alVolver);
-    return () => {
-      window.removeEventListener('focus', alVolver);
-      document.removeEventListener('visibilitychange', alVolver);
-    };
-  }, [recargar]);
 
   const [evClase, setEvClase] = useState('urgencia'); // 'urgencia' | 'programado'
 
