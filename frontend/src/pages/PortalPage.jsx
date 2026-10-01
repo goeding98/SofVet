@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { ageLabel } from '../utils/ageLabel';
-import { DESCUENTO_TARJETA, precioConDescuento } from '../utils/prepagadaPrecios';
+import { DESCUENTO_TARJETA, precioConDescuento, totalConIva } from '../utils/prepagadaPrecios';
 
 const fmtCOP = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v || 0);
 const PREP_ESTADO_BADGE = {
@@ -1658,7 +1658,7 @@ export default function PortalPage() {
                             {(() => {
                               // El pago manual es de un mes. El 10% solo aparece si hay
                               // tarjeta registrada: es todo el punto del incentivo.
-                              const aCobrar = precioConDescuento(p2.precio_mensual, p2.cobro_automatico);
+                              const aCobrar = totalConIva(p2.precio_mensual, p2.cobro_automatico);
                               return (
                                 <button
                                   disabled={pagandoId !== null}

@@ -98,7 +98,13 @@ async function cobrar(afiliado: any, hoy: string) {
 
   const reference = `pp-${afiliado.id}-1-${Date.now()}`;
   const body = {
-    amount_in_cents: Math.round(afiliado.precio_mensual * (1 - DESCUENTO_TARJETA)) * 100,
+    amount_in_cents: (() => {
+      // Mismo cálculo que la factura: solo la mitad de servicio lleva IVA.
+      const base = Math.round(afiliado.precio_mensual * (1 - DESCUENTO_TARJETA));
+      const servicio = Math.round(base * 0.5);
+      const insumos = base - servicio;
+      return Math.round((servicio * 1.19 + insumos) * 100);
+    })(),
     currency: 'COP',
     customer_email: cliente?.email || 'pagos@petspets.co',
     reference,

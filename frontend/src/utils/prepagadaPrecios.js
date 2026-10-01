@@ -39,6 +39,21 @@ export function precioConDescuento(precioMensual, cobroAutomatico) {
   return cobroAutomatico ? Math.round(base * (1 - DESCUENTO_TARJETA)) : base;
 }
 
+// IVA que aplica a la porción de servicio del plan. Los insumos van excluidos.
+export const IVA_SERVICIO = 0.19;
+
+// Lo que de verdad se le cobra al tutor. El plan se factura en dos renglones y
+// solo el de servicio lleva IVA, así que el total NO es precio × 1,19.
+// Tiene que dar exactamente lo mismo que calcula la factura en Siigo, o el
+// recaudo no cuadra contra lo facturado.
+export function totalConIva(precioMensual, cobroAutomatico) {
+  const base = precioConDescuento(precioMensual, cobroAutomatico);
+  const servicio = Math.round(base * 0.5);
+  const insumos = base - servicio;
+  return Math.round((servicio * (1 + IVA_SERVICIO) + insumos) * 100) / 100;
+}
+
+
 export const BENEFICIOS_TOTAL_ANUAL = {
   consultas: 12,
   vacunas: 1,

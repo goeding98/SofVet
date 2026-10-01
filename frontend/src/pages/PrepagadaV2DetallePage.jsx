@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
 import { supabase } from '../utils/supabaseClient';
-import { BENEFICIOS_TOTAL_ANUAL, DESCUENTO_TARJETA, precioConDescuento } from '../utils/prepagadaPrecios';
+import { BENEFICIOS_TOTAL_ANUAL, DESCUENTO_TARJETA, precioConDescuento, totalConIva } from '../utils/prepagadaPrecios';
 import { vencimientoTrasPago } from '../utils/prepagadaFacturacion';
 import { facturarMesPrepagada, desglosarFactura, facturarConsumoPrepagada } from '../utils/prepagadaSiigo';
 import SiigoConceptoPicker from '../components/SiigoConceptoPicker';
@@ -212,6 +212,8 @@ export default function PrepagadaV2DetallePage() {
   // Lo que de verdad se cobra este mes: la tarifa lleva 10% menos si el tutor
   // dejó tarjeta. precio_mensual se conserva como tarifa plena.
   const aCobrar = precioConDescuento(afiliado.precio_mensual, afiliado.cobro_automatico);
+  // Lo que se le cobra de verdad: la factura suma IVA sobre la mitad de servicio.
+  const aCobrarConIva = totalConIva(afiliado.precio_mensual, afiliado.cobro_automatico);
 
   const disponible = afiliado.bolsa_maxima_anual - afiliado.bolsa_consumida_anual;
   const pctUsado = Math.min(100, (afiliado.bolsa_consumida_anual / afiliado.bolsa_maxima_anual) * 100);
@@ -372,7 +374,7 @@ export default function PrepagadaV2DetallePage() {
             title={`Genera un link de pago de Wompi por ${fmtCOP(aCobrar)} para enviarle al tutor`}
             style={{ padding: '0.5rem 0.9rem', background: '#eef4ff', color: '#2a4d9e', border: '1px solid #2a4d9e', borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', cursor: generandoLink ? 'default' : 'pointer', whiteSpace: 'nowrap', opacity: generandoLink ? 0.6 : 1 }}
           >
-            💳 {generandoLink ? 'Generando...' : `Generar link · ${fmtCOP(aCobrar)}`}
+            💳 {generandoLink ? 'Generando...' : `Generar link · ${fmtCOP(aCobrarConIva)}`}
           </button>
           <button
             onClick={handleMarcarPagado}

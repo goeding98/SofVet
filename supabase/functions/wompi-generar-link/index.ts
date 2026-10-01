@@ -57,9 +57,17 @@ Deno.serve(async (req) => {
     // El 10% se calcula acá y no se confía en lo que mande el navegador: es lo
     // que firma la integridad del checkout.
     const descuento = afiliado.cobro_automatico ? DESCUENTO_TARJETA : 0;
-    const totalPesos = Math.round(afiliado.precio_mensual * (1 - descuento));
+    const base = Math.round(afiliado.precio_mensual * (1 - descuento));
+
+    // Se cobra CON IVA, igual que la factura. El plan se factura en dos
+    // renglones y solo el de servicio está gravado, así que el total no es
+    // base × 1,19. Si se cobrara la base pelada, el recaudo quedaría por debajo
+    // de lo facturado y la diferencia la terminaría poniendo P&P.
+    const servicio = Math.round(base * 0.5);
+    const insumos = base - servicio;
+    const totalPesos = Math.round((servicio * 1.19 + insumos) * 100) / 100;
     const reference = `pp-${afiliado.id}-${meses}-${Date.now()}`;
-    const amountInCents = totalPesos * 100;
+    const amountInCents = Math.round(totalPesos * 100);
     const currency = 'COP';
 
     const integrity = await sha256Hex(
