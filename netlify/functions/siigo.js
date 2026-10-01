@@ -46,7 +46,9 @@ async function getAllActiveProducts() {
   const all = [];
   let page = 1;
   while (true) {
-    const r = await siigoFetch('GET', `/v1/products?active=true&page_size=200&page=${page}`);
+    // 1.000 por página en vez de 200: baja de ~15 vueltas contra Siigo a 3, que
+    // es lo que hacía que la primera carga se pasara del límite de la función.
+    const r = await siigoFetch('GET', `/v1/products?active=true&page_size=1000&page=${page}`);
     if (r.status !== 200) break;
     const items = r.data.results || [];
     // Keep only fields needed by the billing UI

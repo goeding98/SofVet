@@ -7,11 +7,29 @@ import { siigo } from '../utils/siigo';
 let _catalogo = null;
 let _cargando = null;
 
+// La primera carga después de que expira la caché del servidor puede pasarse
+// del tiempo límite: son ~2.900 productos que el proxy pagina de 200 en 200
+// contra Siigo. Esa llamada igual deja la caché caliente, así que el reintento
+// casi siempre entra de una.
+async function traerConReintento(intentos = 3) {
+  let ultimo;
+  for (let i = 0; i < intentos; i++) {
+    try {
+      const r = await siigo.getAllProducts();
+      return r.results || [];
+    } catch (e) {
+      ultimo = e;
+      if (i < intentos - 1) await new Promise((r) => setTimeout(r, 1200 * (i + 1)));
+    }
+  }
+  throw ultimo;
+}
+
 function cargarCatalogo() {
   if (_catalogo) return Promise.resolve(_catalogo);
   if (!_cargando) {
-    _cargando = siigo.getAllProducts()
-      .then((r) => { _catalogo = r.results || []; return _catalogo; })
+    _cargando = traerConReintento()
+      .then((lista) => { _catalogo = lista; return _catalogo; })
       .catch((e) => { _cargando = null; throw e; });
   }
   return _cargando;
@@ -88,7 +106,15 @@ export default function SiigoConceptoPicker({ valor, onElegir, placeholder = 'Bu
         style={inp}
       />
 
-      {error && <div style={{ fontSize: '0.72rem', color: '#c0392b', marginTop: 2 }}>⚠️ {error}</div>}
+      {error && (
+        <div style={{ fontSize: '0.72rem', color: '#c0392b', marginTop: 2 }}>
+          ⚠️ {error}{' '}
+          <button
+            onClick={() => { setError(''); _cargando = null; cargarCatalogo().then(setCatalogo).catch(e => setError(e.message)); }}
+            style={{ background: 'none', border: 'none', color: '#c0392b', textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.72rem', padding: 0 }}
+          >Reintentar</button>
+        </div>
+      )}
 
       {abierto && texto.trim().length >= 2 && (
         <div style={{

@@ -6,7 +6,24 @@ async function req(method, path, body) {
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   });
-  const data = await res.json();
+
+  // Cuando la función de Netlify se cae o se pasa de tiempo devuelve una página
+  // de error en HTML. Hacer res.json() ahí lanza "Unexpected token '<'", que no
+  // le dice nada a nadie, así que se detecta antes.
+  const crudo = await res.text();
+  let data;
+  try {
+    data = JSON.parse(crudo);
+  } catch {
+    const e = new Error(
+      res.status === 504 || res.status === 502
+        ? 'Siigo tardó demasiado en responder. Intenta de nuevo.'
+        : `Siigo respondió algo inesperado (HTTP ${res.status}).`
+    );
+    e.noEsJson = true;
+    throw e;
+  }
+
   if (!res.ok) throw new Error(data.error || 'Error de Siigo');
   return data;
 }
