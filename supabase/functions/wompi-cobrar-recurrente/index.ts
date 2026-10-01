@@ -10,6 +10,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const WOMPI_PRIVATE_KEY = Deno.env.get('WOMPI_PRIVATE_KEY')!;
+const WOMPI_INTEGRITY_SECRET = Deno.env.get('WOMPI_INTEGRITY_SECRET')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -67,6 +68,15 @@ function vencimientoTrasPago(o: {
   return finDeMes(o.vencimientoActual, meses);
 }
 
+// Wompi exige firma de integridad también al cobrar contra una tarjeta guardada:
+// sin ella responde "Firma de integridad requerida no enviada". Es el mismo
+// hash que lleva el checkout: referencia + monto en centavos + moneda + secreto.
+async function sha256Hex(texto: string): Promise<string> {
+  const datos = new TextEncoder().encode(texto);
+  const hash = await crypto.subtle.digest('SHA-256', datos);
+  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -97,20 +107,26 @@ async function cobrar(afiliado: any, hoy: string) {
     .single();
 
   const reference = `pp-${afiliado.id}-1-${Date.now()}`;
+  // Mismo cálculo que la factura: solo la mitad de servicio lleva IVA.
+  const base = Math.round(afiliado.precio_mensual * (1 - DESCUENTO_TARJETA));
+  const servicio = Math.round(base * 0.5);
+  const insumos = base - servicio;
+  const amountInCents = Math.round((servicio * 1.19 + insumos) * 100);
+  const currency = 'COP';
+
+  const integrity = await sha256Hex(
+    `${reference}${amountInCents}${currency}${WOMPI_INTEGRITY_SECRET}`
+  );
+
   const body = {
-    amount_in_cents: (() => {
-      // Mismo cálculo que la factura: solo la mitad de servicio lleva IVA.
-      const base = Math.round(afiliado.precio_mensual * (1 - DESCUENTO_TARJETA));
-      const servicio = Math.round(base * 0.5);
-      const insumos = base - servicio;
-      return Math.round((servicio * 1.19 + insumos) * 100);
-    })(),
-    currency: 'COP',
+    amount_in_cents: amountInCents,
+    currency,
     customer_email: cliente?.email || 'pagos@petspets.co',
     reference,
     payment_source_id: afiliado.wompi_payment_source_id,
     recurrent: true,
     payment_method: { installments: 1 },
+    signature: integrity,
   };
 
   const res = await fetch(`${WOMPI_API}/transactions`, {
