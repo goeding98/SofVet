@@ -92,9 +92,13 @@ function hoyBogota(): string {
 }
 
 async function cobrar(afiliado: any, hoy: string) {
-  // Nunca cobrar dos veces el mismo día al mismo afiliado.
-  if (afiliado.ultimo_cobro_auto_fecha === hoy) {
-    return { afiliado_id: afiliado.id, estado: 'OMITIDO', motivo: 'Ya se intentó un cobro hoy' };
+  // Nunca cobrar dos veces el mismo día al mismo afiliado. Pero un intento que
+  // FALLÓ no cuenta: si Wompi rechazó la transacción hay que poder reintentar,
+  // sobre todo cuando el motivo fue un problema nuestro y ya se corrigió.
+  const falloElUltimo = String(afiliado.ultimo_cobro_auto_estado || '').startsWith('ERROR')
+    || ['DECLINED', 'VOIDED'].includes(String(afiliado.ultimo_cobro_auto_estado || ''));
+  if (afiliado.ultimo_cobro_auto_fecha === hoy && !falloElUltimo) {
+    return { afiliado_id: afiliado.id, estado: 'OMITIDO', motivo: 'Ya se cobró hoy' };
   }
   if (!afiliado.wompi_payment_source_id) {
     return { afiliado_id: afiliado.id, estado: 'OMITIDO', motivo: 'Sin tarjeta registrada' };
