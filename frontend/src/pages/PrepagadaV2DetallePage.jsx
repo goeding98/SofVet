@@ -174,16 +174,12 @@ export default function PrepagadaV2DetallePage() {
   };
 
   const [eventoModal, setEventoModal] = useState(false);
-
-  // Un afiliado de Plan Urgencias no puede quedar con la clase 'programado',
-  // ni siquiera si el modal se abrió antes de que cargaran sus datos.
-  useEffect(() => {
-    if (!permiteProgramado && evClase !== 'urgencia') setEvClase('urgencia');
-  }, [permiteProgramado, evClase]);
   const [evClase, setEvClase] = useState('urgencia'); // 'urgencia' | 'programado'
+
   // Los descuentos en procedimientos programados son solo del Plan Total: el
   // Plan Urgencias cubre únicamente urgencias. Ver el contrato, sección 8.
   const permiteProgramado = afiliado?.plan === 'total';
+
   // Una visita puede traer varios servicios (labs + Rx, por ejemplo), así que
   // el modal trabaja con filas y cada fila queda como un consumo aparte.
   // Cada fila queda amarrada a un concepto de Siigo: de ahí salen el nombre, el
@@ -193,6 +189,16 @@ export default function PrepagadaV2DetallePage() {
   const [evNotas, setEvNotas] = useState('');
   const [evFactura, setEvFactura] = useState('');
   const [savingEvento, setSavingEvento] = useState(false);
+  const [consumoErr, setConsumoErr] = useState('');
+  // Queda visible después de cerrar el modal: emitir una factura electrónica no
+  // puede pasar en silencio.
+  const [consumoFactura, setConsumoFactura] = useState(null);
+
+  // Un afiliado de Plan Urgencias no puede quedar con la clase 'programado',
+  // ni siquiera si el modal se abrió antes de que cargaran sus datos.
+  useEffect(() => {
+    if (!permiteProgramado && evClase !== 'urgencia') setEvClase('urgencia');
+  }, [permiteProgramado, evClase]);
 
   if (!afiliado) {
     return (
@@ -264,11 +270,6 @@ export default function PrepagadaV2DetallePage() {
   } : it));
   const addItem = () => setEvItems(arr => [...arr, { ...ITEM_VACIO }]);
   const delItem = (i) => setEvItems(arr => arr.length === 1 ? [{ ...ITEM_VACIO }] : arr.filter((_, idx) => idx !== i));
-
-  const [consumoErr, setConsumoErr] = useState('');
-  // Queda visible después de cerrar el modal: emitir una factura electrónica no
-  // puede pasar en silencio.
-  const [consumoFactura, setConsumoFactura] = useState(null);
 
   const handleRegistrarEvento = async () => {
     if (!puedeGuardar) return;
