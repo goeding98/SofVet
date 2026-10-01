@@ -180,9 +180,11 @@ export default function PrepagadaV2DetallePage() {
 
     setTarjetaErr(''); setTarjetaMsg(''); setTarjetaBusy(true);
     try {
-      const r = await cobrarAhora(afiliado.id);
-      setTarjetaMsg(`Cobro ${r.estado}. El plan se activa y se factura en unos segundos.`);
-      setTimeout(recargar, 6000);
+      await cobrarAhora(afiliado.id);
+      setTarjetaMsg('Cobro enviado a Wompi. El plan se activa y se factura en unos segundos…');
+      // Se recarga y se quita el aviso: a partir de ahí la ficha misma muestra
+      // el estado real, que es la fuente de verdad.
+      setTimeout(async () => { await recargar(); setTarjetaMsg(''); }, 7000);
     } catch (e) {
       setTarjetaErr(e.message || 'No se pudo cobrar.');
     }
