@@ -8,7 +8,7 @@ import { vencimientoTrasPago } from '../utils/prepagadaFacturacion';
 import { facturarMesPrepagada, desglosarFactura, facturarConsumoPrepagada, MEDIOS_PAGO_CAJA, sumaPagos } from '../utils/prepagadaSiigo';
 import { cobrarAhora } from '../utils/wompiTarjeta';
 import SiigoConceptoPicker from '../components/SiigoConceptoPicker';
-import { calcularEstadoVencimiento } from '../utils/prepagadaEstado';
+import { calcularEstadoVencimiento, anioVigencia, inicioVigencia, finCarencia, carenciaCumplida, tieneCobertura } from '../utils/prepagadaEstado';
 import { nowDate } from '../utils/nowLocal';
 
 const fmtCOP = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v || 0);
@@ -99,16 +99,17 @@ export default function PrepagadaV2DetallePage() {
   const afiliado = afiliados.find(a => a.id === afiliadoId);
   const cliente = afiliado ? clients.find(c => c.id === afiliado.client_id) : null;
   const mascota = afiliado ? patients.find(p => p.id === afiliado.patient_id) : null;
-  const anioActual = new Date().getFullYear();
+  // Bolsa y beneficios van por año de vigencia (desde la fecha de afiliación), no por año calendario.
+  const anioActual = afiliado ? anioVigencia(afiliado.fecha_afiliacion, nowDate()) : new Date().getFullYear();
   const beneficioAnio = beneficios.find(b => b.afiliado_id === afiliadoId && b.anio === anioActual);
   const eventosAfiliado = eventos.filter(e => e.afiliado_id === afiliadoId).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
 
   // Igual que en la lista: corrige el estado por vencimiento, y resetea la
-  // bolsa consumida si ya cambió el año, si alguien entra directo a esta
+  // bolsa consumida si empezó una nueva vigencia, si alguien entra directo a esta
   // ficha sin pasar antes por /prueba/prepagada.
   useEffect(() => {
     if (!afiliado) return;
-    const anioActual = new Date().getFullYear();
+    const anioActual = anioVigencia(afiliado.fecha_afiliacion, nowDate());
     const updates = {};
     const estadoReal = calcularEstadoVencimiento(afiliado, nowDate());
     if (estadoReal !== afiliado.estado) updates.estado = estadoReal;
@@ -349,13 +350,17 @@ export default function PrepagadaV2DetallePage() {
 
   // Los descuentos en procedimientos programados son solo del Plan Total: el
   // Plan Urgencias cubre únicamente urgencias. Ver el contrato, sección 8.
-  const permiteProgramado = afiliado?.plan === 'total';
+  // Y tampoco antes del día 31: hasta ahí solo hay cobertura de urgencias.
+  const enCarencia = afiliado ? !carenciaCumplida(afiliado.fecha_afiliacion, nowDate()) : false;
+  const permiteProgramado = afiliado?.plan === 'total' && !enCarencia;
 
   // Una visita puede traer varios servicios (labs + Rx, por ejemplo), así que
   // el modal trabaja con filas y cada fila queda como un consumo aparte.
   // Cada fila queda amarrada a un concepto de Siigo: de ahí salen el nombre, el
   // valor sugerido y el impuesto, sin que caja tenga que teclearlos.
-  const ITEM_VACIO = { servicio: '', desc: '', costo: '', code: '', taxId: null, taxPct: 0 };
+  // cob: en urgencias, '80' normal o '50' para cirugía de tejidos blandos entre
+  // 12 y 24 horas después del suceso (términos, sección 6.1).
+  const ITEM_VACIO = { servicio: '', desc: '', costo: '', code: '', taxId: null, taxPct: 0, cob: '80' };
   const [evItems, setEvItems] = useState([{ ...ITEM_VACIO }]);
   const [evNotas, setEvNotas] = useState('');
   const [evFactura, setEvFactura] = useState('');
@@ -399,6 +404,8 @@ export default function PrepagadaV2DetallePage() {
 
   const incBeneficio = (key) => {
     if (!beneficioAnio) return;
+    // El preventivo arranca el día 31 y solo con el plan al día.
+    if (enCarencia || !tieneCobertura(calcularEstadoVencimiento(afiliado, nowDate()))) return;
     editBeneficios(beneficioAnio.id, { [key]: (beneficioAnio[key] || 0) + 1, updated_at: new Date().toISOString() });
   };
   const decBeneficio = (key) => {
@@ -406,17 +413,42 @@ export default function PrepagadaV2DetallePage() {
     editBeneficios(beneficioAnio.id, { [key]: Math.max(0, (beneficioAnio[key] || 0) - 1), updated_at: new Date().toISOString() });
   };
 
-  // Urgencia: el tutor paga 20% de copago y la bolsa asume el 80%.
+  // Solo "Activo" y "En gracia" tienen cobertura. Se calcula aquí y no se lee
+  // afiliado.estado, que puede estar desactualizado unos segundos.
+  const estadoHoy = calcularEstadoVencimiento(afiliado, nowDate());
+  const sinCobertura = !tieneCobertura(estadoHoy);
+
+  // Urgencia: el tutor paga 20% de copago y la bolsa asume el 80% (50/50 en
+  // cirugía de tejidos blandos entre 12 y 24 h).
   // Programado: el tutor paga la tarifa con descuento, y lo que P&P descuenta
   // también sale de la bolsa (es el tope anual de todo lo que aporta P&P).
-  const calcItem = (item) => {
+  const calcRaw = (item) => {
     const costo = Number(String(item.costo).replace(/\D/g, '')) || 0;
     const pct = evClase === 'urgencia'
-      ? 80
+      ? (item.cob === '50' ? 50 : 80)
       : (item.servicio !== '' ? SERVICIOS_PROGRAMADOS[Number(item.servicio)].pct : 0);
     const cubierto = Math.round(costo * pct / 100);
     return { costo, pct, cubierto, copago: costo - cubierto };
   };
+  // P&P cubre hasta lo que quede en la bolsa; lo que pase del tope lo paga el
+  // tutor a tarifa normal (términos, 6.6). Se reparte en el orden de las filas.
+  // El % se baja a dos decimales hacia abajo porque así se manda el descuento a
+  // Siigo, y nunca debe dar más de lo que queda.
+  const capMap = new Map();
+  {
+    let restante = Math.max(0, disponible);
+    for (const it of evItems) {
+      const r = calcRaw(it);
+      let { pct, cubierto } = r;
+      if (cubierto > restante) {
+        pct = r.costo > 0 ? Math.floor((restante * 10000) / r.costo) / 100 : 0;
+        cubierto = Math.round(r.costo * pct / 100);
+      }
+      restante -= cubierto;
+      capMap.set(it, { ...r, pct, cubierto, copago: r.costo - cubierto, recortado: cubierto < r.cubierto });
+    }
+  }
+  const calcItem = (item) => capMap.get(item) || calcRaw(item);
   const itemsConValor = evItems.filter(it => calcItem(it).costo > 0);
   const totalEv = itemsConValor.reduce((a, it) => {
     const c = calcItem(it);
@@ -434,7 +466,8 @@ export default function PrepagadaV2DetallePage() {
   const pagosOk = !hayFacturables || pagosCuadran(pagosDe(aCobrarEnCaja), aCobrarEnCaja);
 
   const faltaServicio = evClase === 'programado' && itemsConValor.some(it => it.servicio === '');
-  const puedeGuardar = itemsConValor.length > 0 && !faltaServicio;
+  const hayRecorte = itemsConValor.some(it => calcItem(it).recortado);
+  const puedeGuardar = itemsConValor.length > 0 && !faltaServicio && !sinCobertura;
 
   const setItem = (i, campo, valor) => setEvItems(arr => arr.map((it, idx) => idx === i ? { ...it, [campo]: valor } : it));
 
@@ -749,7 +782,7 @@ export default function PrepagadaV2DetallePage() {
       {/* Bolsa */}
       <div style={{ background: 'white', border: '1px solid #e2e6ef', borderRadius: 14, padding: '1.2rem 1.5rem', marginBottom: '1.2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#5c6470', textTransform: 'uppercase' }}>Bolsa anual {afiliado.bolsa_anio} — urgencias y servicios programados</span>
+          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#5c6470', textTransform: 'uppercase' }}>Bolsa de la vigencia desde {inicioVigencia(afiliado.fecha_afiliacion, nowDate())} — urgencias y programados</span>
           <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{fmtCOP(disponible)} disponibles de {fmtCOP(afiliado.bolsa_maxima_anual)}</span>
         </div>
         <div style={{ height: 10, background: '#eceff3', borderRadius: 999, overflow: 'hidden' }}>
@@ -760,11 +793,16 @@ export default function PrepagadaV2DetallePage() {
       {/* Beneficios preventivos (solo Plan Total) */}
       {afiliado.plan === 'total' && (
         <div style={{ background: 'white', border: '1px solid #e2e6ef', borderRadius: 14, padding: '1.2rem 1.5rem', marginBottom: '1.2rem' }}>
-          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#5c6470', textTransform: 'uppercase', marginBottom: '0.8rem' }}>Beneficios preventivos {anioActual}</div>
+          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#5c6470', textTransform: 'uppercase', marginBottom: '0.8rem' }}>Beneficios preventivos · vigencia desde {inicioVigencia(afiliado.fecha_afiliacion, nowDate())}</div>
+          {(enCarencia || sinCobertura) && (
+            <p style={{ fontSize: '0.78rem', color: '#b8873a', fontWeight: 600, margin: '0 0 0.7rem' }}>
+              {sinCobertura ? 'Sin cobertura: no se pueden usar beneficios hasta que el plan esté al día.' : `En carencia: los beneficios se pueden usar desde el ${finCarencia(afiliado.fecha_afiliacion)} (día 31).`}
+            </p>
+          )}
           {!beneficioAnio ? (
             <div>
               <p style={{ color: '#8A8076', fontSize: '0.85rem', marginBottom: '0.6rem' }}>Aún no hay registro de beneficios para este año.</p>
-              <button onClick={iniciarBeneficiosAnio} style={{ padding: '0.5rem 1rem', background: '#316d74', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>Iniciar beneficios {anioActual}</button>
+              <button onClick={iniciarBeneficiosAnio} style={{ padding: '0.5rem 1rem', background: '#316d74', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>Iniciar beneficios de esta vigencia</button>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -777,7 +815,7 @@ export default function PrepagadaV2DetallePage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                       <span style={{ fontSize: '0.85rem', fontWeight: 700, color: agotado ? '#c0392b' : '#1c2333' }}>{usados}/{row.tope}{agotado ? ' AGOTADO' : ''}</span>
                       <button onClick={() => decBeneficio(row.key)} disabled={usados <= 0} style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid #dfe3ea', background: 'white', cursor: usados <= 0 ? 'not-allowed' : 'pointer' }}>−</button>
-                      <button onClick={() => incBeneficio(row.key)} disabled={agotado} style={{ width: 26, height: 26, borderRadius: '50%', border: 'none', background: agotado ? '#ccc' : '#316d74', color: 'white', cursor: agotado ? 'not-allowed' : 'pointer' }}>+</button>
+                      <button onClick={() => incBeneficio(row.key)} disabled={agotado || enCarencia || sinCobertura} style={{ width: 26, height: 26, borderRadius: '50%', border: 'none', background: (agotado || enCarencia || sinCobertura) ? '#ccc' : '#316d74', color: 'white', cursor: (agotado || enCarencia || sinCobertura) ? 'not-allowed' : 'pointer' }}>+</button>
                     </div>
                   </div>
                 );
@@ -857,10 +895,17 @@ export default function PrepagadaV2DetallePage() {
             </div>
             <div style={{ padding: '1.5rem' }}>
               <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>¿Qué tipo de servicio fue?</label>
+              {sinCobertura && (
+                <div style={{ background: '#fdecea', border: '1px solid #c0392b', borderRadius: 10, padding: '0.7rem 0.9rem', marginBottom: '0.8rem', fontSize: '0.82rem', color: '#c0392b', fontWeight: 600, lineHeight: 1.45 }}>
+                  ⛔ Sin cobertura: el plan está "{ESTADO_BADGE[estadoHoy]?.label || estadoHoy}". Hoy se atiende a tarifa normal, fuera de la prepagada.
+                  {estadoHoy === 'pendiente_pago' ? ' Si paga el primer mes ahora, queda cubierto desde ese momento.' : ' Si se pone al día, vuelve a quedar cubierto.'}
+                </div>
+              )}
               {!permiteProgramado && (
                 <p style={{ fontSize: '0.75rem', color: '#8A8076', margin: '0 0 0.5rem', lineHeight: 1.45 }}>
-                  El Plan Urgencias cubre únicamente urgencias. Los descuentos en procedimientos
-                  programados son exclusivos del Plan Total.
+                  {afiliado.plan === 'total'
+                    ? `En carencia: los descuentos en procedimientos programados aplican desde el ${finCarencia(afiliado.fecha_afiliacion)} (día 31). Hasta entonces solo urgencias.`
+                    : 'El Plan Urgencias cubre únicamente urgencias. Los descuentos en procedimientos programados son exclusivos del Plan Total.'}
                 </p>
               )}
               <div style={{ display: 'grid', gridTemplateColumns: permiteProgramado ? '1fr 1fr' : '1fr', gap: '0.6rem', marginBottom: '1rem' }}>
@@ -919,6 +964,17 @@ export default function PrepagadaV2DetallePage() {
                             ))}
                           </select>
                         )}
+                        {evClase === 'urgencia' && (
+                          <select
+                            value={item.cob || '80'}
+                            onChange={e => setItem(i, 'cob', e.target.value)}
+                            title="Cirugía de tejidos blandos entre 12 y 24 horas después del suceso: el tutor paga el 50%"
+                            style={{ flex: 1, minWidth: 180, padding: '0.45rem 0.5rem', border: `1.5px solid ${item.cob === '50' ? '#b8873a' : '#dfe3ea'}`, borderRadius: 8, fontSize: '0.78rem', fontFamily: 'inherit', background: 'white' }}
+                          >
+                            <option value="80">Urgencia — tutor 20%</option>
+                            <option value="50">Cirugía tejidos blandos 12–24 h — tutor 50%</option>
+                          </select>
+                        )}
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                           <span style={{ fontSize: '0.7rem', color: '#8A8076' }}>Valor</span>
@@ -942,6 +998,11 @@ export default function PrepagadaV2DetallePage() {
                         </div>
                       </div>
 
+                      {c.recortado && (
+                        <p style={{ fontSize: '0.7rem', color: '#c0392b', margin: '0.4rem 0 0', fontWeight: 600 }}>
+                          ⚠️ La bolsa no alcanza: P&amp;P cubre {fmtCOP(c.cubierto)} y el resto lo paga el tutor.
+                        </p>
+                      )}
                       {!item.code && c.costo > 0 && (
                         <p style={{ fontSize: '0.7rem', color: '#8a6d00', margin: '0.4rem 0 0' }}>
                           ⚠️ Sin concepto de Siigo: este ítem se registra pero no se factura.
@@ -958,6 +1019,11 @@ export default function PrepagadaV2DetallePage() {
 
               {faltaServicio && (
                 <p style={{ color: '#c0392b', fontSize: '0.78rem', marginBottom: '0.8rem', fontWeight: 600 }}>⚠️ Falta elegir el servicio en las filas marcadas en rojo.</p>
+              )}
+              {hayRecorte && (
+                <div style={{ background: '#fdecea', border: '1px solid #c0392b', borderRadius: 10, padding: '0.6rem 0.9rem', marginBottom: '0.8rem', fontSize: '0.8rem', color: '#c0392b', fontWeight: 600, lineHeight: 1.45 }}>
+                  ⚠️ La bolsa solo tiene {fmtCOP(Math.max(0, disponible))}. P&amp;P cubre hasta ahí y lo que pase del tope se cobra a tarifa normal. Explícaselo al tutor antes de cobrar; si no puede pagar, escala a gerencia: el animal se estabiliza igual.
+                </div>
               )}
 
               {totalEv.costo > 0 && (
@@ -976,7 +1042,7 @@ export default function PrepagadaV2DetallePage() {
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.35rem', paddingTop: '0.35rem', borderTop: '1px dashed #dfe3ea' }}>
                     <span>Bolsa después de esta visita</span>
-                    <strong style={{ color: (disponible - totalEv.cubierto) < 0 ? '#c0392b' : '#1c2333' }}>{fmtCOP(disponible - totalEv.cubierto)}</strong>
+                    <strong style={{ color: (disponible - totalEv.cubierto) <= 0 ? '#c0392b' : '#1c2333' }}>{fmtCOP(Math.max(0, disponible - totalEv.cubierto))}</strong>
                   </div>
                 </div>
               )}

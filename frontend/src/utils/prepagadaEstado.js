@@ -21,3 +21,45 @@ export function calcularEstadoVencimiento(afiliado, hoyStr) {
   if (diasVencido < DIAS_CANCELACION) return 'suspendido';
   return 'cancelado';
 }
+
+// ── Vigencia, carencia y cobertura ──────────────────────────────────────────
+// Fechas como 'YYYY-MM-DD'. Se comparan como texto para no pelear con zonas
+// horarias.
+
+const sumarDias = (iso, dias) => {
+  const [y, m, d] = iso.split('-').map(Number);
+  const f = new Date(Date.UTC(y, m - 1, d + dias));
+  return f.toISOString().slice(0, 10);
+};
+
+// La bolsa y los beneficios son por AÑO DE VIGENCIA, que arranca en la fecha de
+// afiliación (términos, secciones 2 y 6.6), no el 1 de enero. Devuelve el año
+// en que empezó la vigencia que corre hoy: afiliado el 2026-11-15, el
+// 2027-01-10 todavía está en la vigencia "2026"; desde el 2027-11-15, en la
+// "2027". Es lo que se guarda en bolsa_anio y en prepagada_beneficios.anio.
+export function anioVigencia(fechaAfiliacion, hoyISO) {
+  if (!fechaAfiliacion) return Number(hoyISO.slice(0, 4));
+  if (fechaAfiliacion > hoyISO) return Number(fechaAfiliacion.slice(0, 4));
+  const anioHoy = Number(hoyISO.slice(0, 4));
+  return hoyISO.slice(5) >= fechaAfiliacion.slice(5) ? anioHoy : anioHoy - 1;
+}
+
+// Fecha en que empezó la vigencia que corre hoy (para mostrarla).
+export function inicioVigencia(fechaAfiliacion, hoyISO) {
+  if (!fechaAfiliacion) return null;
+  return `${anioVigencia(fechaAfiliacion, hoyISO)}-${fechaAfiliacion.slice(5)}`;
+}
+
+// Urgencias cubren desde el día 1; todo lo demás (preventivo del Plan Total y
+// programados con descuento) desde el día 31, o sea afiliación + 30 días.
+export function finCarencia(fechaAfiliacion) {
+  return fechaAfiliacion ? sumarDias(fechaAfiliacion, 30) : null;
+}
+export function carenciaCumplida(fechaAfiliacion, hoyISO) {
+  const fin = finCarencia(fechaAfiliacion);
+  return !!fin && hoyISO >= fin;
+}
+
+// Solo "Activo" y "En gracia" tienen cobertura (términos, sección 12).
+export const ESTADOS_CON_COBERTURA = ['activo', 'en_gracia'];
+export const tieneCobertura = (estado) => ESTADOS_CON_COBERTURA.includes(estado);

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
 import { calcularPrecioPrepagada, BOLSA_ANUAL, MODO_DEMO } from '../utils/prepagadaPrecios';
-import { calcularEstadoVencimiento } from '../utils/prepagadaEstado';
+import { calcularEstadoVencimiento, anioVigencia } from '../utils/prepagadaEstado';
 import { nowDate } from '../utils/nowLocal';
 
 const fmtCOP = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v || 0);
@@ -48,12 +48,13 @@ export default function PrepagadaV2Page() {
   // a los 30). No toca afiliados ya cancelados a mano.
   useEffect(() => {
     const hoy = nowDate();
-    const anioActual = new Date().getFullYear();
     for (const a of afiliados) {
       const updates = {};
       const estadoReal = calcularEstadoVencimiento(a, hoy);
       if (estadoReal !== a.estado) updates.estado = estadoReal;
-      if (a.bolsa_anio !== anioActual) { updates.bolsa_anio = anioActual; updates.bolsa_consumida_anual = 0; }
+      // La bolsa se reinicia al cumplir un año desde la afiliación, no el 1 de enero.
+      const anioVig = anioVigencia(a.fecha_afiliacion, hoy);
+      if (a.bolsa_anio !== anioVig) { updates.bolsa_anio = anioVig; updates.bolsa_consumida_anual = 0; }
       if (Object.keys(updates).length) editAfiliado(a.id, updates);
     }
   }, [afiliados]);  // eslint-disable-line react-hooks/exhaustive-deps
@@ -177,7 +178,7 @@ export default function PrepagadaV2Page() {
       estado: 'pendiente_pago',
       bolsa_maxima_anual: BOLSA_ANUAL,
       bolsa_consumida_anual: 0,
-      bolsa_anio: new Date().getFullYear(),
+      bolsa_anio: anioVigencia(fechaAfiliacion, nowDate()),
       creado_por: session?.nombre || session?.username || null,
     }, { onError: (m) => { saveErr = m; } });
 
@@ -186,7 +187,7 @@ export default function PrepagadaV2Page() {
     if (plan === 'total') {
       await addBeneficios({
         afiliado_id: nuevo.id,
-        anio: new Date().getFullYear(),
+        anio: anioVigencia(fechaAfiliacion, nowDate()),
         consultas_usadas: 0, vacunas_usadas: 0, desparasitaciones_usadas: 0, labs_usados: 0, imagenes_usadas: 0,
       }, { onError: () => {} });
     }

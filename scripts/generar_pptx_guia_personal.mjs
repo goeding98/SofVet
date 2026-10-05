@@ -982,7 +982,7 @@ function fichaHeader(s, x, y, o) {
   const px = M + 6.45, pw = CW - 6.45;
   pasos(s, px, 1.5, pw, [
     { t: 'En la ficha, clic en "+ Registrar consumo"', d: 'Botón verde, abajo, en "Consumos de la bolsa". Primero el veterinario confirma que ES urgencia y te da el presupuesto.', h: 0.62 },
-    { t: 'Elige "🚨 Urgencia"', d: 'El tutor paga el 20%. En el Plan Urgencias es la única opción que aparece.' },
+    { t: 'Elige "🚨 Urgencia"', d: 'El tutor paga el 20%. Si es cirugía de tejidos blandos entre 12 y 24 h, en la fila elige la opción del 50%.' },
     { t: 'Busca cada concepto en Siigo, uno por fila', d: 'Escribe "consulta", "radiografía"… y elígelo. El valor sale solo: ajústalo al presupuesto del veterinario. Para otro concepto, "+ Agregar otro ítem".', h: 0.8 },
     { t: 'Cobra el "TOTAL A COBRAR EN CAJA"', d: 'Es lo que le toca al tutor, con IVA. Cóbralo ANTES de atender y anota cuánto pagó en cada medio hasta que diga "Cuadra ✓".' },
     { t: 'Clic en "Registrar"', d: 'Sale la factura electrónica, le llega al correo y la bolsa se descuenta sola. Avísale al veterinario que ya puede seguir.', h: 0.62 },
