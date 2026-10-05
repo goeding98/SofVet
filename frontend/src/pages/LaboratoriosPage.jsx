@@ -224,7 +224,7 @@ export default function LaboratoriosPage() {
                         <td style={{ ...tdSt, fontSize:'0.8rem', color:'var(--color-text-muted)' }}>{p.solicitado_por || <span style={{ fontStyle:'italic', fontSize:'0.72rem' }}>—</span>}</td>
                         <td style={tdSt}>{p.tipo_examen}</td>
                         <td style={tdSt}>
-                          <span style={{ background: ['Externo','Otro laboratorio'].includes(p.procesamiento) ? '#e8f0ff' : '#e8f5ee', color: ['Externo','Otro laboratorio'].includes(p.procesamiento) ? '#2e5cbf' : '#2e7d50', padding:'2px 9px', borderRadius:999, fontSize:'0.7rem', fontWeight:600 }}>
+                          <span style={{ background: ['Externo','Otro laboratorio'].includes(p.procesamiento) ? '#e8f0ff' : p.procesamiento === 'PetsLab' ? '#f3f0ff' : '#e8f5ee', color: ['Externo','Otro laboratorio'].includes(p.procesamiento) ? '#2e5cbf' : p.procesamiento === 'PetsLab' ? '#6b4bbf' : '#2e7d50', padding:'2px 9px', borderRadius:999, fontSize:'0.7rem', fontWeight:600 }}>
                             {p.procesamiento || 'Interno'}
                           </span>
                         </td>
@@ -441,7 +441,7 @@ export default function LaboratoriosPage() {
                     <td style={{ ...tdSt, fontSize:'0.8rem', color:'var(--color-text-muted)' }}>{p.solicitado_por || <span style={{ fontStyle:'italic', fontSize:'0.72rem' }}>—</span>}</td>
                     <td style={tdSt}>{p.tipo_examen}</td>
                     <td style={tdSt}>
-                      <span style={{ background: ['Externo','Otro laboratorio'].includes(p.procesamiento) ? '#e8f0ff' : '#e8f5ee', color: ['Externo','Otro laboratorio'].includes(p.procesamiento) ? '#2e5cbf' : '#2e7d50', padding:'2px 9px', borderRadius:999, fontSize:'0.7rem', fontWeight:600 }}>
+                      <span style={{ background: ['Externo','Otro laboratorio'].includes(p.procesamiento) ? '#e8f0ff' : p.procesamiento === 'PetsLab' ? '#f3f0ff' : '#e8f5ee', color: ['Externo','Otro laboratorio'].includes(p.procesamiento) ? '#2e5cbf' : p.procesamiento === 'PetsLab' ? '#6b4bbf' : '#2e7d50', padding:'2px 9px', borderRadius:999, fontSize:'0.7rem', fontWeight:600 }}>
                         {p.procesamiento || 'Interno'}
                       </span>
                     </td>

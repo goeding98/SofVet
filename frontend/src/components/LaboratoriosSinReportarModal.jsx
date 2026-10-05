@@ -136,7 +136,7 @@ export default function LaboratoriosSinReportarModal({
                       <td style={{ ...tdSt, fontWeight:600 }}>{p.patient_name || '—'}</td>
                       <td style={tdSt}>{p.tipo_examen}</td>
                       <td style={tdSt}>
-                        <span style={{ background: ['Externo','Otro laboratorio'].includes(p.procesamiento) ? '#e8f0ff' : '#e8f5ee', color: ['Externo','Otro laboratorio'].includes(p.procesamiento) ? '#2e5cbf' : '#2e7d50', padding:'2px 8px', borderRadius:999, fontSize:'0.7rem', fontWeight:600 }}>
+                        <span style={{ background: ['Externo','Otro laboratorio'].includes(p.procesamiento) ? '#e8f0ff' : p.procesamiento === 'PetsLab' ? '#f3f0ff' : '#e8f5ee', color: ['Externo','Otro laboratorio'].includes(p.procesamiento) ? '#2e5cbf' : p.procesamiento === 'PetsLab' ? '#6b4bbf' : '#2e7d50', padding:'2px 8px', borderRadius:999, fontSize:'0.7rem', fontWeight:600 }}>
                           {p.procesamiento || 'Interno'}
                         </span>
                       </td>
