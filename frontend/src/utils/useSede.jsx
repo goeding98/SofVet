@@ -9,7 +9,7 @@ export const SEDES = [
   { id: 2, nombre: 'Colseguros',    color: '#2e7d50', bg: 'var(--color-success-bg)',
     telefono: '315 294 6916', direccion: 'Calle 10 # 31-143, Cali' },
   { id: 3, nombre: 'Ciudad Jardín', color: '#b8860b', bg: '#fff8e1',
-    telefono: '320 800 0002', direccion: 'Avenida Cañasgordas # 106-74, Cali' },
+    telefono: '320 800 0002', direccion: 'Avenida Cajascal # 106-74, Cali' },
   { id: 4, nombre: 'Domicilio',     color: '#7c5cbf', bg: '#f0ebff', domicilio: true,
     telefono: '315 294 6916', direccion: null },
 ];

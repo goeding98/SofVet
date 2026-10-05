@@ -75,13 +75,13 @@ Pantallas del portal (`portalView`): `choice` (elegir acción) → `login` (logi
 |----|------|-------|----------|-----------|
 | 1 | Santa Mónica | `#2e5cbf` | +57 314 606 2066 | Avenida 8N #22-06 ⚠ |
 | 2 | Colseguros | `#2e7d50` | +57 315 294 6916 | Calle 10 #31-143 |
-| 3 | Ciudad Jardín | `#b8860b` | +57 320 800 0002 | Avenida Cañasgordas #106-74 ⚠ |
+| 3 | Ciudad Jardín | `#b8860b` | +57 320 800 0002 | Avenida Cajascal #106-74 |
 | 4 | Domicilio | `#7c5cbf` | — | sin sede física |
 
 Los teléfonos son los confirmados por gerencia (sept 2026). Las direcciones marcadas ⚠
 no están verificadas contra el Perfil de Empresa de Google y no deben publicarse sin
-confirmar — la de Ciudad Jardín aparece como "Cajascal" en scripts viejos y como
-"Cañasgordas" en los nuevos.
+confirmar. La de Ciudad Jardín la confirmó gerencia (oct 2026): es Avenida Cajascal,
+no "Cañasgordas" como decían algunos scripts.
 
 Sitio público: **petspets.co** (ojo: `FormulasModal.jsx` imprime `petspets.com.co`, que
 no existe, y pone el teléfono y la dirección de Colseguros en las fórmulas de las 3 sedes).
