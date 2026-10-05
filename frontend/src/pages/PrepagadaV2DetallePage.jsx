@@ -5,7 +5,7 @@ import { useAuth } from '../utils/useAuth';
 import { supabase } from '../utils/supabaseClient';
 import { BENEFICIOS_TOTAL_ANUAL, DESCUENTO_TARJETA, precioConDescuento, totalConIva } from '../utils/prepagadaPrecios';
 import { vencimientoTrasPago } from '../utils/prepagadaFacturacion';
-import { facturarMesPrepagada, desglosarFactura, facturarConsumoPrepagada, MEDIOS_PAGO_CAJA } from '../utils/prepagadaSiigo';
+import { facturarMesPrepagada, desglosarFactura, facturarConsumoPrepagada, MEDIOS_PAGO_CAJA, sumaPagos } from '../utils/prepagadaSiigo';
 import { cobrarAhora } from '../utils/wompiTarjeta';
 import SiigoConceptoPicker from '../components/SiigoConceptoPicker';
 import { calcularEstadoVencimiento } from '../utils/prepagadaEstado';
@@ -46,6 +46,42 @@ const BENEFICIO_ROWS = [
   { key: 'labs_usados',               label: 'Panel de laboratorio',     tope: BENEFICIOS_TOTAL_ANUAL.labs },
   { key: 'imagenes_usadas',           label: 'Imagen diagnóstica',       tope: BENEFICIOS_TOTAL_ANUAL.imagenes },
 ];
+
+// Los pagos cuadran si suman el total a menos de un peso: la factura puede
+// llevar centavos de IVA que caja no va a teclear.
+const pagosCuadran = (pagos, total) => Math.abs(sumaPagos(pagos) - total) < 1;
+
+// Un campo por medio de pago, para cuando el tutor paga una parte en efectivo
+// y otra por transferencia o datáfono. Siigo acepta varios pagos por factura.
+function PagosCaja({ total, pagos, onChange }) {
+  const dif = Math.round(total - sumaPagos(pagos));
+  const set = (id, v) => onChange({ ...pagos, [id]: v.replace(/\D/g, '') });
+  return (
+    <div style={{ border: '1.5px solid #dfe3ea', borderRadius: 10, padding: '0.6rem 0.8rem', background: 'white' }}>
+      {MEDIOS_PAGO_CAJA.map(m => (
+        <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.25rem 0' }}>
+          <span style={{ flex: 1, fontSize: '0.85rem', fontWeight: 600, color: '#1c2333' }}>{m.label}</span>
+          <input
+            inputMode="numeric"
+            value={pagos[m.id] ? String(Math.round(Number(pagos[m.id]))) : ''}
+            onChange={e => set(m.id, e.target.value)}
+            placeholder="0"
+            style={{ width: 110, padding: '0.4rem 0.5rem', border: '1.5px solid #dfe3ea', borderRadius: 8, fontSize: '0.85rem', textAlign: 'right', fontFamily: 'inherit', boxSizing: 'border-box' }}
+          />
+          <button
+            type="button"
+            onClick={() => onChange({ [m.id]: String(Math.round(total)) })}
+            title="Poner todo el valor en este medio de pago"
+            style={{ padding: '0.35rem 0.55rem', background: '#f7f9fc', border: '1px solid #dfe3ea', borderRadius: 7, fontSize: '0.72rem', fontWeight: 700, color: '#5c6470', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >Todo aquí</button>
+        </div>
+      ))}
+      <div style={{ marginTop: '0.35rem', paddingTop: '0.4rem', borderTop: '1px dashed #dfe3ea', fontSize: '0.82rem', fontWeight: 700, color: dif === 0 ? '#1e7d45' : '#c0392b' }}>
+        {dif === 0 ? `Cuadra ✓ · ${fmtCOP(total)}` : dif > 0 ? `Falta ${fmtCOP(dif)} de ${fmtCOP(total)}` : `Sobra ${fmtCOP(-dif)} sobre ${fmtCOP(total)}`}
+      </div>
+    </div>
+  );
+}
 
 export default function PrepagadaV2DetallePage() {
   const { id } = useParams();
@@ -212,9 +248,14 @@ export default function PrepagadaV2DetallePage() {
   const [facturaErr, setFacturaErr] = useState('');
   // Lo que se cobra en el mostrador se factura con el medio de pago real
   // (efectivo, datáfono o transferencia), no como Wompi. Lo elige caja.
-  const [medioPago, setMedioPago] = useState(MEDIOS_PAGO_CAJA[0].id);
+  // null = caja no ha tocado nada y todo el valor va a Efectivo.
+  const [pagosEdit, setPagosEdit] = useState(null);
   const [facturaPanel, setFacturaPanel] = useState(false);
-  const labelMedio = (id) => MEDIOS_PAGO_CAJA.find(m => m.id === Number(id))?.label || '—';
+  const pagosDe = (total) => pagosEdit ?? { [MEDIOS_PAGO_CAJA[0].id]: String(Math.round(total)) };
+  const textoPagos = (pagos) => MEDIOS_PAGO_CAJA
+    .filter(m => Number(pagos[m.id]) > 0)
+    .map(m => `  ${m.label}: ${fmtCOP(Number(pagos[m.id]))}`)
+    .join('\n');
   const yaFacturado = !!afiliado?.ultima_factura_numero;
   // Los pagos por Wompi los factura el webhook solo. Si la última factura es
   // igual o posterior al último pago, ese pago YA tiene su factura y volver a
@@ -241,12 +282,18 @@ export default function PrepagadaV2DetallePage() {
     }
     // Antes de emitir, caja tiene que decir cómo pagó el tutor.
     setFacturaErr('');
+    setPagosEdit(null);
     setFacturaPanel(true);
   };
 
   const emitirFacturaMes = async () => {
     if (!afiliado || facturando) return;
     const d = desglosarFactura(aCobrar, afiliado.plan);
+    const pagos = pagosDe(d.totalConIva);
+    if (!pagosCuadran(pagos, d.totalConIva)) {
+      setFacturaErr('Los pagos no suman el total de la factura. Revisa los montos.');
+      return;
+    }
     const ok = window.confirm(
       `Se va a emitir la factura electrónica a nombre de ${cliente?.name || 'el tutor'}:\n\n`
       + (d.modoPrueba
@@ -256,7 +303,7 @@ export default function PrepagadaV2DetallePage() {
         : `  ${d.items.servicio.desc}: ${fmtCOP(d.servicio)} + IVA ${fmtCOP(d.iva)}\n`
           + `  ${d.items.insumos.desc}: ${fmtCOP(d.insumos)} (sin IVA)\n\n`
           + `Total: ${fmtCOP(d.totalConIva)}\n\n`)
-      + `Medio de pago: ${labelMedio(medioPago)}\n\n`
+      + `Pagó con:\n${textoPagos(pagos)}\n\n`
       + 'Se envía a la DIAN y le llega por correo al tutor. No se puede deshacer. ¿Continuar?'
     );
     if (!ok) return;
@@ -280,9 +327,10 @@ export default function PrepagadaV2DetallePage() {
         afiliado, cliente: tutor, mascota,
         sedeUsuario: session?.sede_id,
         valorMensual: aCobrar,
-        medioPago,
+        pagos,
       });
       setFacturaPanel(false);
+      setPagosEdit(null);
       editAfiliado(afiliado.id, {
         ultima_factura_numero: r.completo,
         ultima_factura_fecha: nowDate(),
@@ -381,6 +429,8 @@ export default function PrepagadaV2DetallePage() {
   }, 0);
   const aCobrarEnCaja = totalEv.copago + ivaCopago;
   const hayFacturables = itemsConValor.some(it => it.code);
+  // Si se va a facturar, los pagos de caja tienen que sumar lo que se cobra.
+  const pagosOk = !hayFacturables || pagosCuadran(pagosDe(aCobrarEnCaja), aCobrarEnCaja);
 
   const faltaServicio = evClase === 'programado' && itemsConValor.some(it => it.servicio === '');
   const puedeGuardar = itemsConValor.length > 0 && !faltaServicio;
@@ -406,14 +456,19 @@ export default function PrepagadaV2DetallePage() {
     let factura = null;
     const conCodigo = itemsConValor.filter(it => it.code);
     if (conCodigo.length > 0) {
+      const pagos = pagosDe(aCobrarEnCaja);
+      if (!pagosCuadran(pagos, aCobrarEnCaja)) {
+        setSavingEvento(false);
+        setConsumoErr('Los pagos no suman el TOTAL A COBRAR EN CAJA. Revisa los montos.');
+        return;
+      }
       const d = conCodigo.map(it => {
         const c = calcItem(it);
         return `  ${it.desc}: ${fmtCOP(c.costo)} − ${c.pct}% = ${fmtCOP(c.copago)}`;
       }).join('\n');
       const ok = window.confirm(
         `Se va a emitir la factura electrónica a ${cliente?.name || 'el tutor'}:\n\n${d}\n\n`
-        + `El tutor paga ${fmtCOP(totalEv.copago)}.\n`
-        + `Medio de pago: ${labelMedio(medioPago)}\n\n`
+        + `El tutor paga ${fmtCOP(aCobrarEnCaja)} con IVA, así:\n${textoPagos(pagos)}\n\n`
         + 'Se envía a la DIAN y le llega por correo. No se puede deshacer. ¿Continuar?'
       );
       if (!ok) { setSavingEvento(false); return; }
@@ -422,7 +477,7 @@ export default function PrepagadaV2DetallePage() {
           afiliado, cliente, mascota,
           sedeUsuario: session?.sede_id,
           notas: evNotas.trim() || null,
-          medioPago,
+          pagos,
           items: conCodigo.map(it => {
             const c = calcItem(it);
             return { code: it.code, nombre: it.desc, valor: c.costo, pct: c.pct, taxId: it.taxId, taxPct: it.taxPct };
@@ -465,6 +520,7 @@ export default function PrepagadaV2DetallePage() {
     setSavingEvento(false);
     setEventoModal(false);
     if (factura) setConsumoFactura(factura);
+    setPagosEdit(null);
     setEvItems([{ ...ITEM_VACIO }]);
     setEvNotas(''); setEvFactura(''); setEvClase('urgencia');
   };
@@ -633,20 +689,25 @@ export default function PrepagadaV2DetallePage() {
         </div>
       )}
 
-      {facturaPanel && (
-        <div style={{ background: '#fff7e6', border: '1px solid #8a6d00', borderRadius: 12, padding: '0.9rem 1.2rem', marginBottom: '1.2rem', display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#8a6d00' }}>
-            🧾 Factura del mes · {fmtCOP(desglosarFactura(aCobrar, afiliado.plan).totalConIva)} · ¿Cómo pagó?
-          </span>
-          <select value={medioPago} onChange={e => setMedioPago(Number(e.target.value))} style={{ padding: '0.45rem 0.7rem', borderRadius: 8, border: '1.5px solid #8a6d00', fontSize: '0.85rem', fontWeight: 600, fontFamily: 'inherit' }}>
-            {MEDIOS_PAGO_CAJA.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-          </select>
-          <button onClick={emitirFacturaMes} disabled={facturando} style={{ padding: '0.45rem 0.9rem', background: '#8a6d00', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.82rem', cursor: facturando ? 'default' : 'pointer' }}>
-            {facturando ? 'Facturando…' : 'Emitir factura'}
-          </button>
-          <button onClick={() => setFacturaPanel(false)} disabled={facturando} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#8a6d00', cursor: 'pointer', fontWeight: 700 }}>✕</button>
-        </div>
-      )}
+      {facturaPanel && (() => {
+        const totalMes = desglosarFactura(aCobrar, afiliado.plan).totalConIva;
+        const pagos = pagosDe(totalMes);
+        const cuadra = pagosCuadran(pagos, totalMes);
+        return (
+          <div style={{ background: '#fff7e6', border: '1px solid #8a6d00', borderRadius: 12, padding: '0.9rem 1.2rem', marginBottom: '1.2rem', maxWidth: 520 }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.6rem' }}>
+              <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#8a6d00' }}>
+                🧾 Factura del mes · {fmtCOP(totalMes)} · ¿Cómo pagó el tutor?
+              </span>
+              <button onClick={() => setFacturaPanel(false)} disabled={facturando} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#8a6d00', cursor: 'pointer', fontWeight: 700 }}>✕</button>
+            </div>
+            <PagosCaja total={totalMes} pagos={pagos} onChange={setPagosEdit} />
+            <button onClick={emitirFacturaMes} disabled={facturando || !cuadra} style={{ marginTop: '0.7rem', width: '100%', padding: '0.55rem 0.9rem', background: facturando || !cuadra ? '#ccc' : '#8a6d00', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.85rem', cursor: facturando || !cuadra ? 'not-allowed' : 'pointer' }}>
+              {facturando ? 'Facturando…' : 'Emitir factura'}
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Bolsa */}
       <div style={{ background: 'white', border: '1px solid #e2e6ef', borderRadius: 14, padding: '1.2rem 1.5rem', marginBottom: '1.2rem' }}>
@@ -696,7 +757,7 @@ export default function PrepagadaV2DetallePage() {
             <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#5c6470', textTransform: 'uppercase' }}>Consumos de la bolsa ({eventosAfiliado.length})</span>
             <div style={{ fontSize: '0.75rem', color: '#8A8076', marginTop: '0.15rem' }}>Urgencias y también servicios programados con descuento</div>
           </div>
-          <button onClick={() => setEventoModal(true)} style={{ padding: '0.5rem 1rem', background: '#316d74', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ Registrar consumo</button>
+          <button onClick={() => { setPagosEdit(null); setConsumoErr(''); setEventoModal(true); }} style={{ padding: '0.5rem 1rem', background: '#316d74', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ Registrar consumo</button>
         </div>
         {eventosAfiliado.length === 0 ? (
           <p style={{ color: '#8A8076', fontSize: '0.85rem' }}>Todavía no ha consumido bolsa. Registra aquí tanto las urgencias como los servicios programados con descuento del plan.</p>
@@ -878,10 +939,8 @@ export default function PrepagadaV2DetallePage() {
 
               {hayFacturables && (
                 <div style={{ marginBottom: '0.8rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>¿Cómo pagó el tutor?</label>
-                  <select value={medioPago} onChange={e => setMedioPago(Number(e.target.value))} style={{ width: '100%', padding: '0.55rem 0.85rem', border: '1.5px solid #dfe3ea', borderRadius: 10, fontSize: '0.9rem', fontFamily: 'inherit', background: 'white' }}>
-                    {MEDIOS_PAGO_CAJA.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-                  </select>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>¿Cómo pagó el tutor? (puede ser en varios medios)</label>
+                  <PagosCaja total={aCobrarEnCaja} pagos={pagosDe(aCobrarEnCaja)} onChange={setPagosEdit} />
                 </div>
               )}
 
@@ -900,7 +959,7 @@ export default function PrepagadaV2DetallePage() {
 
               <div style={{ display: 'flex', gap: '0.7rem' }}>
                 <button onClick={() => setEventoModal(false)} style={{ flex: 1, padding: '0.7rem', background: 'white', border: '1px solid #dfe3ea', borderRadius: 10, fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
-                <button onClick={handleRegistrarEvento} disabled={savingEvento || !puedeGuardar} style={{ flex: 2, padding: '0.7rem', background: (savingEvento || !puedeGuardar) ? '#ccc' : (evClase === 'urgencia' ? '#c0392b' : '#316d74'), color: 'white', border: 'none', borderRadius: 10, fontWeight: 800, cursor: (savingEvento || !puedeGuardar) ? 'not-allowed' : 'pointer' }}>
+                <button onClick={handleRegistrarEvento} disabled={savingEvento || !puedeGuardar || !pagosOk} style={{ flex: 2, padding: '0.7rem', background: (savingEvento || !puedeGuardar || !pagosOk) ? '#ccc' : (evClase === 'urgencia' ? '#c0392b' : '#316d74'), color: 'white', border: 'none', borderRadius: 10, fontWeight: 800, cursor: (savingEvento || !puedeGuardar || !pagosOk) ? 'not-allowed' : 'pointer' }}>
                   {savingEvento ? 'Guardando…' : (itemsConValor.length > 1 ? 'Registrar ' + itemsConValor.length + ' ítems' : (evClase === 'urgencia' ? 'Registrar urgencia' : 'Registrar servicio'))}
                 </button>
               </div>

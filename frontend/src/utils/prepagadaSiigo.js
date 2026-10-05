@@ -58,12 +58,32 @@ export const MEDIOS_PAGO_CAJA = [
   { id: 10964, label: 'Tarjeta crédito (datáfono)' },
   { id: 10965, label: 'Transferencia / consignación' },
 ];
-const medioValido = (id) => {
-  if (!MEDIOS_PAGO_CAJA.some((m) => m.id === Number(id))) {
-    throw new Error('Elige el medio de pago con el que pagó el tutor.');
+
+// El tutor puede pagar una parte en efectivo y otra por transferencia, y Siigo
+// acepta varios pagos en una factura siempre que sumen el total exacto.
+// pagos: { [idMedio]: valor }. La pantalla redondea a pesos y la factura puede
+// llevar centavos de IVA, así que una diferencia de pocos pesos se le carga al
+// pago más grande; más que eso es un error de caja y se rechaza.
+const TOLERANCIA_PESOS = 5;
+export function sumaPagos(pagos) {
+  return Object.values(pagos || {}).reduce((a, v) => a + (Number(v) || 0), 0);
+}
+function pagosParaSiigo(pagos, total, fecha) {
+  const lista = Object.entries(pagos || {})
+    .map(([id, v]) => ({ id: Number(id), value: Math.round((Number(v) || 0) * 100) / 100 }))
+    .filter((p) => p.value > 0);
+  if (lista.length === 0) throw new Error('Escribe cuánto pagó el tutor y con qué medio.');
+  if (lista.some((p) => !MEDIOS_PAGO_CAJA.some((m) => m.id === p.id))) {
+    throw new Error('Hay un medio de pago que no es de caja.');
   }
-  return Number(id);
-};
+  const dif = Math.round((total - sumaPagos(Object.fromEntries(lista.map((p) => [p.id, p.value])))) * 100) / 100;
+  if (Math.abs(dif) > TOLERANCIA_PESOS) {
+    throw new Error(`Los pagos no cuadran con la factura: ${dif > 0 ? 'faltan' : 'sobran'} $${Math.abs(dif).toLocaleString('es-CO')}.`);
+  }
+  const mayor = lista.reduce((a, p) => (p.value > a.value ? p : a), lista[0]);
+  mayor.value = Math.round((mayor.value + dif) * 100) / 100;
+  return lista.map((p) => ({ id: p.id, value: p.value, due_date: fecha }));
+}
 
 // El centro de costo sale de la sede del usuario de SofVet que factura. Quien no
 // tenga sede —los administradores— entra por Ciudad Jardín.
@@ -140,8 +160,7 @@ function descripcionDescuentos(afiliado, mascota, valorMensual) {
 }
 
 // Emite la factura electrónica del mes de un afiliado y devuelve su número.
-export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsuario, valorMensual, medioPago }) {
-  const medio = medioValido(medioPago);
+export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsuario, valorMensual, pagos }) {
   const calculado = desglosarFactura(valorMensual, afiliado.plan);
   const items = calculado.items;
 
@@ -164,6 +183,7 @@ export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsu
   // El total lo tiene que calcular igual que Siigo o rechaza la factura con
   // "The total payments must be equal to the total invoice".
   const total = c2(servicio * (1 + fServicio.taxPct / 100) + insumos * (1 + fInsumos.taxPct / 100));
+  const payments = pagosParaSiigo(pagos, total, hoyISO());
 
   const customer = await resolverCliente(cliente);
 
@@ -185,7 +205,7 @@ export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsu
       { code: items.insumos.code,  description: items.insumos.desc,  quantity: 1, price: insumos,  discount: 0,
         taxes: fInsumos.taxId ? [{ id: fInsumos.taxId }] : [] },
     ],
-    payments: [{ id: medio, value: total, due_date: hoyISO() }],
+    payments,
   };
 
   const creada = await siigo.createInvoice(factura);
@@ -210,12 +230,10 @@ export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsu
 // items: [{ code, nombre, valor, pct, taxId }]
 //   valor = tarifa plena del concepto (editable por caja)
 //   pct   = lo que cubre P&P; lo que paga el tutor es el resto
-export async function facturarConsumoPrepagada({ afiliado, cliente, mascota, sedeUsuario, items, notas, medioPago }) {
-  const medio = medioValido(medioPago);
+export async function facturarConsumoPrepagada({ afiliado, cliente, mascota, sedeUsuario, items, notas, pagos }) {
   const lineas = (items || []).filter((i) => i.code && Number(i.valor) > 0);
   if (lineas.length === 0) throw new Error('No hay conceptos con valor para facturar.');
 
-  const customer = await resolverCliente(cliente);
   const c2 = (n) => Math.round(n * 100) / 100;
 
   // Siigo calcula: precio × (1 − descuento%) y sobre eso aplica el impuesto.
@@ -224,6 +242,10 @@ export async function facturarConsumoPrepagada({ afiliado, cliente, mascota, sed
     const neto = Number(l.valor) * (1 - (Number(l.pct) || 0) / 100);
     return suma + neto * (1 + (Number(l.taxPct) || 0) / 100);
   }, 0));
+  // Se valida antes de tocar Siigo: si los pagos no cuadran, no se crea nada.
+  const payments = pagosParaSiigo(pagos, total, hoyISO());
+
+  const customer = await resolverCliente(cliente);
 
   const factura = {
     document: { id: DOC_FACTURA_ELECTRONICA },
@@ -245,7 +267,7 @@ export async function facturarConsumoPrepagada({ afiliado, cliente, mascota, sed
       discount: Number(l.pct) || 0,   // porcentaje que cubre el plan
       taxes: l.taxId ? [{ id: l.taxId }] : [],
     })),
-    payments: [{ id: medio, value: total, due_date: hoyISO() }],
+    payments,
   };
 
   const creada = await siigo.createInvoice(factura);
