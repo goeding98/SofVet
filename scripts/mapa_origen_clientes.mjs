@@ -472,7 +472,7 @@ const FUENTES = [
 // Franja horaria de la hora registrada en SofVet: 1 = 8 am–8 pm, 2 = 8 pm–8 am,
 // 0 = sin hora (cuenta solo en "cualquier momento").
 function franja(hora) {
-  const m = /^(d{1,2}):/.exec(hora || '');
+  const m = /^(\d{1,2}):/.exec(hora || '');
   if (!m) return 0;
   const h = +m[1];
   return h >= 8 && h < 20 ? 1 : 2;
