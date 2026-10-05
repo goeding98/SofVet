@@ -10,7 +10,7 @@ const PRECIOS_REALES = { urgencias: 30000, total: 70000 };
 // Cada afiliado guarda su precio_mensual al crearse y Wompi y el webhook cobran
 // y facturan sobre ese valor, así que esto solo afecta a los afiliados que se
 // creen mientras esté encendido. Apagarlo antes de afiliar clientes reales.
-export const MODO_DEMO = true;
+export const MODO_DEMO = false;
 const PRECIOS_DEMO = { urgencias: 2000, total: 5000 };
 
 const PRECIOS_BASE = MODO_DEMO ? PRECIOS_DEMO : PRECIOS_REALES;
