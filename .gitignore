@@ -21,3 +21,4 @@ Thumbs.db
 
 # Supabase CLI cache local
 supabase/.temp/
+scripts/osm_cali_calles.json

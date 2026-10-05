@@ -63,7 +63,7 @@ function saveJson(p, o) {
 const SEDE_INFO = {
   1: { nombre: 'Santa Mónica',  color: '#2e5cbf', direccion: 'Avenida 8N #22-06',           lat: 3.4570001, lng: -76.5350282 },
   2: { nombre: 'Colseguros',    color: '#2e7d50', direccion: 'Calle 10 #31-143',            lat: 3.4264412, lng: -76.5296781 },
-  3: { nombre: 'Ciudad Jardín', color: '#b8860b', direccion: 'Avenida Cañasgordas #106-74', lat: 3.3663153, lng: -76.5361691 },
+  3: { nombre: 'Ciudad Jardín', color: '#b8860b', direccion: 'Avenida Cajascal #106-74', lat: 3.3663153, lng: -76.5361691 },
   4: { nombre: 'Domicilio',     color: '#7c5cbf', direccion: null, lat: null, lng: null },
 };
 
@@ -185,10 +185,156 @@ async function consultar(q) {
   return v;
 }
 
+// ── Cruce de calles ─────────────────────────────────────────────────────────
+// Cuando Nominatim no encuentra la casa devuelve un punto cualquiera de la vía.
+// Para la Avenida 9 Norte eso mandaba al mismo sitio direcciones de la calle 6
+// y de la 56, 5 km de avenida apiladas en un punto, y en el mapa de calor
+// aparecía un foco que no existe. La placa colombiana dice en qué cuadra está
+// la casa: en "Av 9N #25-19" es el cruce de la Avenida 9 Norte con la Calle 25
+// Norte. Nominatim no busca cruces, Overpass sí: trae las dos vías y se toma el
+// nodo que comparten.
+
+const titulo = s => s.split(' ').map(w => /^\d/.test(w) ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)).join(' ');
+const CARD = { n: 'norte', norte: 'norte', o: 'oeste', oeste: 'oeste' };
+
+// Devuelve { via: 'Avenida 9 Norte', cruces: ['Calle 25 Norte'] } o null.
+function parseCruce(cleaned) {
+  const via = extractStreet(cleaned);
+  if (!via) return null;
+  // Con "#" o sin él: "av 9 norte # 6-100" y "av 9 norte 6-100" son lo mismo.
+  const m = cleaned.match(/#\s*(\d+)\s*([a-z])?\s*(?:bis\s*)?(norte|oeste|n|o)?(?![a-z])/)
+    || cleaned.match(/\b(?:avenida|calle|carrera|diagonal|transversal)\s+\d+(?:\s*[a-z]\b)?(?:\s*(?:norte|oeste|sur|este))?\s+(\d+)\s*([a-z])?\s*(norte|oeste|n|o)?\s*-\s*\d/);
+  if (!m) return null;
+  let letra = m[2] || '', card = CARD[m[3]] || '';
+  if (!card && (letra === 'n' || letra === 'o')) { card = CARD[letra]; letra = ''; }
+  const viaCard = (via.match(/\b(norte|oeste)$/) || [])[1] || '';
+  if (!card) card = viaCard;              // "Av 9N #25-19": la 25 también es Norte
+  const num = `${m[1]}${letra}`.toUpperCase();
+  const sufijo = card ? ' ' + titulo(card) : '';
+  const tipo = via.split(' ')[0];
+  // Las avenidas del norte y las carreras corren de sur a norte: las cruzan
+  // calles. A una calle la cruzan carreras, que en el norte se llaman avenidas.
+  const tiposCruce = ['calle', 'diagonal'].includes(tipo) ? ['Carrera', 'Avenida', 'Transversal'] : ['Calle', 'Diagonal'];
+  return { via: titulo(via), cruces: tiposCruce.map(t => `${t} ${num}${sufijo}`) };
+}
+
+const distM = (a, b) => {
+  const r = x => x * Math.PI / 180, dLa = r(b.lat - a.lat), dLo = r(b.lng - a.lng);
+  const s = Math.sin(dLa / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLo / 2) ** 2;
+  return 2 * 6371000 * Math.asin(Math.sqrt(s));
+};
+
+// Todas las vías con nombre de Cali se bajan UNA vez de OpenStreetMap (unos 13
+// MB, 12 segundos) y los cruces se calculan aquí. Consultar Overpass cruce por
+// cruce tardaba ~20 s cada uno: horas para todo el mapa.
+const OSM_CALLES = path.join(D, 'osm_cali_calles.json');
+async function cargarCallesOSM() {
+  if (!fs.existsSync(OSM_CALLES)) {
+    console.log('Descargando las calles de Cali de OpenStreetMap (una sola vez)...');
+    const b = CALI_BOUNDS;
+    const q = `[out:json][timeout:180];way["highway"]["name"](${b.minLat},${b.minLng},${b.maxLat},${b.maxLng});out body;>;out skel qt;`;
+    const r = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      headers: { 'User-Agent': 'SofVet/1.0 gerencia@dogspital.com', 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'data=' + encodeURIComponent(q),
+    });
+    fs.writeFileSync(OSM_CALLES, await r.text());
+  }
+  return JSON.parse(fs.readFileSync(OSM_CALLES, 'utf8'));
+}
+
+// "Calle 56N", "Calle 56 Norte" y "calle 56 norte" son la misma vía: todas se
+// reducen a "calle|56|norte". La letra se pega al número ("15B"); lo que venga
+// después ("Calle 56F 1") se ignora.
+function claveVia(nombre) {
+  const m = norm(nombre).match(/^(avenida|calle|carrera|diagonal|transversal)\s+(\d+)\s*([a-z])?\s*(?:bis\b\s*)?(norte|oeste|sur|este|n|o)?\b/);
+  if (!m) return null;
+  let letra = m[3] || '', card = m[4] || '';
+  if (!card && (letra === 'n' || letra === 'o')) { card = letra; letra = ''; }
+  card = { n: 'norte', o: 'oeste' }[card] || card;
+  return `${m[1]}|${m[2]}${letra}|${card}`;
+}
+
+const osm = await cargarCallesOSM();
+const nodoCoord = new Map();
+const nodosDeVia = new Map();   // clave -> Set de ids de nodos
+for (const e of osm.elements) {
+  if (e.type === 'node') nodoCoord.set(e.id, { lat: e.lat, lng: e.lon });
+}
+for (const e of osm.elements) {
+  if (e.type !== 'way') continue;
+  const k = claveVia(e.tags.name);
+  if (!k) continue;
+  if (!nodosDeVia.has(k)) nodosDeVia.set(k, new Set());
+  const s = nodosDeVia.get(k);
+  for (const id of e.nodes) s.add(id);
+}
+console.log(`Calles de Cali: ${nodosDeVia.size} vías indexadas\n`);
+
+function cruceLocal(via, cruces) {
+  const a = nodosDeVia.get(claveVia(via));
+  if (!a) return [];
+  let comunes = [];
+  for (const c of cruces) {
+    const b = nodosDeVia.get(claveVia(c));
+    if (!b) continue;
+    for (const id of a) if (b.has(id)) comunes.push(nodoCoord.get(id));
+  }
+  if (comunes.length) return comunes.filter(Boolean);
+  // Sin nodo compartido (vías dibujadas sin unir): el par de puntos más cercano,
+  // si están a menos de 40 m.
+  let mejor = null, dMin = 40;
+  const pa = [...a].map(id => nodoCoord.get(id)).filter(Boolean);
+  for (const c of cruces) {
+    const b = nodosDeVia.get(claveVia(c));
+    if (!b) continue;
+    for (const id of b) {
+      const q = nodoCoord.get(id);
+      if (!q) continue;
+      for (const p of pa) {
+        const d = distM(p, q);
+        if (d < dMin) { dMin = d; mejor = { lat: (p.lat + q.lat) / 2, lng: (p.lng + q.lng) / 2 }; }
+      }
+    }
+  }
+  return mejor ? [mejor] : [];
+}
+
+// Si las vías se cruzan en varios nodos (calzadas dobles, glorietas) se
+// promedian los que están juntos. Si quedan muy separados el nombre está
+// repetido en dos partes de la ciudad y se toma el más cercano a la vía que
+// devolvió Nominatim.
+async function geocodeCruce(cleaned) {
+  const pc = parseCruce(cleaned);
+  if (!pc) return null;
+  const nodos = cruceLocal(pc.via, pc.cruces);
+  if (!nodos.length) return null;
+  let base = nodos[0];
+  if (nodos.length > 1) {
+    const ref = cachedOrRetry(qCache, extractStreet(cleaned));
+    if (ref) base = nodos.reduce((a, n) => (distM(n, ref) < distM(a, ref) ? n : a), nodos[0]);
+  }
+  const cerca = nodos.filter(n => distM(n, base) < 250);
+  const c = { lat: cerca.reduce((s, n) => s + n.lat, 0) / cerca.length, lng: cerca.reduce((s, n) => s + n.lng, 0) / cerca.length };
+  return inCali(c) ? c : null;
+}
+
+
+// Una coordenada de "casa" que se repite en tres o más direcciones distintas no
+// es una casa: es el punto genérico de una vía que Nominatim devolvió cuando no
+// encontró el número. Se calcula al cargar, sobre todo el caché.
+const repetidas = new Map();
+for (const v of Object.values(cache)) {
+  if (!v) continue;
+  const k = `${v.lat.toFixed(6)},${v.lng.toFixed(6)}`;
+  repetidas.set(k, (repetidas.get(k) || 0) + 1);
+}
+const esGenerica = c => (repetidas.get(`${c.lat.toFixed(6)},${c.lng.toFixed(6)}`) || 0) >= 3;
+
 // Tres niveles de precisión, de mejor a peor:
 //   0 = la dirección completa resolvió a nivel de casa
-//   1 = solo resolvió la calle
-//   2 = solo resolvió el barrio
+//   1 = cuadra: cruce de la vía con la calle de la placa
+//   2 = aproximada: solo la vía o solo el barrio
 // La calle va ANTES que el barrio: el 97% de las direcciones traen calle
 // utilizable, y una calle ubica mucho mejor que el centroide de un barrio.
 // Hacerlo al revés era lo que mandaba a los clientes de Santa Mónica (norte)
@@ -203,12 +349,19 @@ async function geocode(addr) {
     saveJson(CACHE, cache);
     await sleep(1100);
   }
-  if (res) return { coords: res, nivel: 0 };
+  if (res && !esGenerica(res)) return { coords: res, nivel: 0 };
+
+  const cruce = await geocodeCruce(cleanAddr(key));
+  if (cruce) return { coords: cruce, nivel: 1 };
+
+  // Si Nominatim devolvió un punto genérico y no hubo cruce, ese punto vale lo
+  // mismo que buscar la vía: aproximado.
+  if (res) return { coords: res, nivel: 2 };
 
   const street = extractStreet(cleanAddr(key));
   if (street) {
     const v = await consultar(street);
-    if (v) return { coords: v, nivel: 1 };
+    if (v) return { coords: v, nivel: 2 };
   }
 
   const barrio = extractBarrio(norm(addr));
@@ -379,9 +532,9 @@ for (const c of activos) {
       r.nivel,
     ]);
   }
-  if (hechos % 200 === 0) console.log(`  ${hechos}/${activos.length} (casa ${porNivel[0]}, calle ${porNivel[1]}, barrio ${porNivel[2]}, sin ubicar ${fallidos})`);
+  if (hechos % 200 === 0) console.log(`  ${hechos}/${activos.length} (casa ${porNivel[0]}, cuadra ${porNivel[1]}, aproximada ${porNivel[2]}, sin ubicar ${fallidos})`);
 }
-console.log(`\nUbicados: ${porNivel[0]} a nivel de casa, ${porNivel[1]} de calle, ${porNivel[2]} de barrio = ${puntos.length} / ${activos.length}`);
+console.log(`\nUbicados: ${porNivel[0]} a nivel de casa, ${porNivel[1]} de cuadra, ${porNivel[2]} aproximados = ${puntos.length} / ${activos.length}`);
 if (fallidos)  console.log(`  ${fallidos} sin ubicar`);
 if (nRejected) console.log(`  ${nRejected} resultados descartados por caer fuera de Cali`);
 
@@ -474,8 +627,8 @@ return `<!DOCTYPE html>
   <div class="grupo">
     <div class="lbl">Precisión de la ubicación</div>
     <div class="chips" id="fPrec">
-      <div class="chip on" data-p="2">Toda</div>
-      <div class="chip" data-p="1">Casa y calle</div>
+      <div class="chip" data-p="2">Toda</div>
+      <div class="chip on" data-p="1">Casa y cuadra</div>
       <div class="chip" data-p="0">Solo casa exacta</div>
     </div>
   </div>
@@ -491,13 +644,13 @@ return `<!DOCTYPE html>
     cliente en una sede en un día, así que la consulta y la cita del mismo día
     cuentan una sola vez. Un cliente atendido en dos sedes aparece en ambos filtros.<br><br>
     ${meta.ubicados} de ${meta.clientesConVisita} clientes ubicados:
-    ${meta.porNivel[0]} a nivel de casa, ${meta.porNivel[1]} solo de calle y
-    ${meta.porNivel[2]} solo de barrio. ${meta.sinDireccion} sin dirección en su ficha
+    ${meta.porNivel[0]} a nivel de casa, ${meta.porNivel[1]} a nivel de cuadra (cruce de calles) y
+    ${meta.porNivel[2]} aproximados (solo la vía o el barrio). ${meta.sinDireccion} sin dirección en su ficha
     y ${meta.sinUbicar} que no se pudieron geocodificar quedan fuera.<br><br>
-    <b>Usa el filtro de precisión para verificar un foco.</b> Los de nivel de barrio
-    caen todos en el mismo centroide, así que pueden inventar un punto caliente
-    donde en realidad hay gente repartida. Si el foco aguanta en "solo casa exacta",
-    es real.<br><br>
+    <b>Usa el filtro de precisión para verificar un foco.</b> Los aproximados
+    caen todos en un mismo punto de la vía o del barrio, así que pueden inventar un
+    punto caliente donde en realidad hay gente repartida. Si el foco aguanta en
+    "Casa y cuadra", es real.<br><br>
     <b>"Toda la historia" arranca en marzo de 2026</b>, que es desde cuando SofVet
     guarda en qué sede se atendió a cada paciente. Lo anterior no está en el mapa.
   </div>
@@ -506,7 +659,7 @@ return `<!DOCTYPE html>
 <script>
 const PTS   = ${JSON.stringify(pts)};
 const SEDES = ${JSON.stringify(meta.sedes)};
-let fSede = 'all', fWin = 0, fVista = 'heat', fPrec = 2;
+let fSede = 'all', fWin = 0, fVista = 'heat', fPrec = 1;   // arranca sin los aproximados, que apilan clientes en un punto
 
 const map = L.map('map', { zoomControl: true }).setView([3.42, -76.53], 12);
 // Esri Dark Gray Canvas: sin API key, con CORS abierto y — a diferencia de los
@@ -560,7 +713,7 @@ function render() {
   if (capa) { map.removeLayer(capa); capa = null; }
 
   const vis = [];
-  // p[4] es el nivel de precisión: 0 casa, 1 calle, 2 barrio. El filtro deja
+  // p[4] es el nivel de precisión: 0 casa, 1 cuadra, 2 aproximada. El filtro deja
   // pasar solo lo que sea igual o mejor que el nivel elegido, para poder
   // comprobar si un foco se sostiene con direcciones exactas o si lo está
   // inflando un montón de gente apilada en el centroide de un barrio.
@@ -598,7 +751,7 @@ function render() {
       }).bindPopup('<b>' + p[2] + '</b><br>' + n + (n === 1 ? ' visita' : ' visitas') +
         '<br><span style="color:#8b95a7">' + sedesTxt + '</span>' +
         (p[4] ? '<br><i style="color:#8b95a7;font-size:11px">Ubicación aproximada: nivel de ' +
-          (p[4] === 1 ? 'calle' : 'barrio') + '</i>' : ''));
+          (p[4] === 1 ? 'cuadra' : 'vía o barrio, aproximada') + '</i>' : ''));
     })).addTo(map);
   }
 }
