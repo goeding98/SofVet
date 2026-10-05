@@ -532,6 +532,7 @@ console.log(`\n${activos.length} clientes con dirección (${sinDireccion} sin di
 console.log(`${faltan} direcciones sin resolver a nivel de casa; las de respaldo se cachean por calle\n`);
 
 const puntos = [];
+const geoDump = [];
 const porNivel = [0, 0, 0];
 let hechos = 0, fallidos = 0;
 for (const c of activos) {
@@ -540,6 +541,7 @@ for (const c of activos) {
   if (!r) fallidos++;
   else {
     porNivel[r.nivel]++;
+    geoDump.push([c.id, r.coords.lat, r.coords.lng, r.nivel]);
     puntos.push([
       +r.coords.lat.toFixed(6),
       +r.coords.lng.toFixed(6),
@@ -566,6 +568,10 @@ const META = {
   sinDireccion,
   porNivel,
 };
+
+// Para análisis aparte (canibalización de una sede nueva): id, coordenadas y
+// precisión de cada cliente ubicado. Solo si se pide, porque son datos de clientes.
+if (process.env.GEO_DUMP) fs.writeFileSync(process.env.GEO_DUMP, JSON.stringify(geoDump));
 
 fs.writeFileSync(OUT, HTML(puntos, META));
 console.log(`\nListo: ${OUT}`);
@@ -672,7 +678,7 @@ return `<!DOCTYPE html>
     <div class="row"><span>Visitas por cliente</span><b id="sProm">–</b></div>
   </div>
 
-  <div class="nota"><b>Círculos punteados:</b> 2,8 km alrededor de cada sede, en línea recta. En los últimos 3 meses, la mitad de los clientes de cada sede vive dentro de ese radio.</div>
+  <div class="nota"><b>Círculos punteados:</b> 2,8 km alrededor de cada sede, en línea recta. En los últimos 3 meses, la mitad de los clientes de cada sede vive dentro de ese radio. El punto blanco <b style="color:#e11d48">N</b> es la sede 24h propuesta en la Calle 13 #72 (todavía no existe).</div>
 
   <div class="nota">
     Cada punto es la dirección de un cliente, no la clínica. Una visita es un
@@ -736,6 +742,21 @@ for (const [id, s] of Object.entries(SEDES)) {
     zIndexOffset: 1000,
   }).addTo(map).bindPopup('<b>Sede ' + s.nombre + '</b><br>' + s.direccion);
 }
+
+// Sede propuesta (todavía no existe): solo se dibuja para comparar, no recibe
+// visitas ni aparece en los filtros.
+const PROPUESTA = { nombre: 'Propuesta 24h', direccion: 'Calle 13 #72 (Pasoancho con Carrera 72)', lat: 3.3922, lng: -76.5384, color: '#e11d48' };
+L.circle([PROPUESTA.lat, PROPUESTA.lng], {
+  radius: RADIO_REF_M, color: PROPUESTA.color, weight: 2.5, dashArray: '2 6',
+  fillColor: PROPUESTA.color, fillOpacity: 0.05, interactive: false,
+}).addTo(map);
+L.marker([PROPUESTA.lat, PROPUESTA.lng], {
+  icon: L.divIcon({ className: '', iconSize: [26, 26], iconAnchor: [13, 13], html:
+    '<div style="width:26px;height:26px;border-radius:50%;background:#fff;border:3px dashed ' + PROPUESTA.color +
+    ';box-shadow:0 2px 8px rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;' +
+    'font:700 12px sans-serif;color:' + PROPUESTA.color + '">N</div>' }),
+  zIndexOffset: 1000,
+}).addTo(map).bindPopup('<b>' + PROPUESTA.nombre + ' (no existe aún)</b><br>' + PROPUESTA.direccion);
 
 let capa = null;
 
