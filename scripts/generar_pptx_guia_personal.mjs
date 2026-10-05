@@ -739,7 +739,7 @@ function fichaHeader(s, x, y, o) {
   [
     { n: '1', t: 'Cobra el valor con IVA', d: 'Usa la tabla de la pág. 2 (columna "Paga mes a mes"). Es el mismo valor que muestra el botón "Generar link".', c: C.blue },
     { n: '2', t: 'Clic en "✅ Marcar pagado"', d: 'El plan pasa a "Activo" y corre el vencimiento un mes. Acepta la confirmación.', c: C.green },
-    { n: '3', t: 'Clic en "🧾 Facturar"', d: 'Emite la factura electrónica en Siigo y le llega al correo del tutor. Revisa el valor y acepta.', c: C.gold },
+    { n: '3', t: 'Clic en "🧾 Facturar"', d: 'En el recuadro amarillo elige cómo pagó (efectivo, datáfono o transferencia) y dale "Emitir factura". Le llega al correo.', c: C.gold },
   ].forEach((it, i) => {
     const x = M + i * (bw + 0.35);
     card(s, x, 4.25, bw, 1.45);
@@ -984,7 +984,7 @@ function fichaHeader(s, x, y, o) {
     { t: 'En la ficha, clic en "+ Registrar consumo"', d: 'Botón verde, abajo, en "Consumos de la bolsa". Primero el veterinario confirma que ES urgencia y te da el presupuesto.', h: 0.62 },
     { t: 'Elige "🚨 Urgencia"', d: 'El tutor paga el 20%. En el Plan Urgencias es la única opción que aparece.' },
     { t: 'Busca cada concepto en Siigo, uno por fila', d: 'Escribe "consulta", "radiografía"… y elígelo. El valor sale solo: ajústalo al presupuesto del veterinario. Para otro concepto, "+ Agregar otro ítem".', h: 0.8 },
-    { t: 'Cobra el "TOTAL A COBRAR EN CAJA"', d: 'Es lo que le toca al tutor, con IVA. Cóbralo ANTES de empezar la atención.' },
+    { t: 'Cobra el "TOTAL A COBRAR EN CAJA"', d: 'Es lo que le toca al tutor, con IVA. Cóbralo ANTES de atender y marca "¿Cómo pagó el tutor?".' },
     { t: 'Clic en "Registrar"', d: 'Sale la factura electrónica, le llega al correo y la bolsa se descuenta sola. Avísale al veterinario que ya puede seguir.', h: 0.62 },
   ], { descH: 0.46, gap: 0.04, descSize: 11 });
 }

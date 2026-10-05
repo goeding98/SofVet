@@ -15,11 +15,11 @@
 import { siigo } from './siigo';
 import { precioLista, DESCUENTO_TARJETA, partirServicioInsumos } from './prepagadaPrecios';
 
-// MODO PRUEBA. Mientras contabilidad no cargue los precios definitivos, los
-// renglones se facturan con el precio que tenga el producto en Siigo ($1, $2...)
-// en vez del valor real del plan. Sirve para emitir facturas de prueba sin
-// mover plata. Poner en false cuando los precios reales estén en Siigo.
-const PRECIOS_DE_PRUEBA = true;
+// MODO PRUEBA. En true, los renglones se facturan con el precio que tenga el
+// producto en Siigo ($1, $2...) en vez del valor real del plan, para emitir
+// facturas de prueba sin mover plata. En false factura el valor real, con el
+// mismo cálculo que la factura automática del webhook de Wompi.
+const PRECIOS_DE_PRUEBA = false;
 
 // Trae la ficha del producto en Siigo: precio e impuesto. El impuesto hay que
 // mandarlo explícito en cada renglón de la factura; si no se manda, Siigo NO lo
@@ -48,7 +48,22 @@ const ITEMS_POR_PLAN = {
 
 const DOC_FACTURA_ELECTRONICA = 26273;
 const VENDEDOR   = 953;   // Jenni Soralla Cuero Granja
-const PAGO_WOMPI = 11061;
+
+// Medios de pago de Siigo para lo que se cobra en el mostrador. Los mismos que
+// usa FacturacionPage. Lo que entra por Wompi lo factura el webhook con su
+// propio medio de pago (11061), nunca por acá.
+export const MEDIOS_PAGO_CAJA = [
+  { id: 10962, label: 'Efectivo' },
+  { id: 10963, label: 'Tarjeta débito (datáfono)' },
+  { id: 10964, label: 'Tarjeta crédito (datáfono)' },
+  { id: 10965, label: 'Transferencia / consignación' },
+];
+const medioValido = (id) => {
+  if (!MEDIOS_PAGO_CAJA.some((m) => m.id === Number(id))) {
+    throw new Error('Elige el medio de pago con el que pagó el tutor.');
+  }
+  return Number(id);
+};
 
 // El centro de costo sale de la sede del usuario de SofVet que factura. Quien no
 // tenga sede —los administradores— entra por Ciudad Jardín.
@@ -125,7 +140,8 @@ function descripcionDescuentos(afiliado, mascota, valorMensual) {
 }
 
 // Emite la factura electrónica del mes de un afiliado y devuelve su número.
-export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsuario, valorMensual }) {
+export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsuario, valorMensual, medioPago }) {
+  const medio = medioValido(medioPago);
   const calculado = desglosarFactura(valorMensual, afiliado.plan);
   const items = calculado.items;
 
@@ -169,7 +185,7 @@ export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsu
       { code: items.insumos.code,  description: items.insumos.desc,  quantity: 1, price: insumos,  discount: 0,
         taxes: fInsumos.taxId ? [{ id: fInsumos.taxId }] : [] },
     ],
-    payments: [{ id: PAGO_WOMPI, value: total, due_date: hoyISO() }],
+    payments: [{ id: medio, value: total, due_date: hoyISO() }],
   };
 
   const creada = await siigo.createInvoice(factura);
@@ -194,7 +210,8 @@ export async function facturarMesPrepagada({ afiliado, cliente, mascota, sedeUsu
 // items: [{ code, nombre, valor, pct, taxId }]
 //   valor = tarifa plena del concepto (editable por caja)
 //   pct   = lo que cubre P&P; lo que paga el tutor es el resto
-export async function facturarConsumoPrepagada({ afiliado, cliente, mascota, sedeUsuario, items, notas }) {
+export async function facturarConsumoPrepagada({ afiliado, cliente, mascota, sedeUsuario, items, notas, medioPago }) {
+  const medio = medioValido(medioPago);
   const lineas = (items || []).filter((i) => i.code && Number(i.valor) > 0);
   if (lineas.length === 0) throw new Error('No hay conceptos con valor para facturar.');
 
@@ -228,7 +245,7 @@ export async function facturarConsumoPrepagada({ afiliado, cliente, mascota, sed
       discount: Number(l.pct) || 0,   // porcentaje que cubre el plan
       taxes: l.taxId ? [{ id: l.taxId }] : [],
     })),
-    payments: [{ id: PAGO_WOMPI, value: total, due_date: hoyISO() }],
+    payments: [{ id: medio, value: total, due_date: hoyISO() }],
   };
 
   const creada = await siigo.createInvoice(factura);

@@ -5,7 +5,7 @@ import { useAuth } from '../utils/useAuth';
 import { supabase } from '../utils/supabaseClient';
 import { BENEFICIOS_TOTAL_ANUAL, DESCUENTO_TARJETA, precioConDescuento, totalConIva } from '../utils/prepagadaPrecios';
 import { vencimientoTrasPago } from '../utils/prepagadaFacturacion';
-import { facturarMesPrepagada, desglosarFactura, facturarConsumoPrepagada } from '../utils/prepagadaSiigo';
+import { facturarMesPrepagada, desglosarFactura, facturarConsumoPrepagada, MEDIOS_PAGO_CAJA } from '../utils/prepagadaSiigo';
 import { cobrarAhora } from '../utils/wompiTarjeta';
 import SiigoConceptoPicker from '../components/SiigoConceptoPicker';
 import { calcularEstadoVencimiento } from '../utils/prepagadaEstado';
@@ -210,6 +210,11 @@ export default function PrepagadaV2DetallePage() {
   // ── Facturación en Siigo ───────────────────────────────────────────────────
   const [facturando, setFacturando] = useState(false);
   const [facturaErr, setFacturaErr] = useState('');
+  // Lo que se cobra en el mostrador se factura con el medio de pago real
+  // (efectivo, datáfono o transferencia), no como Wompi. Lo elige caja.
+  const [medioPago, setMedioPago] = useState(MEDIOS_PAGO_CAJA[0].id);
+  const [facturaPanel, setFacturaPanel] = useState(false);
+  const labelMedio = (id) => MEDIOS_PAGO_CAJA.find(m => m.id === Number(id))?.label || '—';
   const yaFacturado = !!afiliado?.ultima_factura_numero;
   // Los pagos por Wompi los factura el webhook solo. Si la última factura es
   // igual o posterior al último pago, ese pago YA tiene su factura y volver a
@@ -234,7 +239,13 @@ export default function PrepagadaV2DetallePage() {
       );
       if (!insistir) return;
     }
+    // Antes de emitir, caja tiene que decir cómo pagó el tutor.
+    setFacturaErr('');
+    setFacturaPanel(true);
+  };
 
+  const emitirFacturaMes = async () => {
+    if (!afiliado || facturando) return;
     const d = desglosarFactura(aCobrar, afiliado.plan);
     const ok = window.confirm(
       `Se va a emitir la factura electrónica a nombre de ${cliente?.name || 'el tutor'}:\n\n`
@@ -245,6 +256,7 @@ export default function PrepagadaV2DetallePage() {
         : `  ${d.items.servicio.desc}: ${fmtCOP(d.servicio)} + IVA ${fmtCOP(d.iva)}\n`
           + `  ${d.items.insumos.desc}: ${fmtCOP(d.insumos)} (sin IVA)\n\n`
           + `Total: ${fmtCOP(d.totalConIva)}\n\n`)
+      + `Medio de pago: ${labelMedio(medioPago)}\n\n`
       + 'Se envía a la DIAN y le llega por correo al tutor. No se puede deshacer. ¿Continuar?'
     );
     if (!ok) return;
@@ -268,7 +280,9 @@ export default function PrepagadaV2DetallePage() {
         afiliado, cliente: tutor, mascota,
         sedeUsuario: session?.sede_id,
         valorMensual: aCobrar,
+        medioPago,
       });
+      setFacturaPanel(false);
       editAfiliado(afiliado.id, {
         ultima_factura_numero: r.completo,
         ultima_factura_fecha: nowDate(),
@@ -398,7 +412,8 @@ export default function PrepagadaV2DetallePage() {
       }).join('\n');
       const ok = window.confirm(
         `Se va a emitir la factura electrónica a ${cliente?.name || 'el tutor'}:\n\n${d}\n\n`
-        + `El tutor paga ${fmtCOP(totalEv.copago)}.\n\n`
+        + `El tutor paga ${fmtCOP(totalEv.copago)}.\n`
+        + `Medio de pago: ${labelMedio(medioPago)}\n\n`
         + 'Se envía a la DIAN y le llega por correo. No se puede deshacer. ¿Continuar?'
       );
       if (!ok) { setSavingEvento(false); return; }
@@ -407,6 +422,7 @@ export default function PrepagadaV2DetallePage() {
           afiliado, cliente, mascota,
           sedeUsuario: session?.sede_id,
           notas: evNotas.trim() || null,
+          medioPago,
           items: conCodigo.map(it => {
             const c = calcItem(it);
             return { code: it.code, nombre: it.desc, valor: c.costo, pct: c.pct, taxId: it.taxId, taxPct: it.taxPct };
@@ -614,6 +630,21 @@ export default function PrepagadaV2DetallePage() {
           >
             {linkCopiado ? '✓ Copiado' : 'Copiar'}
           </button>
+        </div>
+      )}
+
+      {facturaPanel && (
+        <div style={{ background: '#fff7e6', border: '1px solid #8a6d00', borderRadius: 12, padding: '0.9rem 1.2rem', marginBottom: '1.2rem', display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#8a6d00' }}>
+            🧾 Factura del mes · {fmtCOP(desglosarFactura(aCobrar, afiliado.plan).totalConIva)} · ¿Cómo pagó?
+          </span>
+          <select value={medioPago} onChange={e => setMedioPago(Number(e.target.value))} style={{ padding: '0.45rem 0.7rem', borderRadius: 8, border: '1.5px solid #8a6d00', fontSize: '0.85rem', fontWeight: 600, fontFamily: 'inherit' }}>
+            {MEDIOS_PAGO_CAJA.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+          </select>
+          <button onClick={emitirFacturaMes} disabled={facturando} style={{ padding: '0.45rem 0.9rem', background: '#8a6d00', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.82rem', cursor: facturando ? 'default' : 'pointer' }}>
+            {facturando ? 'Facturando…' : 'Emitir factura'}
+          </button>
+          <button onClick={() => setFacturaPanel(false)} disabled={facturando} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#8a6d00', cursor: 'pointer', fontWeight: 700 }}>✕</button>
         </div>
       )}
 
@@ -842,6 +873,15 @@ export default function PrepagadaV2DetallePage() {
               {consumoErr && (
                 <div style={{ background: '#fdecea', border: '1px solid #c0392b', borderRadius: 10, padding: '0.7rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: '#c0392b', fontWeight: 600 }}>
                   ⚠️ {consumoErr}
+                </div>
+              )}
+
+              {hayFacturables && (
+                <div style={{ marginBottom: '0.8rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#5c6470', marginBottom: '0.4rem', textTransform: 'uppercase' }}>¿Cómo pagó el tutor?</label>
+                  <select value={medioPago} onChange={e => setMedioPago(Number(e.target.value))} style={{ width: '100%', padding: '0.55rem 0.85rem', border: '1.5px solid #dfe3ea', borderRadius: 10, fontSize: '0.9rem', fontFamily: 'inherit', background: 'white' }}>
+                    {MEDIOS_PAGO_CAJA.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                  </select>
                 </div>
               )}
 
