@@ -370,7 +370,7 @@ export default function PetDetailPage() {
       await addLabPedido({
         patient_id: petId, patient_name: pet.name, sede_id: data.sede_id,
         tipo_examen: lab.tipo_examen === 'Otro' ? (lab.otro_tipo?.trim() || 'Otro') : lab.tipo_examen,
-        procesamiento: lab.procesamiento || 'Interno',
+        procesamiento: lab.procesamiento || 'PetsLab',
         estado: 'Solicitado',
         fecha_solicitado: data.date || nowDate(),
       });
@@ -1376,7 +1376,7 @@ export default function PetDetailPage() {
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:'0.5rem' }}>
                       <div style={{ display:'flex', gap:'0.5rem', alignItems:'center', flexWrap:'wrap' }}>
                         <span style={{ fontWeight:700, fontSize:'0.875rem', color:'#2e7d50' }}>{p.tipo_examen}</span>
-                        <span style={{ background: p.procesamiento === 'Externo' ? '#e8f0ff' : '#d8f0e0', color: p.procesamiento === 'Externo' ? '#2e5cbf' : '#2e7d50', padding:'1px 7px', borderRadius:999, fontSize:'0.68rem', fontWeight:600 }}>
+                        <span style={{ background: ['Externo','Otro laboratorio'].includes(p.procesamiento) ? '#e8f0ff' : '#d8f0e0', color: ['Externo','Otro laboratorio'].includes(p.procesamiento) ? '#2e5cbf' : '#2e7d50', padding:'1px 7px', borderRadius:999, fontSize:'0.68rem', fontWeight:600 }}>
                           {p.procesamiento || 'Interno'}
                         </span>
                         <span style={{ background:estadoCfg.bg, color:estadoCfg.color, padding:'1px 8px', borderRadius:999, fontSize:'0.68rem', fontWeight:700 }}>

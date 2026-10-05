@@ -135,7 +135,7 @@ export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft
   const updMed    = (i,k,v) => set('medicamentos_aplicados', form.medicamentos_aplicados.map((m,idx)=>idx===i?{...m,[k]:v}:m));
 
   // Laboratorios
-  const addLab    = () => set('labs_pedidos', [...form.labs_pedidos, { tipo_examen: 'Hemograma', procesamiento: 'Interno' }]);
+  const addLab    = () => set('labs_pedidos', [...form.labs_pedidos, { tipo_examen: 'Hemograma', procesamiento: 'PetsLab' }]);
   const removeLab = (i) => set('labs_pedidos', form.labs_pedidos.filter((_,idx)=>idx!==i));
   const updLab    = (i,k,v) => set('labs_pedidos', form.labs_pedidos.map((l,idx)=>idx===i?{...l,[k]:v}:l));
 
@@ -502,8 +502,8 @@ export default function ConsultationModal({ isOpen, onClose, onSave, onSaveDraft
                     </td>
                     <td style={tdSt}>
                       <select value={l.procesamiento} onChange={e=>updLab(i,'procesamiento',e.target.value)} style={inl}>
-                        <option>Interno</option>
-                        <option>Externo</option>
+                        <option>PetsLab</option>
+                        <option>Otro laboratorio</option>
                       </select>
                     </td>
                     <td style={{ padding:'0.3rem', textAlign:'center' }}>

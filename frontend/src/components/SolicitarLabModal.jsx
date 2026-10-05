@@ -15,7 +15,7 @@ export default function SolicitarLabModal({ isOpen, onClose, onSave, pet, defaul
 
   const [tipo,          setTipo]         = useState('Hemograma');
   const [otroTipo,      setOtroTipo]     = useState('');
-  const [procesamiento, setProcesamiento] = useState('Interno');
+  const [procesamiento, setProcesamiento] = useState('PetsLab');
   const [sedeId,        setSedeId]        = useState(defaultSedeId || sedeActual || 1);
 
   // Re-sync sede when modal opens (hospitalization may load after component mount)
@@ -25,7 +25,7 @@ export default function SolicitarLabModal({ isOpen, onClose, onSave, pet, defaul
 
   if (!isOpen || !pet) return null;
 
-  const reset = () => { setTipo('Hemograma'); setOtroTipo(''); setProcesamiento('Interno'); setSedeId(defaultSedeId || sedeActual || 1); };
+  const reset = () => { setTipo('Hemograma'); setOtroTipo(''); setProcesamiento('PetsLab'); setSedeId(defaultSedeId || sedeActual || 1); };
   const handleClose = () => { reset(); onClose(); };
 
   const tipoFinal = tipo === 'Otro' ? (otroTipo.trim() || 'Otro') : tipo;
@@ -77,8 +77,8 @@ export default function SolicitarLabModal({ isOpen, onClose, onSave, pet, defaul
             <div>
               <label style={lSt}>Procesamiento</label>
               <select value={procesamiento} onChange={e=>setProcesamiento(e.target.value)} style={iSt}>
-                <option>Interno</option>
-                <option>Externo</option>
+                <option>PetsLab</option>
+                <option>Otro laboratorio</option>
               </select>
             </div>
             <div>
