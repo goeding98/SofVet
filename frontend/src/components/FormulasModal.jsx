@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useStore } from '../utils/useStore';
+import { supabase } from '../utils/supabaseClient';
 import { useAuth } from '../utils/useAuth';
 import { nowDate, nowTime } from '../utils/nowLocal';
 import { ageLabel } from '../utils/ageLabel';
@@ -147,11 +148,25 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
   const [createProds, setCreateProds] = useState([{ ...EMPTY_PROD }]);
   const [saving, setSaving] = useState(false);
 
+  // useStore carga las fórmulas una sola vez por pestaña. Si otro computador
+  // las edita después (p. ej. le agrega observaciones), esta pantalla seguía
+  // mostrando la versión vieja, y al darle "Editar" se guardaba encima y se
+  // perdían los cambios. Por eso al abrir se releen las de esta mascota.
+  const [frescas, setFrescas] = useState(null);
+  const cargarFrescas = useCallback(async () => {
+    if (!pet?.id) return;
+    const { data, error } = await supabase.from('formulas_medicas').select('*').eq('patient_id', pet.id);
+    if (!error && data) setFrescas(data);
+  }, [pet?.id]);
+  useEffect(() => {
+    if (isOpen) cargarFrescas();
+    else setFrescas(null);
+  }, [isOpen, cargarFrescas]);
+
   const petFormulas = useMemo(() =>
-    (formulas || [])
-      .filter(f => f.patient_id === pet?.id)
+    [...(frescas ?? (formulas || []).filter(f => f.patient_id === pet?.id))]
       .sort((a, b) => b.fecha?.localeCompare(a.fecha)),
-    [formulas, pet?.id]);
+    [frescas, formulas, pet?.id]);
 
   if (!isOpen || !pet) return null;
 
@@ -230,6 +245,7 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
       });
       if (!result) { setSaving(false); alert('❌ Error al guardar la fórmula. Intenta de nuevo.'); return; }
     }
+    await cargarFrescas();
     setSaving(false);
     setShowCreate(false);
     setEditingFormula(null);
@@ -367,7 +383,7 @@ export default function FormulasModal({ isOpen, onClose, pet, client, formulas }
                     </button>
                     {isAdmin && (
                       <button
-                        onClick={() => { if (confirm(`¿Eliminar esta fórmula del ${f.fecha || ''}?`)) removeFormula(f.id); }}
+                        onClick={async () => { if (confirm(`¿Eliminar esta fórmula del ${f.fecha || ''}?`)) { await removeFormula(f.id); cargarFrescas(); } }}
                         style={{ padding:'0.35rem 0.8rem', background:'rgba(220,38,38,0.25)', color:'#fff', border:'1px solid rgba(255,100,100,0.5)', borderRadius:'var(--radius-sm)', cursor:'pointer', fontFamily:'var(--font-body)', fontSize:'0.75rem', fontWeight:600, backdropFilter:'blur(4px)' }}
                       >
                         🗑️ Eliminar
