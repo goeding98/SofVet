@@ -1,6 +1,8 @@
 import PptxGenJS from 'pptxgenjs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const L = 'C:/Users/goedi/AppData/Local/Temp/claude/c--Users-goedi-OneDrive-Desktop-SofVet/2baa7cb7-4704-4bbe-abb8-126b526d66a2/scratchpad/logos';
+const L = path.join(path.dirname(fileURLToPath(import.meta.url)), 'assets', 'logos');
 const LOGO_W_TEAL = L + '/wordmark_teal.png';
 const LOGO_W_WHITE = L + '/wordmark_white.png';
 const LOGO_I_TEAL = L + '/icon_teal_trim.png';
@@ -19,7 +21,9 @@ const CW = W - M * 2;                // ancho de contenido
 const pptx = new PptxGenJS();
 pptx.layout = 'LAYOUT_WIDE';
 pptx.author = 'Pets & Pets';
-pptx.company = 'Pets & Pets';
+// pptxgenjs escribe company sin escapar: un "&" pelado deja docProps/app.xml
+// inválido y PowerPoint se niega a abrir el archivo.
+pptx.company = 'Pets &amp; Pets';
 pptx.title = 'Plan Prepagado Veterinario — Propuesta a Junta Directiva';
 
 let pageNo = 0;
@@ -75,8 +79,10 @@ function kpi(s, { x, y, w, h, label, value, sub, accent = C.blue, fill = C.cream
     fontSize: 26, bold: true, color: accent, fontFace: 'Calibri',
   });
   if (sub) {
+    // En tarjetas bajas el texto chico se montaba sobre el número grande.
+    const subY = Math.max(y + 0.94, y + h - 0.52);
     s.addText(sub, {
-      x: x + 0.25, y: y + h - 0.52, w: w - 0.45, h: 0.42,
+      x: x + 0.25, y: subY, w: w - 0.45, h: Math.min(0.42, y + h - subY - 0.04),
       fontSize: 10.5, color: C.ink, fontFace: 'Calibri', valign: 'top',
     });
   }
@@ -131,7 +137,7 @@ function divider(num, title, subtitle) {
     x: 0, y: 3.62, w: W, h: 0.4,
     fontSize: 17, color: C.well, align: 'center', fontFace: 'Calibri',
   });
-  s.addText('Cali, Colombia  ·  Septiembre 2026', {
+  s.addText('Cali, Colombia  ·  Octubre 2026 (actualizada)', {
     x: 0, y: H - 1.15, w: W, h: 0.3,
     fontSize: 12, color: C.well, align: 'center', fontFace: 'Calibri',
   });
@@ -419,7 +425,7 @@ divider('02', 'La operación', 'Cómo se gestiona el plan en el día a día de l
   const rows = [
     [th('Situación'), th('Cómo se resuelve')],
     [td('Afiliado en carencia\n(menos de 30 días)', { bold: true }), td('Las urgencias SÍ están cubiertas desde el día 1. Lo que no aplica todavía es el preventivo del Plan Total ni los descuentos en procedimientos programados: eso arranca el día 31.')],
-    [td('Bolsa anual agotada', { bold: true }), td('Se informa con empatía y se ofrecen dos opciones: pagar tarifa regular, o pagar y descontarlo del siguiente año de plan. Si el tutor no puede pagar, se escala a gerencia — nunca se deja al animal sin atención.')],
+    [td('Bolsa anual agotada', { bold: true }), td('Se informa con empatía: lo que pase del tope se cobra a tarifa regular por el resto del año, y la bolsa se restablece en la renovación. Si el tutor no puede pagar, se escala a gerencia — nunca se deja al animal sin atención.')],
     [td('El veterinario determina\nque no es urgencia', { bold: true }), td('Se documenta el motivo en la historia clínica. Si es Plan Total y le quedan consultas preventivas disponibles, puede cubrirse por esa vía. De lo contrario, tarifa regular.')],
     [td('Condición preexistente', { bold: true }), td('Si la causa ya estaba diagnosticada en la historia clínica antes de la afiliación, se cobra tarifa regular. Si es una condición nueva sin registro previo, se cubre normalmente.')],
     [td('Llega con una mascota\ndistinta a la afiliada', { bold: true }), td('Cada afiliación cubre una sola mascota registrada. Se atiende a tarifa regular y se ofrece afiliar a esa mascota con el descuento multimascota correspondiente.')],
@@ -440,9 +446,9 @@ divider('02', 'La operación', 'Cómo se gestiona el plan en el día a día de l
 {
   const s = content('Operación', 'Cómo se cobra: automatizado de punta a punta');
   const steps = [
-    { n: '1', t: 'El tutor paga', d: 'Desde el Portal del Cliente o con link enviado por caja. Pasarela Wompi (Bancolombia): tarjeta, Nequi, PSE, DaviPlata o QR.' },
-    { n: '2', t: 'Wompi confirma', d: 'La pasarela notifica automáticamente a SofVet vía webhook, con verificación criptográfica de la firma del evento.' },
-    { n: '3', t: 'SofVet actualiza', d: 'Se extiende la fecha de vencimiento del afiliado y se registra el pago. Sin intervención manual de nadie.' },
+    { n: '1', t: 'El tutor paga', d: 'Con tarjeta automática, con link de caja o desde su portal. Tarjeta, Nequi, PSE o QR.' },
+    { n: '2', t: 'Wompi confirma', d: 'La pasarela le avisa sola a SofVet, con la firma del evento verificada.' },
+    { n: '3', t: 'SofVet actualiza', d: 'Se extiende el vencimiento, se registra el pago y se emite la factura en Siigo. Sin intervención manual de nadie.' },
     { n: '4', t: 'Estado automático', d: 'Si no paga: 6 días de gracia → suspendido → cancelado al día 30. El sistema lo hace solo, sin depender de revisión manual.' },
   ];
   const bw = (CW - 0.3 * 3) / 4;
@@ -480,11 +486,11 @@ divider('02', 'La operación', 'Cómo se gestiona el plan en el día a día de l
     x: M, y: 4.6, w: CW, h: 1.35, rectRadius: 0.08,
     fill: { color: C.cream }, line: { color: C.green, width: 1 },
   });
-  s.addText('✓  YA PROBADO EN AMBIENTE REAL', {
+  s.addText('✓  EN PRODUCCIÓN DESDE OCTUBRE DE 2026', {
     x: M + 0.35, y: 4.78, w: CW - 0.7, h: 0.3,
     fontSize: 11, bold: true, color: C.green, charSpacing: 1.5, fontFace: 'Calibri',
   });
-  s.addText('La integración con Wompi está construida y validada de punta a punta en ambiente de pruebas: se ejecutó un pago real con Nequi y el sistema actualizó solo la fecha de vencimiento del afiliado, sin intervención humana. Solo falta la aprobación del comercio por parte de Wompi para operar con dinero real.', {
+  s.addText('Ya se cobra con dinero real: tarjeta, Nequi y transferencia activan el plan solos y la factura electrónica le llega al tutor por correo. Desde noviembre, la tarjeta registrada se cobra sola cada mes y los rechazos se reintentan al día siguiente.', {
     x: M + 0.35, y: 5.1, w: CW - 0.7, h: 0.75,
     fontSize: 12.5, color: C.ink, fontFace: 'Calibri', lineSpacing: 18, valign: 'top',
   });
@@ -495,14 +501,14 @@ divider('02', 'La operación', 'Cómo se gestiona el plan en el día a día de l
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = content('Operación', 'Cómo paga el cliente');
-  s.addText('El tutor entra a su portal, ve el estado de su plan y paga sin depender de que nadie lo llame. También puede pagar por adelantado con descuento.', {
+  s.addText('El tutor paga sin depender de que nadie lo llame. Si deja la tarjeta en cobro automático, paga 10% menos todos los meses y no tenemos que perseguir el cobro.', {
     x: M, y: 1.5, w: CW, h: 0.45, fontSize: 14, color: C.ink, fontFace: 'Calibri',
   });
 
   const opts = [
-    { t: '1 mes', p: '$70.000', d: 'Sin descuento', accent: C.muted, fill: C.white },
-    { t: '3 meses', p: '$199.500', d: '5% de descuento', accent: C.blue, fill: C.cream },
-    { t: '6 meses', p: '$357.000', d: '15% de descuento', accent: C.green, fill: C.cream },
+    { t: 'Mes a mes', p: '$70.000', d: 'Link de pago o caja', accent: C.muted, fill: C.white },
+    { t: 'Con tarjeta', p: '$63.000', d: '10% menos cada mes', accent: C.blue, fill: C.cream },
+    { t: '2ª mascota + tarjeta', p: '$59.850', d: '5% + 10%', accent: C.green, fill: C.cream },
   ];
   const ow = 2.85;
   const startX = (W - (ow * 3 + 0.4 * 2)) / 2;
@@ -522,14 +528,14 @@ divider('02', 'La operación', 'Cómo se gestiona el plan en el día a día de l
       x, y: 3.5, w: ow, h: 0.35, fontSize: 12.5, color: C.ink, align: 'center', fontFace: 'Calibri',
     });
   });
-  s.addText('Valores mostrados sobre el Plan Total de 1ª mascota', {
+  s.addText('Valores mensuales del Plan Total, antes de IVA', {
     x: 0, y: 4.18, w: W, h: 0.3, fontSize: 10.5, color: C.muted, align: 'center', italic: true, fontFace: 'Calibri',
   });
 
   const canales = [
-    { t: 'Portal del Cliente', d: 'El tutor entra con su cédula, ve si está al día o en mora, y paga en dos clics. Es el canal principal.' },
-    { t: 'Caja / venta en clínica', d: 'Para la primera venta o quien prefiere atención personal: el cajero afilia y genera el link de pago en el momento.' },
-    { t: 'Efectivo o transferencia', d: 'Vía de excepción: caja registra el pago manualmente y el sistema extiende la cobertura igual.' },
+    { t: 'Tarjeta automática', d: 'El tutor registra la tarjeta en su celular con un enlace (nunca la vemos) y se le cobra sola cada mes. Es el canal principal.' },
+    { t: 'Link o Portal del Cliente', d: 'Paga mes a mes con el link que le manda caja o desde su portal, con tarjeta, Nequi, PSE o QR.' },
+    { t: 'Efectivo o transferencia', d: 'Vía de excepción: caja marca el pago y emite la factura indicando el medio (puede combinar varios).' },
   ];
   const cw2 = (CW - 0.3 * 2) / 3;
   canales.forEach((c, i) => {
@@ -553,7 +559,7 @@ divider('02', 'La operación', 'Cómo se gestiona el plan en el día a día de l
     'Cambia el estado del afiliado por vencimiento (gracia, suspensión, cancelación)',
     'Descuenta el consumo de la bolsa anual al registrar cada evento',
     'Reinicia la bolsa y los beneficios al cambiar el año',
-    'Registra el pago y extiende la cobertura cuando Wompi confirma',
+    'Cobra la tarjeta cada mes, extiende la cobertura y factura en Siigo',
   ].map(t => ({ text: t, options: { bullet: { code: '2713' }, fontSize: 11.5, color: C.ink, breakLine: true } })), {
     x: M + 0.3, y: 2.12, w: cw - 0.6, h: 1.35, fontFace: 'Calibri', lineSpacing: 16, valign: 'top',
   });
@@ -740,7 +746,6 @@ divider('03', 'Los números', 'Supuestos, unit economics y proyección a 12 mese
     [td('Copago en urgencias', { bold: true }), td('20%', { align: 'center', color: C.red }), td('15%', { align: 'center', color: C.green, bold: true })],
     [td('Consultas preventivas / año', { bold: true }), td('12', ok), td('1', no)],
     [td('Panel de laboratorio anual', { bold: true }), td('Incluido', ok), td('No incluido', no)],
-    [td('Microchip', { bold: true }), td('Incluido', ok), td('No incluido', no)],
     [td('Cirugías programadas', { bold: true }), td('60% de descuento', ok), td('No cubre', no)],
     [td('Red de atención', { bold: true }), td('Propia, 24/7 en Cali', ok), td('Clínicas aliadas', no)],
     [td('Descuento multimascota', { bold: true }), td('5% la 2ª · 10% de la 3ª', { align: 'center' }), td('Sin dato verificado', { align: 'center' })],
@@ -765,29 +770,29 @@ divider('04', 'Implementación', 'Qué está listo, qué falta y cómo salimos a
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = content('Implementación', 'Qué ya está construido');
-  s.addText('El módulo tecnológico no es un proyecto por hacer: ya está desarrollado, probado y funcionando en ambiente de pruebas.', {
+  s.addText('El módulo tecnológico no es un proyecto por hacer: ya está construido y operando en producción.', {
     x: M, y: 1.5, w: CW, h: 0.4, fontSize: 14, color: C.ink, fontFace: 'Calibri',
   });
 
   const listo = [
     'Módulo de afiliados en SofVet: alta, planes, precios y descuento multimascota automático',
-    'Control de bolsa anual y registro de eventos de urgencia con cálculo de copago',
-    'Checklist de beneficios preventivos del Plan Total, con topes por año',
+    'Bolsa anual y registro de consumos con factura automática en Siigo',
+    'Beneficios preventivos del Plan Total con topes por año',
     'Cambio de estado automático por vencimiento: gracia, suspensión y cancelación',
-    'Pasarela Wompi integrada y validada con un pago real en ambiente de pruebas',
-    'Portal del Cliente: el tutor consulta su estado y paga 1, 3 o 6 meses',
-    'Flujo de venta en clínica, incluyendo alta de tutor y mascota nuevos',
+    'Wompi en producción: link de pago y cobro mensual con tarjeta (−10%)',
+    'Portal del Cliente: estado del plan, pago del mes y pago automático',
+    'Venta en clínica, con alta de tutor y mascota nuevos',
   ];
   const pend = [
-    'Aprobación del comercio por parte de Wompi (en revisión, trámite externo)',
-    'Revisión legal del contrato y términos y condiciones (borrador ya redactado)',
+    'Revisión legal de los términos y condiciones (ya publicados en petspets.co)',
+    'Capacitación del equipo de caja con la guía impresa (ya lista)',
     'WhatsApp Business API para recordatorios automáticos de cobro',
     'Habilitación del módulo para el personal de caja y definición de permisos',
   ];
 
   const cw = (CW - 0.4) / 2;
   s.addShape(pptx.ShapeType.roundRect, { x: M, y: 2.05, w: cw, h: 3.75, rectRadius: 0.08, fill: { color: C.white }, line: { color: C.green, width: 1.25 } });
-  s.addText('LISTO Y PROBADO', { x: M + 0.3, y: 2.22, w: cw - 0.6, h: 0.3, fontSize: 11.5, bold: true, color: C.green, charSpacing: 1.5, fontFace: 'Calibri' });
+  s.addText('LISTO Y EN PRODUCCIÓN', { x: M + 0.3, y: 2.22, w: cw - 0.6, h: 0.3, fontSize: 11.5, bold: true, color: C.green, charSpacing: 1.5, fontFace: 'Calibri' });
   s.addText(listo.map(t => ({ text: t, options: { bullet: { code: '2713' }, fontSize: 12, color: C.ink, breakLine: true } })), {
     x: M + 0.3, y: 2.6, w: cw - 0.6, h: 3.0, fontFace: 'Calibri', lineSpacing: 17, valign: 'top',
   });
@@ -828,9 +833,9 @@ divider('04', 'Implementación', 'Qué está listo, qué falta y cómo salimos a
 {
   const s = content('Plan de acción', 'Roadmap de lanzamiento');
   const fases = [
-    { t: 'Fase 1 · Habilitación', p: 'Semanas 1–2', d: 'Aprobación de Wompi y paso a producción. Revisión legal del contrato. Apertura del módulo al equipo de caja.', color: C.blue },
+    { t: 'Fase 1 · Habilitación', p: 'Semanas 1–2', d: 'Capacitación de caja con la guía impresa. Revisión legal de los términos publicados. Apertura del módulo al equipo.', color: C.blue },
     { t: 'Fase 2 · Piloto', p: 'Semanas 3–6', d: 'Venta solo en sede Colseguros. Migración de los 23 afiliados actuales. Meta: 50 afiliados y ajuste del guion de venta.', color: C.brown },
-    { t: 'Fase 3 · Escala', p: 'Meses 2–4', d: 'Apertura a las tres sedes y campaña digital. Automatización de recordatorios por WhatsApp. Meta: superar el break-even de 156.', color: C.well },
+    { t: 'Fase 3 · Escala', p: 'Meses 2–4', d: 'Apertura a las tres sedes y campaña digital. Automatización de recordatorios por WhatsApp. Meta: superar el break-even de 164.', color: C.well },
     { t: 'Fase 4 · Optimización', p: 'Meses 5–12', d: 'Revisión de loss ratio real contra el modelo, ajuste de primas si aplica, y evaluación de nuevos beneficios.', color: C.green },
   ];
   const bw = (CW - 0.3 * 3) / 4;
