@@ -91,7 +91,8 @@ export default function PrepagadaV2DetallePage() {
 
   const { items: afiliados, edit: editAfiliado, refresh: refrescarAfiliados } = useStore('prepagadaAfiliados');
   const { items: beneficios, add: addBeneficios, edit: editBeneficios } = useStore('prepagadaBeneficios');
-  const { items: eventos, add: addEvento } = useStore('prepagadaEventos');
+  const { items: eventos, add: addEvento, edit: editEvento } = useStore('prepagadaEventos');
+  const esAdmin = session?.rol === 'Administrador';
   const { items: clients } = useStore('clients');
   const { items: patients } = useStore('patients');
 
@@ -445,6 +446,42 @@ export default function PrepagadaV2DetallePage() {
   const addItem = () => setEvItems(arr => [...arr, { ...ITEM_VACIO }]);
   const delItem = (i) => setEvItems(arr => arr.length === 1 ? [{ ...ITEM_VACIO }] : arr.filter((_, idx) => idx !== i));
 
+  // Un servicio que se facturó pero no se hizo (p. ej. se pidió Rx y eco y al
+  // final no hizo falta la Rx). Contabilidad hace la nota crédito en Siigo;
+  // acá el consumo se marca anulado —no se borra, queda quién y por qué— y lo
+  // que había salido de la bolsa vuelve a ella.
+  const handleAnularConsumo = async (ev) => {
+    if (!esAdmin || ev.anulado) return;
+    const motivo = window.prompt(
+      `Anular "${ev.tipo_evento || 'consumo'}" del ${ev.fecha} (${fmtCOP(ev.costo_total)}).\n\n`
+      + `Se le devuelven ${fmtCOP(ev.cubierto_pp)} a la bolsa.\n\n¿Por qué se anula?`
+    );
+    if (motivo === null) return;
+    if (!motivo.trim()) { alert('Hay que escribir el motivo para poder anular.'); return; }
+    const notaCredito = window.prompt(
+      'Número de la nota crédito en Siigo (si ya la hizo contabilidad). Si todavía no, déjalo vacío.',
+      ''
+    );
+    if (notaCredito === null) return;
+
+    const ok = await editEvento(ev.id, {
+      anulado: true,
+      anulado_por: session?.nombre || session?.username || null,
+      anulado_fecha: new Date().toISOString(),
+      anulado_motivo: motivo.trim(),
+      nota_credito: notaCredito.trim() || null,
+    });
+    if (!ok) { alert('No se pudo anular el consumo. No se tocó la bolsa. Intenta de nuevo o avisa a gerencia.'); return; }
+
+    // Solo se devuelve si el consumo es de la bolsa vigente; uno de un año
+    // anterior ya salió de una bolsa que se reinició.
+    if (String(ev.fecha || '').slice(0, 4) === String(afiliado.bolsa_anio)) {
+      await editAfiliado(afiliadoId, {
+        bolsa_consumida_anual: Math.max(0, afiliado.bolsa_consumida_anual - (Number(ev.cubierto_pp) || 0)),
+      });
+    }
+  };
+
   const handleRegistrarEvento = async () => {
     if (!puedeGuardar) return;
     setSavingEvento(true);
@@ -754,7 +791,7 @@ export default function PrepagadaV2DetallePage() {
       <div style={{ background: 'white', border: '1px solid #e2e6ef', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
           <div>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#5c6470', textTransform: 'uppercase' }}>Consumos de la bolsa ({eventosAfiliado.length})</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#5c6470', textTransform: 'uppercase' }}>Consumos de la bolsa ({eventosAfiliado.filter(e => !e.anulado).length})</span>
             <div style={{ fontSize: '0.75rem', color: '#8A8076', marginTop: '0.15rem' }}>Urgencias y también servicios programados con descuento</div>
           </div>
           <button onClick={() => { setPagosEdit(null); setConsumoErr(''); setEventoModal(true); }} style={{ padding: '0.5rem 1rem', background: '#316d74', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ Registrar consumo</button>
@@ -764,9 +801,9 @@ export default function PrepagadaV2DetallePage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
             {eventosAfiliado.map(e => (
-              <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0.8rem', background: '#f7f9fc', borderRadius: 10, fontSize: '0.85rem' }}>
+              <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.6rem', padding: '0.6rem 0.8rem', background: e.anulado ? '#f2f2f2' : '#f7f9fc', borderRadius: 10, fontSize: '0.85rem', opacity: e.anulado ? 0.75 : 1 }}>
                 <div>
-                  <div style={{ fontWeight: 700 }}>
+                  <div style={{ fontWeight: 700, textDecoration: e.anulado ? 'line-through' : 'none' }}>
                     <span style={{ fontSize: '0.68rem', fontWeight: 800, padding: '1px 7px', borderRadius: 999, marginRight: '0.4rem', background: e.clase === 'programado' ? '#eef6f6' : '#fdecea', color: e.clase === 'programado' ? '#1e4e54' : '#c0392b' }}>
                       {e.clase === 'programado' ? 'PROGRAMADO' : 'URGENCIA'}
                     </span>
@@ -785,10 +822,23 @@ export default function PrepagadaV2DetallePage() {
                       </>
                     )}
                   </div>
+                  {e.anulado && (
+                    <div style={{ color: '#c0392b', fontSize: '0.75rem', fontWeight: 600, marginTop: '0.2rem' }}>
+                      ANULADO por {e.anulado_por || '—'}{e.anulado_fecha ? ` el ${String(e.anulado_fecha).slice(0, 10)}` : ''} · {e.anulado_motivo}
+                      {' · '}{e.nota_credito ? `Nota crédito ${e.nota_credito}` : 'Nota crédito pendiente'}
+                    </div>
+                  )}
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div>Total: {fmtCOP(e.costo_total)}</div>
-                  <div style={{ color: '#8A8076', fontSize: '0.78rem' }}>Tutor {fmtCOP(e.copago)} · Bolsa {fmtCOP(e.cubierto_pp)}</div>
+                <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
+                  <div style={{ textDecoration: e.anulado ? 'line-through' : 'none' }}>Total: {fmtCOP(e.costo_total)}</div>
+                  <div style={{ color: '#8A8076', fontSize: '0.78rem', textDecoration: e.anulado ? 'line-through' : 'none' }}>Tutor {fmtCOP(e.copago)} · Bolsa {fmtCOP(e.cubierto_pp)}</div>
+                  {esAdmin && !e.anulado && (
+                    <button
+                      onClick={() => handleAnularConsumo(e)}
+                      title="El servicio se facturó pero no se hizo: lo anula y devuelve a la bolsa lo que P&P había cubierto"
+                      style={{ padding: '0.15rem 0.55rem', background: 'white', color: '#c0392b', border: '1px solid #e8b4ad', borderRadius: 6, fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}
+                    >Anular</button>
+                  )}
                 </div>
               </div>
             ))}
