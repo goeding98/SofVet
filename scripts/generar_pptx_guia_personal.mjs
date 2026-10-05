@@ -362,8 +362,8 @@ function fichaHeader(s, x, y, o) {
 {
   const s = content('Paso 0', 'Cómo entrar al módulo');
 
-  screenFrame(s, M, 1.6, 7.4, 3.1, 'sofvetpp.netlify.app/prueba/prepagada');
-  card(s, M + 0.25, 2.05, 6.9, 2.5);
+  screenFrame(s, M, 1.6, 7.4, 3.35, 'sofvetpp.netlify.app/prueba/prepagada');
+  card(s, M + 0.25, 2.05, 6.9, 2.75);
   s.addText('💳 Prepagada', { x: M + 0.45, y: 2.2, w: 3, h: 0.32, fontSize: 15, bold: true, color: C.ink, fontFace: 'Calibri' });
   s.addText('23 afiliados · 14 activos · 5 en gracia · 4 suspendidos', {
     x: M + 0.45, y: 2.52, w: 4.5, h: 0.26, fontSize: 9.5, color: C.muted, fontFace: 'Calibri',
@@ -383,18 +383,18 @@ function fichaHeader(s, x, y, o) {
       s.addText(v, { x: M + 0.55 + i * 1.08, y: ry, w: 1.05, h: 0.28, fontSize: 7.5, color: C.ink, valign: 'middle', fontFace: 'Calibri' });
     });
   });
-  marca(s, 1, M + 6.75, 2.16);
+  marca(s, 1, M + 2.1, 2.2);
   marca(s, 2, M + 3.6, 2.9);
   marca(s, 3, M + 6.45, 3.78);
 
   const px = M + 8.0, pw = CW - 8.0;
   pasos(s, px, 1.75, pw, [
-    { t: 'Entra por el link directo', d: 'sofvetpp.netlify.app/prueba/prepagada\nGuárdalo en favoritos. Por ahora no aparece en el menú lateral.', h: 0.65 },
+    { t: 'Menú lateral → "💳 Med. Prepagada"', d: 'En la parte de abajo del menú. NO uses "Prepagada (antiguo)": es el módulo viejo.', h: 0.65 },
     { t: 'Busca al afiliado', d: 'Por nombre de la mascota, nombre del tutor o cédula. Lo más seguro: la cédula.' },
     { t: 'Haz clic en la fila', d: 'Abre la ficha del afiliado. Ahí está TODO: cobros, factura, bolsa, beneficios y consumos.', h: 0.65 },
   ], { gap: 0.18 });
 
-  nota(s, M, 5.0, 7.4, 1.0, 'Si no te carga', 'Recarga con Ctrl + Shift + R. Si sigue sin cargar, avisa a gerencia antes de decirle al tutor que no tiene plan.', C.blue, 'EEF4FF');
+  nota(s, M, 5.2, 7.4, 1.0, 'Si no te carga', 'Recarga con Ctrl + Shift + R. Si sigue sin cargar, avisa a gerencia antes de decirle al tutor que no tiene plan.', C.blue, 'EEF4FF');
 }
 
 // ═══════════════════════════════════ PASO 1 — AFILIAR (CLIENTE EXISTENTE)
