@@ -647,6 +647,8 @@ return `<!DOCTYPE html>
     <div class="row"><span>Visitas por cliente</span><b id="sProm">–</b></div>
   </div>
 
+  <div class="nota"><b>Círculos punteados:</b> 2,8 km alrededor de cada sede, en línea recta. En los últimos 3 meses, la mitad de los clientes de cada sede vive dentro de ese radio.</div>
+
   <div class="nota">
     Cada punto es la dirección de un cliente, no la clínica. Una visita es un
     cliente en una sede en un día, así que la consulta y la cita del mismo día
@@ -685,9 +687,17 @@ L.tileLayer(ESRI + 'World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
   maxZoom: 16, opacity: .8,
 }).addTo(map);
 
+// Radio de referencia alrededor de cada sede: en los últimos 3 meses la mitad
+// de los clientes de cada sede vive a menos de ~2,8 km (en línea recta).
+const RADIO_REF_M = 2800;
+
 // Marcadores de las sedes físicas (Domicilio no tiene dirección fija).
 for (const [id, s] of Object.entries(SEDES)) {
   if (s.lat == null) continue;
+  L.circle([s.lat, s.lng], {
+    radius: RADIO_REF_M, color: s.color, weight: 2, dashArray: '6 6',
+    fillColor: s.color, fillOpacity: 0.06, interactive: false,
+  }).addTo(map);
   L.marker([s.lat, s.lng], {
     icon: L.divIcon({ className: '', iconSize: [26, 26], iconAnchor: [13, 13], html:
       '<div style="width:26px;height:26px;border-radius:50%;background:' + s.color +
