@@ -20,7 +20,9 @@ const serviciosItems = [
 ];
 
 const otrosItems = [
-  { path: '/prepagada', label: 'Med. Prepagada', icon: '💳'  },
+  { path: '/prueba/prepagada', label: 'Med. Prepagada', icon: '💳'  },
+  // El módulo viejo se deja visible un tiempo mientras se migra; no borrar aún.
+  { path: '/prepagada',        label: 'Prepagada (antiguo)', icon: '🗂️' },
   { path: '/documents', label: 'Documentos',     icon: '📄'  },
 ];
 
