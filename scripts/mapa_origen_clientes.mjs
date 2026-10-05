@@ -625,6 +625,14 @@ return `<!DOCTYPE html>
   </div>
 
   <div class="grupo">
+    <div class="lbl">Contar por (mapa de calor)</div>
+    <div class="chips" id="fCuenta">
+      <div class="chip on" data-c="cli">Clientes</div>
+      <div class="chip" data-c="vis">Visitas</div>
+    </div>
+  </div>
+
+  <div class="grupo">
     <div class="lbl">Precisión de la ubicación</div>
     <div class="chips" id="fPrec">
       <div class="chip" data-p="2">Toda</div>
@@ -659,6 +667,7 @@ return `<!DOCTYPE html>
 <script>
 const PTS   = ${JSON.stringify(pts)};
 const SEDES = ${JSON.stringify(meta.sedes)};
+let fCuenta = 'cli';   // 'cli': cada cliente vale 1 aunque haya venido 20 veces
 let fSede = 'all', fWin = 0, fVista = 'heat', fPrec = 1;   // arranca sin los aproximados, que apilan clientes en un punto
 
 const map = L.map('map', { zoomControl: true }).setView([3.42, -76.53], 12);
@@ -731,9 +740,12 @@ function render() {
   if (!vis.length) return;
 
   if (fVista === 'heat') {
-    // El peso se satura a 10 visitas: sin tope, un cliente con 60 visitas
+    // Por clientes, cada persona pesa 0,2: hacen falta unas 5 juntas para que
+    // la zona se ponga roja, y un cliente que vino 20 veces cuenta como uno.
+    // Por visitas el peso se satura a 10: sin tope, un cliente con 60 visitas
     // aplasta la escala y el resto del mapa queda en frío.
-    capa = L.heatLayer(vis.map(x => [x[0][0], x[0][1], Math.min(x[1], 10) / 10]), {
+    const w = n => fCuenta === 'cli' ? 0.2 : Math.min(n, 10) / 10;
+    capa = L.heatLayer(vis.map(x => [x[0][0], x[0][1], w(x[1])]), {
       radius: 26, blur: 20, maxZoom: 15, minOpacity: .25,
       gradient: { .2: '#1e3a8a', .4: '#0891b2', .6: '#facc15', .8: '#f97316', 1: '#dc2626' },
     }).addTo(map);
@@ -776,6 +788,7 @@ grupo(cSede, 's', v => fSede = v);
 grupo(document.getElementById('fPeriodo'), 'w', v => fWin = +v);
 grupo(document.getElementById('fVista'),   'v', v => fVista = v);
 grupo(document.getElementById('fPrec'),    'p', v => fPrec = +v);
+grupo(document.getElementById('fCuenta'),  'c', v => fCuenta = v);
 
 render();
 <\/script>
