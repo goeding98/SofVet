@@ -437,30 +437,30 @@ for (const [k, g] of homonimos) {
 const FUENTES = [
   {
     label: 'consultas',
-    q: `consultations?select=patient_id,date,sede_id&date=gte.${DESDE_ISO}`,
-    map: r => [patientToClient.get(r.patient_id), r.sede_id, r.date],
+    q: `consultations?select=patient_id,date,time,sede_id&date=gte.${DESDE_ISO}`,
+    map: r => [patientToClient.get(r.patient_id), r.sede_id, r.date, r.time],
   },
   {
     label: 'hospitalizaciones',
-    q: `hospitalization?select=client_id,patient_id,ingreso_date,sede_id&ingreso_date=gte.${DESDE_ISO}`,
-    map: r => [r.client_id || patientToClient.get(r.patient_id), r.sede_id, r.ingreso_date],
+    q: `hospitalization?select=client_id,patient_id,ingreso_date,ingreso_time,sede_id&ingreso_date=gte.${DESDE_ISO}`,
+    map: r => [r.client_id || patientToClient.get(r.patient_id), r.sede_id, r.ingreso_date, r.ingreso_time],
   },
   {
     label: 'procedimientos',
-    q: `procedimientos?select=patient_id,fecha,sede_id&fecha=gte.${DESDE_ISO}`,
-    map: r => [patientToClient.get(r.patient_id), r.sede_id, r.fecha],
+    q: `procedimientos?select=patient_id,fecha,hora_creacion,sede_id&fecha=gte.${DESDE_ISO}`,
+    map: r => [patientToClient.get(r.patient_id), r.sede_id, r.fecha, r.hora_creacion],
   },
   {
     label: 'peluquería',
-    q: `grooming?select=client_id,patient_id,owner,date,sede_id,status&date=gte.${DESDE_ISO}`,
+    q: `grooming?select=client_id,patient_id,owner,date,time,sede_id,status&date=gte.${DESDE_ISO}`,
     map: r => /cancel/i.test(r.status || '') ? null
-      : [r.client_id || patientToClient.get(r.patient_id) || porNombre.get(nombreNorm(r.owner)), r.sede_id, r.date],
+      : [r.client_id || patientToClient.get(r.patient_id) || porNombre.get(nombreNorm(r.owner)), r.sede_id, r.date, r.time],
   },
   {
     label: 'citas',
-    q: `appointments?select=client_id,patient_id,owner,date,sede_id,status&date=gte.${DESDE_ISO}`,
+    q: `appointments?select=client_id,patient_id,owner,date,time,sede_id,status&date=gte.${DESDE_ISO}`,
     map: r => /cancel/i.test(r.status || '') ? null
-      : [r.client_id || patientToClient.get(r.patient_id) || porNombre.get(nombreNorm(r.owner)), r.sede_id, r.date],
+      : [r.client_id || patientToClient.get(r.patient_id) || porNombre.get(nombreNorm(r.owner)), r.sede_id, r.date, r.time],
   },
 ];
 // `vaccines` queda fuera a propósito: date, date_applied y next_date están en
@@ -469,21 +469,37 @@ const FUENTES = [
 // Una "visita" es un cliente en una sede en un día. La cita, la consulta y el
 // procedimiento del mismo día son la misma ida a la clínica: se deduplican en
 // vez de contarse tres veces.
-// counts.get(clientId)[sede] = [n12m, n6m, n3m]
+// Franja horaria de la hora registrada en SofVet: 1 = 8 am–8 pm, 2 = 8 pm–8 am,
+// 0 = sin hora (cuenta solo en "cualquier momento").
+function franja(hora) {
+  const m = /^(d{1,2}):/.exec(hora || '');
+  if (!m) return 0;
+  const h = +m[1];
+  return h >= 8 && h < 20 ? 1 : 2;
+}
+
+// counts.get(clientId)[sede] = 9 contadores, índice ventana*3 + franja
+// (ventana 0 = toda la historia, 1 = 6m, 2 = 3m; franja 0 = cualquier hora,
+// 1 = día, 2 = noche). Un mismo día puede tener visita de día y de noche
+// (consulta a las 10 am e ingreso a hospitalización a las 11 pm): cuenta una
+// vez en "cualquier momento" y una vez en cada franja.
 const counts = new Map();
 const vistos = new Set();
-function registrar(clientId, sede, fecha) {
+function sumar(porSede, sede, w, f) {
+  for (let v = 0; v <= w; v++) porSede[sede][v * 3 + f]++;
+}
+function registrar(clientId, sede, fecha, hora) {
   const w = ventana(fecha);
   if (w < 0 || !clientId || !SEDE_INFO[sede]) return false;
   const k = `${clientId}|${sede}|${String(fecha).slice(0, 10)}`;
-  if (vistos.has(k)) return false;
-  vistos.add(k);
   let porSede = counts.get(clientId);
   if (!porSede) { porSede = {}; counts.set(clientId, porSede); }
-  if (!porSede[sede]) porSede[sede] = [0, 0, 0];
-  porSede[sede][0]++;                  // toda visita válida cuenta en el año
-  if (w >= 1) porSede[sede][1]++;
-  if (w >= 2) porSede[sede][2]++;
+  if (!porSede[sede]) porSede[sede] = Array(9).fill(0);
+  const f = franja(hora);
+  if (f && !vistos.has(k + '|' + f)) { vistos.add(k + '|' + f); sumar(porSede, sede, w, f); }
+  if (vistos.has(k)) return false;
+  vistos.add(k);
+  sumar(porSede, sede, w, 0);
   return true;
 }
 
@@ -494,10 +510,10 @@ for (const { label, q, map } of FUENTES) {
   for (const r of rows) {
     const m = map(r);
     if (!m) continue;                                  // cancelada
-    const [cid, sede, fecha] = m;
+    const [cid, sede, fecha, hora] = m;
     if (ventana(fecha) < 0) continue;                  // fuera de ventana o a futuro
     if (!cid || !sede) { desc++; continue; }           // no se pudo ubicar
-    if (registrar(cid, sede, fecha)) ok++; else rep++; // rep = mismo cliente/sede/día
+    if (registrar(cid, sede, fecha, hora)) ok++; else rep++; // rep = mismo cliente/sede/día
   }
   totalVisitas += ok;
   descartados  += desc;
@@ -617,6 +633,15 @@ return `<!DOCTYPE html>
   </div>
 
   <div class="grupo">
+    <div class="lbl">Horario de la visita</div>
+    <div class="chips" id="fHora">
+      <div class="chip on" data-h="0">Cualquier momento</div>
+      <div class="chip" data-h="1">8 am – 8 pm</div>
+      <div class="chip" data-h="2">8 pm – 8 am</div>
+    </div>
+  </div>
+
+  <div class="grupo">
     <div class="lbl">Vista</div>
     <div class="chips" id="fVista">
       <div class="chip on" data-v="heat">Mapa de calor</div>
@@ -662,7 +687,10 @@ return `<!DOCTYPE html>
     punto caliente donde en realidad hay gente repartida. Si el foco aguanta en
     "Casa y cuadra", es real.<br><br>
     <b>"Toda la historia" arranca en marzo de 2026</b>, que es desde cuando SofVet
-    guarda en qué sede se atendió a cada paciente. Lo anterior no está en el mapa.
+    guarda en qué sede se atendió a cada paciente. Lo anterior no está en el mapa.<br><br>
+    <b>Horario:</b> es la hora que quedó registrada en SofVet (consulta, ingreso a
+    hospitalización, procedimiento, cita o peluquería), no necesariamente la hora exacta
+    de llegada. Un mismo día puede contar de día y de noche si el paciente volvió.
   </div>
 </div>
 
@@ -670,6 +698,7 @@ return `<!DOCTYPE html>
 const PTS   = ${JSON.stringify(pts)};
 const SEDES = ${JSON.stringify(meta.sedes)};
 let fCuenta = 'cli';   // 'cli': cada cliente vale 1 aunque haya venido 20 veces
+let fHora = 0;     // 0 cualquier momento, 1 de 8 am a 8 pm, 2 de 8 pm a 8 am
 let fSede = 'all', fWin = 0, fVista = 'heat', fPrec = 1;   // arranca sin los aproximados, que apilan clientes en un punto
 
 const map = L.map('map', { zoomControl: true }).setView([3.42, -76.53], 12);
@@ -711,12 +740,13 @@ for (const [id, s] of Object.entries(SEDES)) {
 let capa = null;
 
 // Visitas de un punto según los filtros activos: suma las sedes seleccionadas
-// dentro de la ventana de tiempo elegida.
+// dentro de la ventana de tiempo y la franja horaria elegidas.
+const idx = () => fWin * 3 + fHora;
 function peso(p) {
   const porSede = p[3];
   let n = 0;
-  if (fSede === 'all') { for (const k in porSede) n += porSede[k][fWin]; }
-  else if (porSede[fSede]) n = porSede[fSede][fWin];
+  if (fSede === 'all') { for (const k in porSede) n += porSede[k][idx()]; }
+  else if (porSede[fSede]) n = porSede[fSede][idx()];
   return n;
 }
 
@@ -724,7 +754,7 @@ function peso(p) {
 function colorDe(p) {
   if (fSede !== 'all') return SEDES[fSede].color;
   let best = null, max = 0;
-  for (const k in p[3]) if (p[3][k][fWin] > max) { max = p[3][k][fWin]; best = k; }
+  for (const k in p[3]) if (p[3][k][idx()] > max) { max = p[3][k][idx()]; best = k; }
   return best ? SEDES[best].color : '#888';
 }
 
@@ -763,9 +793,9 @@ function render() {
     capa = L.layerGroup(vis.map(x => {
       const p = x[0], n = x[1], col = colorDe(p);
       const sedesTxt = Object.entries(p[3])
-        .filter(e => e[1][fWin] > 0)
-        .sort((a, b) => b[1][fWin] - a[1][fWin])
-        .map(e => SEDES[e[0]].nombre + ': ' + e[1][fWin])
+        .filter(e => e[1][idx()] > 0)
+        .sort((a, b) => b[1][idx()] - a[1][idx()])
+        .map(e => SEDES[e[0]].nombre + ': ' + e[1][idx()])
         .join('<br>');
       return L.circleMarker([p[0], p[1]], {
         radius: Math.min(3 + Math.sqrt(n) * 1.6, 12),
@@ -796,6 +826,7 @@ function grupo(el, attr, set) {
 }
 grupo(cSede, 's', v => fSede = v);
 grupo(document.getElementById('fPeriodo'), 'w', v => fWin = +v);
+grupo(document.getElementById('fHora'),    'h', v => fHora = +v);
 grupo(document.getElementById('fVista'),   'v', v => fVista = v);
 grupo(document.getElementById('fPrec'),    'p', v => fPrec = +v);
 grupo(document.getElementById('fCuenta'),  'c', v => fCuenta = v);
