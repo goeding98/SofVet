@@ -160,9 +160,12 @@ async function facturarMes(supabaseCli: any, afiliado: any, valorMes: number, ho
   const { data: mascota } = await supabaseCli
     .from('patients').select('name').eq('id', afiliado.patient_id).single();
 
-  const servicio = Math.round(valorMes * 0.5);
+  // El servicio se redondea a centenas: el 19% de un múltiplo de 100 da pesos
+  // enteros, y las tarjetas en Wompi rechazan montos con centavos. Copia de
+  // partirServicioInsumos en frontend/src/utils/prepagadaPrecios.js.
+  const servicio = Math.round(valorMes * 0.5 / 100) * 100;
   const insumos = valorMes - servicio;   // el resto, para que sumen exacto
-  const total = Math.round((servicio * 1.19 + insumos) * 100) / 100;
+  const total = servicio + insumos + (servicio * 19) / 100;
 
   const token = await siigoToken();
   const customer = await resolverTercero(token, cliente);

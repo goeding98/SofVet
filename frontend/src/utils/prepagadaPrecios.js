@@ -52,15 +52,26 @@ export function precioConDescuento(precioMensual, cobroAutomatico) {
 // IVA que aplica a la porción de servicio del plan. Los insumos van excluidos.
 export const IVA_SERVICIO = 0.19;
 
+// Cómo se parte un valor mensual entre el renglón de servicio (con IVA) y el de
+// insumos (excluido). El servicio se redondea a centenas porque el 19% de un
+// múltiplo de 100 siempre da pesos enteros: las tarjetas en Wompi rechazan
+// montos con centavos ("El método de pago escogido no soporta montos con
+// centavos"). Queda casi mitad y mitad; el resto va a insumos para que los dos
+// renglones sumen exacto. OJO: copiado en wompi-generar-link,
+// wompi-cobrar-recurrente y wompi-webhook. Si cambia acá, cambiarlo allá.
+export function partirServicioInsumos(base) {
+  const servicio = Math.round(base * 0.5 / 100) * 100;
+  const insumos = base - servicio;
+  const iva = (servicio * 19) / 100;
+  return { servicio, insumos, iva, total: servicio + insumos + iva };
+}
+
 // Lo que de verdad se le cobra al tutor. El plan se factura en dos renglones y
 // solo el de servicio lleva IVA, así que el total NO es precio × 1,19.
 // Tiene que dar exactamente lo mismo que calcula la factura en Siigo, o el
 // recaudo no cuadra contra lo facturado.
 export function totalConIva(precioMensual, cobroAutomatico) {
-  const base = precioConDescuento(precioMensual, cobroAutomatico);
-  const servicio = Math.round(base * 0.5);
-  const insumos = base - servicio;
-  return Math.round((servicio * (1 + IVA_SERVICIO) + insumos) * 100) / 100;
+  return partirServicioInsumos(precioConDescuento(precioMensual, cobroAutomatico)).total;
 }
 
 

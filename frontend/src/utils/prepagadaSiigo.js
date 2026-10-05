@@ -13,9 +13,7 @@
 // Los códigos y los impuestos los configuró contabilidad en Siigo; acá solo se
 // referencian. Si cambian allá, hay que cambiarlos acá.
 import { siigo } from './siigo';
-import { precioLista, DESCUENTO_TARJETA } from './prepagadaPrecios';
-
-const PROPORCION_SERVICIO = 0.5;
+import { precioLista, DESCUENTO_TARJETA, partirServicioInsumos } from './prepagadaPrecios';
 
 // MODO PRUEBA. Mientras contabilidad no cargue los precios definitivos, los
 // renglones se facturan con el precio que tenga el producto en Siigo ($1, $2...)
@@ -71,11 +69,8 @@ export function desglosarFactura(valorMensual, plan) {
   if (!items) throw new Error(`Plan desconocido: ${plan}`);
 
   const total = Math.round(Number(valorMensual) || 0);
-  const servicio = Math.round(total * PROPORCION_SERVICIO);
-  // El resto va a insumos para que las dos líneas sumen exactamente el total,
-  // incluso cuando el valor es impar y la mitad no es redonda.
-  const insumos = total - servicio;
-  const iva = Math.round(servicio * 0.19);
+  // Mismo reparto que el cobro de Wompi, para que lo facturado y lo cobrado cuadren.
+  const { servicio, insumos, iva } = partirServicioInsumos(total);
 
   return { total, servicio, insumos, iva, totalConIva: total + iva, items, modoPrueba: PRECIOS_DE_PRUEBA };
 }

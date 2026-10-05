@@ -113,9 +113,12 @@ async function cobrar(afiliado: any, hoy: string) {
   const reference = `pp-${afiliado.id}-1-${Date.now()}`;
   // Mismo cálculo que la factura: solo la mitad de servicio lleva IVA.
   const base = Math.round(afiliado.precio_mensual * (1 - DESCUENTO_TARJETA));
-  const servicio = Math.round(base * 0.5);
+  // El servicio se redondea a centenas: el 19% de un múltiplo de 100 da pesos
+  // enteros, y las tarjetas en Wompi rechazan montos con centavos. Copia de
+  // partirServicioInsumos en frontend/src/utils/prepagadaPrecios.js.
+  const servicio = Math.round(base * 0.5 / 100) * 100;
   const insumos = base - servicio;
-  const amountInCents = Math.round((servicio * 1.19 + insumos) * 100);
+  const amountInCents = (servicio + insumos + (servicio * 19) / 100) * 100;
   const currency = 'COP';
 
   const integrity = await sha256Hex(
