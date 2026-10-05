@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../utils/useStore';
 import { useAuth } from '../utils/useAuth';
-import { calcularPrecioPrepagada, BOLSA_ANUAL } from '../utils/prepagadaPrecios';
+import { calcularPrecioPrepagada, BOLSA_ANUAL, MODO_DEMO } from '../utils/prepagadaPrecios';
 import { calcularEstadoVencimiento } from '../utils/prepagadaEstado';
 import { nowDate } from '../utils/nowLocal';
 
@@ -221,6 +221,11 @@ export default function PrepagadaV2Page() {
           <p style={{ color: '#8A8076', fontSize: '0.9rem' }}>
             {afiliados.length} afiliados · {activos} activos · {enGracia} en gracia · {suspendidos} suspendidos
           </p>
+          {MODO_DEMO && (
+            <p style={{ marginTop: '0.5rem', padding: '0.4rem 0.75rem', background: '#fff4e5', color: '#9a5b00', border: '1px solid #f0c27a', borderRadius: 8, fontSize: '0.82rem', fontWeight: 700 }}>
+              MODO DEMO: los afiliados nuevos quedan con tarifas de prueba ($2.000 Urgencias / $5.000 Total). No afiliar clientes reales.
+            </p>
+          )}
         </div>
         <button onClick={abrirModal} style={{ padding: '0.65rem 1.25rem', background: '#316d74', color: 'white', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
           + Afiliar mascota

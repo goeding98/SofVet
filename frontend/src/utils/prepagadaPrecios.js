@@ -3,7 +3,17 @@
 // del impuesto (art. 476 del E.T. cubre solo la salud humana), así que al
 // facturar se le suma encima. Ver prepagadaSiigo.js, que parte el plan en dos
 // renglones para que el IVA recaiga solo sobre la porción de servicio.
-const PRECIOS_BASE = { urgencias: 30000, total: 70000 };
+const PRECIOS_REALES = { urgencias: 30000, total: 70000 };
+
+// MODO DEMO. Tarifas de juguete para mostrarle el flujo completo al equipo
+// (afiliar, cobrar por Wompi, facturar en Siigo) sin mover plata de verdad.
+// Cada afiliado guarda su precio_mensual al crearse y Wompi y el webhook cobran
+// y facturan sobre ese valor, así que esto solo afecta a los afiliados que se
+// creen mientras esté encendido. Apagarlo antes de afiliar clientes reales.
+export const MODO_DEMO = true;
+const PRECIOS_DEMO = { urgencias: 2000, total: 5000 };
+
+const PRECIOS_BASE = MODO_DEMO ? PRECIOS_DEMO : PRECIOS_REALES;
 
 // Descuento por número de mascota afiliada del mismo titular: la 2ª tiene 5% y
 // de la 3ª en adelante 10%, sin seguir subiendo.
