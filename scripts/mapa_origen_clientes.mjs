@@ -611,6 +611,8 @@ return `<!DOCTYPE html>
   .nota{font-size:10px;color:var(--dim);line-height:1.5;border-top:1px solid var(--line);padding-top:10px;margin-top:12px}
   .leaflet-popup-content-wrapper{background:#181c24;color:var(--txt);border-radius:8px}
   .leaflet-popup-tip{background:#181c24}
+  .comp-tip{background:rgba(24,28,36,.9);color:#e8ecf3;border:1px solid #4b5563;font-size:11px;padding:2px 6px;box-shadow:none}
+  .comp-tip::before{display:none}
   .leaflet-popup-content{margin:10px 12px;font-size:12px;line-height:1.6}
   .leaflet-container{background:#0f1115}
   .leaflet-control-attribution{background:rgba(15,17,21,.8)!important;color:var(--dim)!important}
@@ -745,7 +747,26 @@ for (const [id, s] of Object.entries(SEDES)) {
 
 // Sede propuesta (todavía no existe): solo se dibuja para comparar, no recibe
 // visitas ni aparece en los filtros.
+// Parámetros en la URL (#sede=2&win=2&hora=2&lat=..&lng=..&z=..&panel=0&prop=0&comp=1)
+// para abrir el mapa con filtros fijos y sacar pantallazos sin tocar nada.
+const URLP = new URLSearchParams(location.hash.slice(1));
+if (URLP.has('z')) map.setView([+URLP.get('lat'), +URLP.get('lng')], +URLP.get('z'));
+
+// Competidores que dicen atender 24 h cerca de la sede propuesta (oct 2026,
+// directorios web y OpenStreetMap; ubicación aproximada a la cuadra). Solo con comp=1.
+const COMPETIDORES = [
+  ['CMA Urgencias Veterinarias', 3.3958, -76.5392], ['Tienda de Mascotas', 3.3987, -76.5378],
+  ['Peniche', 3.4003, -76.5422], ['ARKA Veterinaria', 3.3879, -76.5300],
+  ['Pets Medical Center', 3.3981, -76.5478], ['Dra. Natalia Sánchez', 3.3809, -76.5312],
+  ['Servivet', 3.4026, -76.5276],
+];
+if (URLP.get('comp') === '1') for (const [nombre, lat, lng] of COMPETIDORES) {
+  L.circleMarker([lat, lng], { radius: 7, color: '#fff', weight: 2, fillColor: '#9ca3af', fillOpacity: 1 })
+    .addTo(map).bindTooltip(nombre, { permanent: true, direction: 'right', className: 'comp-tip' });
+}
+
 const PROPUESTA = { nombre: 'Propuesta 24h', direccion: 'Calle 13 #72 (Pasoancho con Carrera 72)', lat: 3.3922, lng: -76.5384, color: '#e11d48' };
+if (URLP.get('prop') !== '0') {
 L.circle([PROPUESTA.lat, PROPUESTA.lng], {
   radius: RADIO_REF_M, color: PROPUESTA.color, weight: 2.5, dashArray: '2 6',
   fillColor: PROPUESTA.color, fillOpacity: 0.05, interactive: false,
@@ -757,6 +778,7 @@ L.marker([PROPUESTA.lat, PROPUESTA.lng], {
     'font:700 12px sans-serif;color:' + PROPUESTA.color + '">N</div>' }),
   zIndexOffset: 1000,
 }).addTo(map).bindPopup('<b>' + PROPUESTA.nombre + ' (no existe aún)</b><br>' + PROPUESTA.direccion);
+}
 
 let capa = null;
 
@@ -851,6 +873,15 @@ grupo(document.getElementById('fHora'),    'h', v => fHora = +v);
 grupo(document.getElementById('fVista'),   'v', v => fVista = v);
 grupo(document.getElementById('fPrec'),    'p', v => fPrec = +v);
 grupo(document.getElementById('fCuenta'),  'c', v => fCuenta = v);
+
+// Filtros iniciales desde la URL: se aplican igual que si se hubiera hecho clic.
+for (const [param, id, attr] of [['sede', 'fSede', 's'], ['win', 'fPeriodo', 'w'], ['hora', 'fHora', 'h'],
+  ['vista', 'fVista', 'v'], ['prec', 'fPrec', 'p'], ['cuenta', 'fCuenta', 'c']]) {
+  if (!URLP.has(param)) continue;
+  const chip = document.querySelector('#' + id + ' .chip[data-' + attr + '="' + URLP.get(param) + '"]');
+  if (chip) chip.click();
+}
+if (URLP.get('panel') === '0') document.querySelector('.panel').style.display = 'none';
 
 render();
 <\/script>
