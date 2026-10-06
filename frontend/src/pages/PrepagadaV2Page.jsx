@@ -18,6 +18,10 @@ const ESTADO_BADGE = {
 
 const PLAN_LABEL = { urgencias: 'Urgencias', total: 'Total' };
 
+// Marcas en prepagada_afiliados.notas (ver esNuevo / porRevisar más abajo).
+const MARCA_NUEVOS = '[Pasado a nuevos oct 2026]';
+const MARCA_REVISAR = '[REVISAR]';
+
 const SPECIES = ['Perro', 'Gato', 'Conejo', 'Ave', 'Reptil', 'Otro'];
 const ORIGEN_OPTS = [
   'Recomendación de amigo/familiar',
@@ -218,7 +222,12 @@ export default function PrepagadaV2Page() {
   // la lista se parte en dos: lo afiliado desde el 6 oct 2026 (medianoche en
   // Colombia) va arriba como "Nuevos"; todo lo anterior queda abajo.
   const CORTE_NUEVOS = new Date('2026-10-06T05:00:00Z');
-  const esNuevo = a => a.created_at && new Date(a.created_at) >= CORTE_NUEVOS;
+  // Los antiguos que gerencia revisó y pasó al cobro del 1 al 5 llevan
+  // MARCA_NUEVOS en las notas; MARCA_REVISAR es temporal, para los que faltan
+  // por decidir.
+  const esNuevo = a => (a.created_at && new Date(a.created_at) >= CORTE_NUEVOS)
+    || (a.notas || '').includes(MARCA_NUEVOS);
+  const porRevisar = a => (a.notas || '').includes(MARCA_REVISAR);
   const nuevos = afiliadosFiltrados.filter(esNuevo);
   const antiguos = afiliadosFiltrados.filter(a => !esNuevo(a));
 
@@ -243,7 +252,12 @@ export default function PrepagadaV2Page() {
             const disponible = a.bolsa_maxima_anual - a.bolsa_consumida_anual;
             return (
               <tr key={a.id} style={{ borderTop: '1px solid #eceff3', cursor: 'pointer' }} onClick={() => navigate(`/prueba/prepagada/${a.id}`)}>
-                <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>🐾 {mascotaOf(a)?.name || '—'}</td>
+                <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>
+                  🐾 {mascotaOf(a)?.name || '—'}
+                  {porRevisar(a) && (
+                    <span title="Pendiente de revisión por gerencia" style={{ marginLeft: 8, background: '#fff4e5', color: '#9a5b00', border: '1px solid #f0c27a', padding: '1px 8px', borderRadius: 999, fontSize: '0.7rem', fontWeight: 700 }}>⚠️ Revisar</span>
+                  )}
+                </td>
                 <td style={{ padding: '0.75rem 1rem' }}>{clienteOf(a)?.name || '—'}</td>
                 <td style={{ padding: '0.75rem 1rem' }}>{PLAN_LABEL[a.plan]}</td>
                 <td style={{ padding: '0.75rem 1rem' }}>{fmtCOP(a.precio_mensual)}</td>
