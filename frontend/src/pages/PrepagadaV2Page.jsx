@@ -214,6 +214,59 @@ export default function PrepagadaV2Page() {
       || (c?.document || '').includes(busqueda.trim());
   });
 
+  // Mientras se organizan los afiliados de antes (migración v1→v2 y pruebas),
+  // la lista se parte en dos: lo afiliado desde el 6 oct 2026 (medianoche en
+  // Colombia) va arriba como "Nuevos"; todo lo anterior queda abajo.
+  const CORTE_NUEVOS = new Date('2026-10-06T05:00:00Z');
+  const esNuevo = a => a.created_at && new Date(a.created_at) >= CORTE_NUEVOS;
+  const nuevos = afiliadosFiltrados.filter(esNuevo);
+  const antiguos = afiliadosFiltrados.filter(a => !esNuevo(a));
+
+  const tablaAfiliados = (lista, vacio) => (
+    <div style={{ background: 'white', border: '1px solid #e2e6ef', borderRadius: 14, overflow: 'hidden' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ background: '#f7f9fc' }}>
+            {['Mascota', 'Titular', 'Plan', 'Precio/mes', 'Estado', 'Bolsa disponible', 'Vencimiento', ''].map(h => (
+              <th key={h} style={{ padding: '0.7rem 1rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 700, color: '#8A8076', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {lista.length === 0 && (
+            <tr><td colSpan={8} style={{ padding: '2rem', textAlign: 'center', color: '#8A8076' }}>
+              {q ? `No hay afiliados que coincidan con "${busqueda}".` : vacio}
+            </td></tr>
+          )}
+          {lista.map(a => {
+            const badge = ESTADO_BADGE[a.estado] || ESTADO_BADGE.activo;
+            const disponible = a.bolsa_maxima_anual - a.bolsa_consumida_anual;
+            return (
+              <tr key={a.id} style={{ borderTop: '1px solid #eceff3', cursor: 'pointer' }} onClick={() => navigate(`/prueba/prepagada/${a.id}`)}>
+                <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>🐾 {mascotaOf(a)?.name || '—'}</td>
+                <td style={{ padding: '0.75rem 1rem' }}>{clienteOf(a)?.name || '—'}</td>
+                <td style={{ padding: '0.75rem 1rem' }}>{PLAN_LABEL[a.plan]}</td>
+                <td style={{ padding: '0.75rem 1rem' }}>{fmtCOP(a.precio_mensual)}</td>
+                <td style={{ padding: '0.75rem 1rem' }}>
+                  <span style={{ background: badge.bg, color: badge.color, padding: '2px 10px', borderRadius: 999, fontSize: '0.75rem', fontWeight: 700 }}>{badge.label}</span>
+                </td>
+                <td style={{ padding: '0.75rem 1rem' }}>{fmtCOP(disponible)} <span style={{ color: '#8A8076', fontSize: '0.78rem' }}>/ {fmtCOP(a.bolsa_maxima_anual)}</span></td>
+                <td style={{ padding: '0.75rem 1rem', color: '#8A8076', fontSize: '0.85rem' }}>{a.fecha_vencimiento || '—'}</td>
+                <td style={{ padding: '0.75rem 1rem', color: '#316d74', fontWeight: 700, fontSize: '0.85rem' }}>Ver →</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const tituloSeccion = (texto, n) => (
+    <h2 style={{ fontSize: '1rem', fontWeight: 800, color: '#316d74', margin: '0 0 0.6rem' }}>
+      {texto} <span style={{ color: '#8A8076', fontWeight: 600, fontSize: '0.85rem' }}>({n})</span>
+    </h2>
+  );
+
   return (
     <div style={{ padding: '1.5rem 2rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -240,42 +293,12 @@ export default function PrepagadaV2Page() {
         style={{ width: '100%', maxWidth: 380, padding: '0.6rem 0.9rem', border: '1.5px solid #dfe3ea', borderRadius: 10, fontSize: '0.88rem', boxSizing: 'border-box', marginBottom: '1rem', fontFamily: 'inherit' }}
       />
 
-      <div style={{ background: 'white', border: '1px solid #e2e6ef', borderRadius: 14, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: '#f7f9fc' }}>
-              {['Mascota', 'Titular', 'Plan', 'Precio/mes', 'Estado', 'Bolsa disponible', 'Vencimiento', ''].map(h => (
-                <th key={h} style={{ padding: '0.7rem 1rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 700, color: '#8A8076', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {afiliados.length === 0 && (
-              <tr><td colSpan={8} style={{ padding: '2rem', textAlign: 'center', color: '#8A8076' }}>Aún no hay afiliados. Crea el primero con "+ Afiliar mascota".</td></tr>
-            )}
-            {afiliados.length > 0 && afiliadosFiltrados.length === 0 && (
-              <tr><td colSpan={8} style={{ padding: '2rem', textAlign: 'center', color: '#8A8076' }}>No hay afiliados que coincidan con "{busqueda}".</td></tr>
-            )}
-            {afiliadosFiltrados.map(a => {
-              const badge = ESTADO_BADGE[a.estado] || ESTADO_BADGE.activo;
-              const disponible = a.bolsa_maxima_anual - a.bolsa_consumida_anual;
-              return (
-                <tr key={a.id} style={{ borderTop: '1px solid #eceff3', cursor: 'pointer' }} onClick={() => navigate(`/prueba/prepagada/${a.id}`)}>
-                  <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>🐾 {mascotaOf(a)?.name || '—'}</td>
-                  <td style={{ padding: '0.75rem 1rem' }}>{clienteOf(a)?.name || '—'}</td>
-                  <td style={{ padding: '0.75rem 1rem' }}>{PLAN_LABEL[a.plan]}</td>
-                  <td style={{ padding: '0.75rem 1rem' }}>{fmtCOP(a.precio_mensual)}</td>
-                  <td style={{ padding: '0.75rem 1rem' }}>
-                    <span style={{ background: badge.bg, color: badge.color, padding: '2px 10px', borderRadius: 999, fontSize: '0.75rem', fontWeight: 700 }}>{badge.label}</span>
-                  </td>
-                  <td style={{ padding: '0.75rem 1rem' }}>{fmtCOP(disponible)} <span style={{ color: '#8A8076', fontSize: '0.78rem' }}>/ {fmtCOP(a.bolsa_maxima_anual)}</span></td>
-                  <td style={{ padding: '0.75rem 1rem', color: '#8A8076', fontSize: '0.85rem' }}>{a.fecha_vencimiento || '—'}</td>
-                  <td style={{ padding: '0.75rem 1rem', color: '#316d74', fontWeight: 700, fontSize: '0.85rem' }}>Ver →</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {tituloSeccion('🆕 Afiliados nuevos', nuevos.length)}
+      {tablaAfiliados(nuevos, 'Aún no hay afiliados nuevos. Crea el primero con "+ Afiliar mascota".')}
+
+      <div style={{ marginTop: '2rem' }}>
+        {tituloSeccion('🗂️ Afiliados antiguos', antiguos.length)}
+        {tablaAfiliados(antiguos, 'No hay afiliados antiguos.')}
       </div>
 
       {modal && (
