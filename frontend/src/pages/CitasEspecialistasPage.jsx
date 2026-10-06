@@ -16,6 +16,18 @@ const COLUMNS = [
 ];
 
 // Columnas "finales" que solo pintan las N más recientes en pantalla (nada se borra de la BD)
+// Motivos fijos para poder contar después por qué se caen las remisiones;
+// "Otro" pide escribirlo.
+const MOTIVOS_DESESTIMIENTO = [
+  'El tutor no tiene presupuesto',
+  'El tutor no volvió a responder',
+  'La mascota mejoró / ya no lo necesita',
+  'La mascota falleció',
+  'Prefirió otro especialista u otra clínica',
+  'El especialista no tenía disponibilidad',
+  'Otro',
+];
+
 const HISTORIAL_COLS = ['programada', 'desestimiento'];
 const MAX_HISTORIAL_VISIBLE = 15;
 
@@ -73,6 +85,11 @@ function CitaCard({ cita, draggedId, onDragStart, onClick, showSede }) {
           ✓ {cita.especialista_confirmado}
         </div>
       )}
+      {cita.status === 'desestimiento' && cita.desestimiento_motivo && (
+        <div style={{ fontSize: '0.72rem', color: '#c0392b', fontWeight: 600, marginTop: '0.4rem' }}>
+          ✕ {cita.desestimiento_motivo}
+        </div>
+      )}
       <div style={{ fontSize: '0.68rem', color: '#999', marginTop: '0.4rem' }}>
         Solicitada {cita.solicitada_fecha} {cita.solicitada_hora}
       </div>
@@ -111,6 +128,11 @@ export default function CitasEspecialistasPage() {
   // ── specialist-confirm modal (movimiento pendiente) ────────────────────
   const [pendingDrop, setPendingDrop] = useState(null); // { cita, newStatus }
   const [especialistaInput, setEspecialistaInput] = useState('');
+
+  // ── motivo de desestimiento (movimiento pendiente) ──────────────────────
+  const [pendingDesest, setPendingDesest] = useState(null); // cita
+  const [motivoDesest, setMotivoDesest] = useState('');
+  const [motivoOtro, setMotivoOtro] = useState('');
 
   // ── detail/edit modal ───────────────────────────────────────────────────
   const [detalle, setDetalle] = useState(null);
@@ -192,6 +214,13 @@ export default function CitasEspecialistasPage() {
     setDraggedId(null);
     if (!cita || cita.status === newStatus) return;
 
+    if (newStatus === 'desestimiento') {
+      setMotivoDesest('');
+      setMotivoOtro('');
+      setPendingDesest(cita);
+      return;
+    }
+
     const requiereEspecialista = (newStatus === 'confirmada' || newStatus === 'programada') && !cita.especialista_confirmado;
     if (requiereEspecialista) {
       setEspecialistaInput('');
@@ -211,6 +240,14 @@ export default function CitasEspecialistasPage() {
       confirmada_por: session?.nombre || null,
     });
     setPendingDrop(null);
+  };
+
+  const handleConfirmDesestimiento = async () => {
+    if (!motivoDesest) return alert('Selecciona el motivo del desestimiento.');
+    const motivo = motivoDesest === 'Otro' ? motivoOtro.trim() : motivoDesest;
+    if (!motivo) return alert('Escribe el motivo del desestimiento.');
+    await aplicarMovimiento(pendingDesest, 'desestimiento', { desestimiento_motivo: motivo });
+    setPendingDesest(null);
   };
 
   // ── detalle/edit ─────────────────────────────────────────────────────────
@@ -376,6 +413,28 @@ export default function CitasEspecialistasPage() {
         )}
       </Modal>
 
+      {/* ── Modal: motivo de desestimiento al arrastrar ── */}
+      <Modal isOpen={!!pendingDesest} onClose={() => setPendingDesest(null)} title="✕ Motivo del desestimiento" onSave={handleConfirmDesestimiento} saveLabel="Mover a Desestimiento">
+        {pendingDesest && (
+          <>
+            <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: 0 }}>
+              ¿Por qué no siguió la remisión de <strong>{pendingDesest.mascota_nombre}</strong>?
+            </p>
+            <label style={labelSt}>Motivo *</label>
+            <select autoFocus style={inputSt} value={motivoDesest} onChange={e => setMotivoDesest(e.target.value)}>
+              <option value="">Selecciona…</option>
+              {MOTIVOS_DESESTIMIENTO.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+            {motivoDesest === 'Otro' && (
+              <div style={{ marginTop: '0.75rem' }}>
+                <label style={labelSt}>¿Cuál? *</label>
+                <input style={inputSt} value={motivoOtro} onChange={e => setMotivoOtro(e.target.value)} placeholder="Escribe el motivo" />
+              </div>
+            )}
+          </>
+        )}
+      </Modal>
+
       {/* ── Modal: detalle / edición ── */}
       <Modal
         isOpen={!!detalle}
@@ -429,7 +488,7 @@ export default function CitasEspecialistasPage() {
                 <span>📅 Solicitada: {detalle.solicitada_fecha} {detalle.solicitada_hora} — {detalle.solicitada_por || '—'}</span>
                 {detalle.confirmada_fecha && <span>✓ Confirmada: {detalle.confirmada_fecha} {detalle.confirmada_hora} — {detalle.confirmada_por || '—'} ({detalle.especialista_confirmado})</span>}
                 {detalle.programada_fecha && <span>💰 Programada: {detalle.programada_fecha} {detalle.programada_hora} — {detalle.programada_por || '—'}</span>}
-                {detalle.desestimiento_fecha && <span>✕ Desestimiento: {detalle.desestimiento_fecha} {detalle.desestimiento_hora} — {detalle.desestimiento_por || '—'}</span>}
+                {detalle.desestimiento_fecha && <span>✕ Desestimiento: {detalle.desestimiento_fecha} {detalle.desestimiento_hora} — {detalle.desestimiento_por || '—'}{detalle.desestimiento_motivo ? ` · Motivo: ${detalle.desestimiento_motivo}` : ''}</span>}
               </div>
             </div>
           </div>
