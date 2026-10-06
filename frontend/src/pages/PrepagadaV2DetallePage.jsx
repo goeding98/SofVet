@@ -8,6 +8,7 @@ import { vencimientoTrasPago } from '../utils/prepagadaFacturacion';
 import { facturarMesPrepagada, desglosarFactura, facturarConsumoPrepagada, MEDIOS_PAGO_CAJA, sumaPagos } from '../utils/prepagadaSiigo';
 import { cobrarAhora } from '../utils/wompiTarjeta';
 import SiigoConceptoPicker from '../components/SiigoConceptoPicker';
+import ContratosPrepagada from '../components/ContratosPrepagada';
 import { calcularEstadoVencimiento, anioVigencia, inicioVigencia, finCarencia, carenciaCumplida, tieneCobertura } from '../utils/prepagadaEstado';
 import { nowDate } from '../utils/nowLocal';
 
@@ -789,6 +790,8 @@ export default function PrepagadaV2DetallePage() {
           <div style={{ height: '100%', width: `${pctUsado}%`, background: pctUsado > 90 ? '#c0392b' : pctUsado > 60 ? '#b8860b' : '#316d74' }} />
         </div>
       </div>
+
+      <ContratosPrepagada afiliadoId={afiliadoId} />
 
       {/* Beneficios preventivos (solo Plan Total) */}
       {afiliado.plan === 'total' && (
