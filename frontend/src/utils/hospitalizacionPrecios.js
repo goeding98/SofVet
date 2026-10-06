@@ -6,8 +6,8 @@
 const TARIFAS = {
   Gato: {
     no_viral: [
-      { min: 0,   valor: 190000 },
-      { min: 5.1, valor: 210000 },
+      { min: 0,   valor: 200000 },  // oct 2026: antes 190.000
+      { min: 5.1, valor: 220000 },  // oct 2026: antes 210.000
     ],
     viral: [
       { min: 0,   valor: 230000 },
@@ -16,7 +16,7 @@ const TARIFAS = {
   },
   Perro: {
     no_viral: [
-      { min: 0,    valor: 190000 },
+      { min: 0,    valor: 200000 },  // oct 2026: antes 190.000
       { min: 5.1,  valor: 230000 },
       { min: 10.1, valor: 260000 },
       { min: 15.1, valor: 300000 },
