@@ -513,17 +513,17 @@ function fichaHeader(s, x, y, o) {
 
 // ═══════════════════════════════════ EXAMEN INICIAL OBLIGATORIO
 {
-  const s = content('Paso 1 · Afiliar', 'El examen inicial es obligatorio y GRATIS',
+  const s = content('Paso 1 · Afiliar', 'El examen previo es obligatorio y GRATIS',
     'Es lo que protege el plan de que se afilien mascotas que ya vienen enfermas. Sin él, la cobertura puede negarse.');
 
   const cw = (CW - 0.4) / 2;
   card(s, M, 1.75, cw, 2.55, C.cream);
   s.addText('LA REGLA', { x: M + 0.35, y: 1.92, w: cw - 0.7, h: 0.28, fontSize: 10.5, bold: true, color: C.brown, charSpacing: 1.2, fontFace: 'Calibri' });
   s.addText(bullets([
-    'Examen clínico completo hecho por un veterinario de P&P',
-    'Dentro de los 30 días siguientes a la afiliación',
+    'Consulta y exámenes hechos por un veterinario de P&P',
+    'Dentro de los 30 días ANTERIORES a la afiliación',
     'NO tiene costo para el tutor',
-    'Si no se hace a tiempo, la cobertura se puede reducir o negar',
+    'Sin examen de los últimos 30 días NO se afilia: primero el examen, después la afiliación',
   ]), { x: M + 0.35, y: 2.25, w: cw - 0.7, h: 1.95, fontFace: 'Calibri', lineSpacing: 18, valign: 'top' });
 
   card(s, M + cw + 0.4, 1.75, cw, 2.55, 'FDECEA');
@@ -534,11 +534,11 @@ function fichaHeader(s, x, y, o) {
 
   s.addText('Cómo se lo explicas al tutor:', { x: M, y: 4.48, w: CW, h: 0.3, fontSize: 13, bold: true, color: C.deep, fontFace: 'Calibri' });
   s.addShape(pptx.ShapeType.roundRect, { x: M, y: 4.82, w: CW, h: 1.0, rectRadius: 0.08, fill: { color: C.white }, line: { color: C.blue, width: 1.25 } });
-  s.addText('"Para que el plan quede bien, en este primer mes le hacemos un chequeo completo, sin costo. Sirve para dejar por escrito cómo está hoy tu mascota: lo que ya tenga desde antes no entra en el plan, pero todo lo que le pase de aquí en adelante sí."', {
+  s.addText('"Para afiliarla necesitamos una consulta y unos exámenes de los últimos 30 días, sin costo. Sirven para dejar por escrito cómo está hoy tu mascota: lo que ya tenga desde antes no entra en el plan, pero todo lo que le pase de aquí en adelante sí."', {
     x: M + 0.35, y: 4.92, w: CW - 0.7, h: 0.8, fontSize: 12.5, italic: true, color: C.ink, fontFace: 'Calibri', lineSpacing: 17, valign: 'middle',
   });
 
-  nota(s, M, 6.0, CW, 0.85, 'Agéndalo de una vez', 'Antes de que el tutor se vaya, déjale la cita del examen agendada en la Agenda (/appointments). Si se va sin cita, casi nunca vuelve a tiempo.', C.green, 'EAF7EF');
+  nota(s, M, 6.0, CW, 0.85, 'Revisa la fecha antes de afiliar', 'Busca en la ficha del paciente la última consulta y los exámenes. Si no hay, o tienen más de 30 días, agenda el examen en la Agenda (/appointments) y afilia después.', C.green, 'EAF7EF');
 }
 
 // ═══════════════════════════════════ PASO 2 — CÓMO VA A PAGAR
@@ -1206,7 +1206,7 @@ function fichaHeader(s, x, y, o) {
   const reglas = [
     { n: '1', t: 'Busca siempre por cédula', d: 'El nombre no basta: hay tutores con nombres parecidos.' },
     { n: '2', t: 'Cobra el primer mes el mismo día', d: 'Ofrece primero la tarjeta (10% menos). Sin pago queda "Pendiente" y no tiene cobertura.' },
-    { n: '3', t: 'Agenda el examen inicial gratis', d: 'Dentro de los primeros 30 días. Lo que salga ahí queda excluido.' },
+    { n: '3', t: 'Verifica el examen previo', d: 'Consulta y exámenes de los 30 días ANTES de afiliar. Lo que salga ahí queda excluido.' },
     { n: '4', t: 'Revisa estado, carencia y bolsa', d: 'Urgencias desde el día 1 · lo demás desde el día 31 · tope $4.000.000 al año.' },
     { n: '5', t: 'Todo va por "+ Registrar consumo"', d: 'Urgencias y programados. Cobra el "TOTAL A COBRAR EN CAJA" antes de atender.' },
     { n: '6', t: 'Nunca niegues atención estabilizadora', d: 'Lo administrativo se resuelve después. El animal primero, siempre.' },
