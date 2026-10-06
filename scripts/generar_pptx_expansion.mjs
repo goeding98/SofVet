@@ -379,6 +379,72 @@ divider('02', 'Nuestra propia demografía', 'De dónde vienen nuestros clientes,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// OTRA OPCIÓN · PALMIRA
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const s = content('Otra opción · Palmira', 'Movet entró por Bello, pero Bello no es Palmira');
+  s.addText('Antes de abrir en Medellín, Movet abrió su primera clínica de Antioquia en el C.C. Parque Fabricato, en Bello. Movet no ha explicado públicamente por qué. Nuestra lectura:', {
+    x: M, y: 1.4, w: 5.6, h: 0.95, fontSize: 13, color: C.ink, fontFace: F, valign: 'top', lineSpacing: 18,
+  });
+  bullets(s, [
+    [B('Bello es Medellín en la práctica: '), N('está pegado a la ciudad, sobre la línea A del Metro y la Autopista Norte. La clínica atiende a Bello y al norte de Medellín.')],
+    [B('Mucha gente en poco espacio: '), N('600 mil habitantes, 12 veces la densidad de Palmira.')],
+    [B('Un centro comercial ancla: '), N('parqueadero, visibilidad y tráfico propio.')],
+    [B('Después fue por el ingreso: '), N('sus siguientes sedes son Laureles y Envigado.')],
+  ], { x: M, y: 2.4, w: 5.6, h: 4.2, fontSize: 13, gap: 10 });
+
+  const x = M + 6.0, w = CW - 6.0;
+  s.addTable([
+    [th(''), th('Bello', { fill: { color: C.movet } }), th('Palmira')],
+    [td('Población 2025', { bold: true }), td('601.916', { align: 'center' }), td('380.980\n(296 mil urbana)', { align: 'center' })],
+    [td('Habitantes por km²', { bold: true }), td('3.947', { align: 'center' }), td('320', { align: 'center' })],
+    [td('Relación con la ciudad grande', { bold: true }), td('Pegada a Medellín (Metro)', { align: 'center' }), td('Ciudad aparte, ~30 km de Cali', { align: 'center' })],
+    [td('Viviendas estrato 4 o más', { bold: true }), td('≈ 4%', { align: 'center' }), td('≈ 11%', { align: 'center', bold: true, color: C.green })],
+    [td('PIB por habitante 2024', { bold: true }), td('≈ $16 M', { align: 'center' }), td('≈ $29 M (como Cali)', { align: 'center', bold: true, color: C.green })],
+    [td('Perros y gatos (MinSalud 2017)', { bold: true }), td('23.600*', { align: 'center' }), td('39.000', { align: 'center' })],
+  ], { x, y: 1.45, w, colW: [w * 0.38, w * 0.3, w * 0.32], rowH: 0.52, border: { type: 'solid', color: C.line, pt: 0.75 }, fontFace: F, fontSize: 11.5 });
+  s.addText('* La cifra oficial de Bello parece subestimada. Estratos: Bello, Gobernación de Antioquia (2004); Palmira, POT (2021). PIB: DANE 2024 dividido por la población.', {
+    x, y: 5.25, w, h: 0.5, fontSize: 9.5, italic: true, color: C.muted, fontFace: F,
+  });
+  s.addText('Palmira tiene mejor ingreso que Bello, pero no tiene lo que buscó Movet: una masa de gente pegada a la ciudad grande.', {
+    x, y: 5.85, w, h: 0.65, fontSize: 13, bold: true, color: C.deep, fontFace: F,
+  });
+}
+
+{
+  const s = content('Otra opción · Palmira', 'Palmira da para un punto pequeño, no para un hospital 24h');
+  const cw = (CW - 0.3 * 3) / 4;
+  kpi(s, { x: M, y: 1.45, w: cw, h: 1.75, label: 'Proporción Movet', value: '0,3–0,5', sub: 'Hospitales 24h que soporta Palmira (por mascotas y por población)', accent: C.movet });
+  kpi(s, { x: M + (cw + 0.3), y: 1.45, w: cw, h: 1.75, label: 'Lo que hizo Movet', value: 'Express', sub: 'En Manizales (472 mil hab.) y Pereira (487 mil), más grandes que Palmira, no abrió 24h', accent: C.movet });
+  kpi(s, { x: M + (cw + 0.3) * 2, y: 1.45, w: cw, h: 1.75, label: 'Competencia "24h"', value: '4', sub: 'La Merced, San Martín, TodoCan y Vital Pet se anuncian como 24h', accent: C.red });
+  kpi(s, { x: M + (cw + 0.3) * 3, y: 1.45, w: cw, h: 1.75, label: 'Demanda que ya vemos', value: '4', sub: 'Clientes en SofVet con dirección en Palmira, de 6.222. 11 atenciones desde marzo', accent: C.amber });
+
+  const half = (CW - 0.4) / 2;
+  s.addShape(pptx.ShapeType.roundRect, { x: M, y: 3.45, w: half, h: 2.75, rectRadius: 0.08, fill: { color: C.white }, line: { color: C.line, width: 0.75 } });
+  s.addText('A FAVOR', { x: M + 0.3, y: 3.57, w: half - 0.6, h: 0.3, fontSize: 11, bold: true, color: C.green, charSpacing: 1.5, fontFace: F });
+  bullets(s, [
+    'Segunda ciudad del Valle (8% del departamento).',
+    'Ingreso por habitante similar al de Cali y más estrato 4 que Bello.',
+    'Mercado distinto: no le quita clientes a nuestras sedes de Cali.',
+  ], { x: M + 0.3, y: 3.93, w: half - 0.6, h: 2.2, fontSize: 13, gap: 8 });
+
+  const x2 = M + half + 0.4;
+  s.addShape(pptx.ShapeType.roundRect, { x: x2, y: 3.45, w: half, h: 2.75, rectRadius: 0.08, fill: { color: C.white }, line: { color: C.line, width: 0.75 } });
+  s.addText('EN CONTRA', { x: x2 + 0.3, y: 3.57, w: half - 0.6, h: 0.3, fontSize: 11, bold: true, color: C.red, charSpacing: 1.5, fontFace: F });
+  bullets(s, [
+    'Pequeña para un 24h: un tercio a la mitad de lo que Movet le pide a un hospital.',
+    'Ya hay 4 veterinarias que se anuncian como 24h.',
+    'Casi no tenemos clientes allá: hay que construir la marca desde cero.',
+    'A ~30 km, el soporte desde Cali (traslados, personal) es más difícil.',
+  ], { x: x2 + 0.3, y: 3.93, w: half - 0.6, h: 2.2, fontSize: 13, gap: 8 });
+
+  s.addText([
+    { text: 'Si vamos a Palmira: ', options: { bold: true, color: C.deep } },
+    { text: 'primero probar la demanda con el servicio a domicilio y pauta local; si responde, un punto de día (estilo Movet Express) que remita las hospitalizaciones a Cali. No un hospital 24h.', options: { color: C.ink } },
+  ], { x: M, y: 6.3, w: CW, h: 0.6, fontSize: 12.5, fontFace: F, valign: 'top' });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // CONCLUSIONES
 // ═══════════════════════════════════════════════════════════════════════════
 {
@@ -405,7 +471,7 @@ divider('02', 'Nuestra propia demografía', 'De dónde vienen nuestros clientes,
     ['Más ingreso por cliente', 'Medicina Prepagada: ingreso recurrente mensual y clientes que vuelven. Especialistas, laboratorio e imágenes en las 3 sedes.', C.blue],
     ['Cubrir huecos sin un hospital', 'El único hueco real está en el norte: ~105 clientes viven a más de 2,5 km de cualquier sede. Si se cubre, con un satélite de día (como el Movet Express) que remita a Santa Mónica.', C.green],
     ['Prepararnos para Movet', 'Su llegada a Cali está anunciada para 2026. Defender la base actual (Prepagada, servicio, tiempos de urgencia) vale más que dividirla.', C.movet],
-    ['Si hay capital para expandir', 'Evaluarlo en otra ciudad o en otro formato, con el mismo análisis de demanda antes de comprometer arriendo y nómina nocturna.', C.brown],
+    ['Si hay capital para expandir', 'En otra ciudad o formato, con el mismo análisis de demanda. Palmira: probar primero con domicilio y, si responde, un punto de día.', C.brown],
   ];
   items.forEach(([t, d, c], i) => {
     const y = 1.5 + i * 1.22;
@@ -428,11 +494,12 @@ divider('02', 'Nuestra propia demografía', 'De dónde vienen nuestros clientes,
     [B('Movet: '), N('movet.co/clinicas (consultado en octubre de 2026); Portafolio (jul 2022 y 2026); La República (oct 2024); Diario Financiero de Chile (oct 2024).')],
     [B('Población y PIB: '), N('DANE, proyecciones de población y PIB departamental 2024 (Bogotá $49,7 M; Valle del Cauca $32,9 M por persona).')],
     [B('Mascotas: '), N('Ministerio de Salud, estimación de perros y gatos por municipio (2017): Bogotá 1.277.230; Cali 211.056. Es la cifra oficial más reciente comparable entre ciudades.')],
-    [B('Competidores en Calle 13 #72: '), N('directorios web y OpenStreetMap. No todos están verificados como 24h hoy; se recomienda confirmarlos por teléfono.')],
+    [B('Competidores (Calle 13 #72 y Palmira): '), N('directorios web y OpenStreetMap. No todos están verificados como 24h hoy; se recomienda confirmarlos por teléfono.')],
+    [B('Bello y Palmira: '), N('DANE, proyecciones 2025 y PIB municipal 2024; estratos de la Gobernación de Antioquia (2004) y del POT de Palmira (2021). Manizales y Pereira: DANE 2025.')],
   ], { x: M, y: 1.45, w: CW, h: 5.3, fontSize: 12.5, gap: 9 });
 }
 
-const OUT = path.join(ROOT, 'Expansion', 'PetsPets_Analisis_Expansion_Cali.pptx');
+const OUT = process.env.OUT || path.join(ROOT, 'Expansion', 'PetsPets_Analisis_Expansion_Cali.pptx');
 await pptx.writeFile({ fileName: OUT });
 console.log('Presentación generada:', OUT);
 console.log('Diapositivas:', pageNo + 1);
