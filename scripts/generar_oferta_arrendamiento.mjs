@@ -15,7 +15,7 @@ import sharp from 'sharp';
 
 const D = path.dirname(fileURLToPath(import.meta.url));
 const RAIZ = path.join(D, '..');
-const OUT = path.join(RAIZ, 'Prepagada', 'PetsPets_Oferta_Arrendamiento.pdf');
+const OUT = path.join(RAIZ, 'Otros', 'Prepagada', 'PetsPets_Oferta_Arrendamiento.pdf');
 
 // ── Identidad ───────────────────────────────────────────────────────────────
 const TEAL = '#2a6b6b';

@@ -1,6 +1,6 @@
 // Presentación para inversionistas: ¿tiene sentido seguir abriendo sedes en Cali?
 // Dos partes: el caso Movet en Bogotá y nuestra propia demografía (SofVet).
-// Las imágenes de Expansion/img salen del mapa (scripts/mapa_origen_clientes.html)
+// Las imágenes de Otros/Expansion/img salen del mapa (scripts/mapa_origen_clientes.html)
 // abierto con filtros fijos por URL y capturado con Edge en modo headless.
 import PptxGenJS from 'pptxgenjs';
 import path from 'path';
@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const L = path.join(ROOT, 'scripts', 'assets', 'logos');
-const IMG = path.join(ROOT, 'Expansion', 'img');
+const IMG = path.join(ROOT, 'Otros', 'Expansion', 'img');
 const LOGO_W_WHITE = L + '/wordmark_white.png';
 const LOGO_I_TEAL = L + '/icon_teal_trim.png';
 const LOGO_I_WHITE = L + '/icon_white_trim.png';
@@ -499,7 +499,7 @@ divider('02', 'Nuestra propia demografía', 'De dónde vienen nuestros clientes,
   ], { x: M, y: 1.45, w: CW, h: 5.3, fontSize: 12.5, gap: 9 });
 }
 
-const OUT = process.env.OUT || path.join(ROOT, 'Expansion', 'PetsPets_Analisis_Expansion_Cali.pptx');
+const OUT = process.env.OUT || path.join(ROOT, 'Otros', 'Expansion', 'PetsPets_Analisis_Expansion_Cali.pptx');
 await pptx.writeFile({ fileName: OUT });
 console.log('Presentación generada:', OUT);
 console.log('Diapositivas:', pageNo + 1);

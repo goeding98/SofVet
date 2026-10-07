@@ -15,8 +15,9 @@ Sistema de gestión clínica veterinaria interno para el staff de Pets & Pets (v
 - /frontend/src/components/ → Componentes reutilizables  
 - /frontend/src/utils/ → useStore, supabaseClient, useSede, useAuth
 - /backend/ → Server Node.js (controllers, routes, models)
-- /landing_santamonica/ → Landing pre-apertura sede Santa Mónica
 - /scripts/ y /Datos_CJ/ → Scripts e importación de datos
+- /Otros/ → todo lo que no es SofVet: Prepagada (presentaciones, contrato, protocolo, páginas web), Expansion (análisis de sedes), landing_santamonica, documentos de la clínica y los Excel de origen (precios de hospitalización, inventario inicial, etc.). Los generadores de scripts/ escriben ahí.
+- /clinica satelite/ → modelo financiero de la sede satélite (Excel)
 
 ## Autenticación y roles
 - Login propio contra la tabla `sofvet_users` (no usa Supabase Auth). Sesión se guarda en localStorage (`sofvet_session`). Ver /frontend/src/utils/useAuth.jsx

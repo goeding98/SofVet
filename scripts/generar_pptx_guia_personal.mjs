@@ -1,6 +1,6 @@
 // Genera la guía impresa del Plan Prepagado para el personal de caja y recepción.
 // Uso: node scripts/generar_pptx_guia_personal.mjs
-// Sale en Prepagada/PetsPets_Prepagada_Guia_Personal.pptx
+// Sale en Otros/Prepagada/PetsPets_Prepagada_Guia_Personal.pptx
 import PptxGenJS from 'pptxgenjs';
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -1243,7 +1243,7 @@ function fichaHeader(s, x, y, o) {
   });
 }
 
-const OUT = path.join(AQUI, '..', 'Prepagada', 'PetsPets_Prepagada_Guia_Personal.pptx');
+const OUT = path.join(AQUI, '..', 'Otros', 'Prepagada', 'PetsPets_Prepagada_Guia_Personal.pptx');
 await pptx.writeFile({ fileName: OUT });
 console.log('Guía generada:', OUT);
 console.log('Diapositivas:', pageNo + 1);

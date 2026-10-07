@@ -1,6 +1,6 @@
 // Genera el Protocolo Operativo de la Prepagada (médicos, coordinación y gerencia).
 // Uso: node scripts/generar_docx_protocolo.mjs
-// Sale en Prepagada/PetsPets_Protocolo_Operativo_v2.0.docx
+// Sale en Otros/Prepagada/PetsPets_Protocolo_Operativo_v2.0.docx
 // El paso a paso de caja vive en la guía impresa (generar_pptx_guia_personal.mjs);
 // este documento no lo repite.
 import fs from 'fs';
@@ -12,7 +12,7 @@ import {
 } from 'docx';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
-const OUT = path.join(AQUI, '..', 'Prepagada', 'PetsPets_Protocolo_Operativo_v2.0.docx');
+const OUT = path.join(AQUI, '..', 'Otros', 'Prepagada', 'PetsPets_Protocolo_Operativo_v2.0.docx');
 const LOGO = fs.readFileSync(path.join(AQUI, 'assets', 'logos', 'wordmark_teal.png'));
 
 const C = { teal: '1E4E54', blue: '316D74', cream: 'F5E6D3', line: 'D8D0C4', red: 'C0392B', amber: '8A6D00', amberBg: 'FFF7E6', redBg: 'FDECEA', greenBg: 'EAF7EF', green: '1E7D45' };

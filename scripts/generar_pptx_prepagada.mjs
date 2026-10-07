@@ -889,7 +889,7 @@ divider('04', 'Implementación', 'Qué está listo, qué falta y cómo salimos a
   s.addText('Gracias', { x: 0, y: 6.1, w: W, h: 0.4, fontSize: 15, color: C.well, align: 'center', italic: true, fontFace: 'Calibri' });
 }
 
-const OUT = 'C:/Users/goedi/OneDrive/Desktop/SofVet/Prepagada/PetsPets_Prepagada_Junta_Directiva.pptx';
+const OUT = 'C:/Users/goedi/OneDrive/Desktop/SofVet/Otros/Prepagada/PetsPets_Prepagada_Junta_Directiva.pptx';
 await pptx.writeFile({ fileName: OUT });
 console.log('Presentación generada:', OUT);
 console.log('Diapositivas:', pageNo + 1);

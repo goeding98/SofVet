@@ -245,7 +245,7 @@ const doc = new Document({
   ]}],
 });
 
-const OUT = 'C:/Users/goedi/OneDrive/Desktop/SofVet/Prepagada/PetsPets_Terminos_y_Condiciones_BORRADOR.docx';
+const OUT = 'C:/Users/goedi/OneDrive/Desktop/SofVet/Otros/Prepagada/PetsPets_Terminos_y_Condiciones_BORRADOR.docx';
 const buf = await Packer.toBuffer(doc);
 fs.writeFileSync(OUT, buf);
 console.log('Contrato generado:', OUT);
