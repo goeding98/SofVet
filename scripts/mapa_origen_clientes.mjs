@@ -650,6 +650,18 @@ return `<!DOCTYPE html>
   </div>
 
   <div class="grupo">
+    <div class="lbl">Sede propuesta (Calle 13 #72)</div>
+    <div class="chips" id="fProp">
+      <div class="chip on" data-prop="1">Mostrar</div>
+      <div class="chip" data-prop="0">Ocultar</div>
+    </div>
+    <div class="chips" id="fComp" style="margin-top:5px">
+      <div class="chip" data-comp="1">Con competidores 24h</div>
+      <div class="chip on" data-comp="0">Sin competidores</div>
+    </div>
+  </div>
+
+  <div class="grupo">
     <div class="lbl">Vista</div>
     <div class="chips" id="fVista">
       <div class="chip on" data-v="heat">Mapa de calor</div>
@@ -760,25 +772,26 @@ const COMPETIDORES = [
   ['Pets Medical Center', 3.3981, -76.5478], ['Dra. Natalia Sánchez', 3.3809, -76.5312],
   ['Servivet', 3.4026, -76.5276],
 ];
-if (URLP.get('comp') === '1') for (const [nombre, lat, lng] of COMPETIDORES) {
+const capaCompetidores = L.layerGroup(COMPETIDORES.map(([nombre, lat, lng]) =>
   L.circleMarker([lat, lng], { radius: 7, color: '#fff', weight: 2, fillColor: '#9ca3af', fillOpacity: 1 })
-    .addTo(map).bindTooltip(nombre, { permanent: true, direction: 'right', className: 'comp-tip' });
-}
+    .bindTooltip(nombre, { permanent: true, direction: 'right', className: 'comp-tip' })));
 
 const PROPUESTA = { nombre: 'Propuesta 24h', direccion: 'Calle 13 #72 (Pasoancho con Carrera 72)', lat: 3.3922, lng: -76.5384, color: '#e11d48' };
-if (URLP.get('prop') !== '0') {
+// Capas que se prenden y apagan desde el panel (grupo "Sede propuesta").
+const capaPropuesta = L.layerGroup([
 L.circle([PROPUESTA.lat, PROPUESTA.lng], {
   radius: RADIO_REF_M, color: PROPUESTA.color, weight: 2.5, dashArray: '2 6',
   fillColor: PROPUESTA.color, fillOpacity: 0.05, interactive: false,
-}).addTo(map);
+}),
 L.marker([PROPUESTA.lat, PROPUESTA.lng], {
   icon: L.divIcon({ className: '', iconSize: [26, 26], iconAnchor: [13, 13], html:
     '<div style="width:26px;height:26px;border-radius:50%;background:#fff;border:3px dashed ' + PROPUESTA.color +
     ';box-shadow:0 2px 8px rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;' +
     'font:700 12px sans-serif;color:' + PROPUESTA.color + '">N</div>' }),
   zIndexOffset: 1000,
-}).addTo(map).bindPopup('<b>' + PROPUESTA.nombre + ' (no existe aún)</b><br>' + PROPUESTA.direccion);
-}
+}).bindPopup('<b>' + PROPUESTA.nombre + ' (no existe aún)</b><br>' + PROPUESTA.direccion),
+]);
+function toggleCapa(capa, on) { if (on) capa.addTo(map); else map.removeLayer(capa); }
 
 let capa = null;
 
@@ -873,10 +886,14 @@ grupo(document.getElementById('fHora'),    'h', v => fHora = +v);
 grupo(document.getElementById('fVista'),   'v', v => fVista = v);
 grupo(document.getElementById('fPrec'),    'p', v => fPrec = +v);
 grupo(document.getElementById('fCuenta'),  'c', v => fCuenta = v);
+grupo(document.getElementById('fProp'),    'prop', v => toggleCapa(capaPropuesta, v === '1'));
+grupo(document.getElementById('fComp'),    'comp', v => toggleCapa(capaCompetidores, v === '1'));
+toggleCapa(capaPropuesta, true);
 
 // Filtros iniciales desde la URL: se aplican igual que si se hubiera hecho clic.
 for (const [param, id, attr] of [['sede', 'fSede', 's'], ['win', 'fPeriodo', 'w'], ['hora', 'fHora', 'h'],
-  ['vista', 'fVista', 'v'], ['prec', 'fPrec', 'p'], ['cuenta', 'fCuenta', 'c']]) {
+  ['vista', 'fVista', 'v'], ['prec', 'fPrec', 'p'], ['cuenta', 'fCuenta', 'c'],
+  ['prop', 'fProp', 'prop'], ['comp', 'fComp', 'comp']]) {
   if (!URLP.has(param)) continue;
   const chip = document.querySelector('#' + id + ' .chip[data-' + attr + '="' + URLP.get(param) + '"]');
   if (chip) chip.click();
