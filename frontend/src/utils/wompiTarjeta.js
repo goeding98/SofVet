@@ -14,6 +14,22 @@ import { supabase } from './supabaseClient';
 const WOMPI_PUBLIC_KEY = 'pub_prod_5PzCKBhdU04bQIYuSeDbQRHL4qtMaChY';
 const WIDGET_SRC = 'https://checkout.wompi.co/widget.js';
 
+// Wompi exige un correo válido para guardar la tarjeta (customer_email). Si el
+// de la ficha está mal escrito —p. ej. sin la @— rechaza la fuente de pago.
+export const correoValido = (c) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((c || '').trim());
+
+// Cuando la Edge Function responde 4xx/5xx, supabase-js deja data en null y el
+// cuerpo con el motivo queda en error.context. Sin esto el tutor solo veía
+// "No se pudo guardar la tarjeta" y no había forma de saber por qué.
+export async function motivoError(error, data, porDefecto) {
+  let cuerpo = data;
+  if (!cuerpo && error?.context?.json) { try { cuerpo = await error.context.json(); } catch { /* sin cuerpo */ } }
+  const campos = cuerpo?.detalle?.messages ? Object.keys(cuerpo.detalle.messages) : [];
+  if (campos.includes('customer_email')) return 'El correo registrado no es válido. Corrígelo e intenta de nuevo.';
+  const base = cuerpo?.error || porDefecto;
+  return campos.length ? `${base} (${campos.join(', ')})` : base;
+}
+
 function cargarWidget() {
   return new Promise((resolve, reject) => {
     if (window.WidgetCheckout) return resolve();
@@ -60,7 +76,7 @@ export async function registrarTarjeta({ afiliadoId, email }) {
   const { data, error } = await supabase.functions.invoke('wompi-registrar-tarjeta', {
     body: { afiliado_id: afiliadoId, token, customer_email: email || '' },
   });
-  if (error || !data?.ok) throw new Error(data?.error || 'No se pudo guardar la tarjeta.');
+  if (error || !data?.ok) throw new Error(await motivoError(error, data, 'No se pudo guardar la tarjeta.'));
   return data;
 }
 

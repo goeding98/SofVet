@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { ageLabel } from '../utils/ageLabel';
 import { DESCUENTO_TARJETA, precioConDescuento, totalConIva } from '../utils/prepagadaPrecios';
+import { correoValido, motivoError } from '../utils/wompiTarjeta';
 
 const fmtCOP = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v || 0);
 const PREP_ESTADO_BADGE = {
@@ -328,6 +329,9 @@ export default function PortalPage() {
   const abrirTarjeta = async (afiliado) => {
     setTjErr(''); setTjSaving(true);
     try {
+      if (!correoValido(client?.email)) {
+        throw new Error('El correo de tu cuenta no es válido. Pide en la clínica que lo corrijan para activar el pago automático.');
+      }
       await cargarWidget();
       if (!window.WidgetCheckout) throw new Error('No se pudo cargar la pasarela de pagos.');
 
@@ -351,7 +355,7 @@ export default function PortalPage() {
               customer_email: client?.email || '',
             },
           });
-          if (error || !data?.ok) throw new Error(data?.error || 'No se pudo guardar la tarjeta.');
+          if (error || !data?.ok) throw new Error(await motivoError(error, data, 'No se pudo guardar la tarjeta.'));
           await loadData(client);
         } catch (e) {
           setTjErr(e.message || 'No se pudo registrar la tarjeta.');

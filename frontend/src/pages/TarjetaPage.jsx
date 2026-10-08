@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
-import { registrarTarjeta } from '../utils/wompiTarjeta';
+import { registrarTarjeta, correoValido } from '../utils/wompiTarjeta';
 import { DESCUENTO_TARJETA, precioConDescuento, totalConIva } from '../utils/prepagadaPrecios';
 
 // Página pública a la que llega el tutor por un link que le manda el cajero.
@@ -25,6 +25,7 @@ export default function TarjetaPage() {
   const [estado, setEstado] = useState('cargando'); // cargando | listo | guardando | ok | error
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState('');
+  const [correo, setCorreo] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -45,14 +46,23 @@ export default function TarjetaPage() {
         supabase.from('clients').select('name, email').eq('id', data.client_id).maybeSingle(),
       ]);
       setDatos({ ...data, mascota: mascota?.name, cliente: cliente?.name, email: cliente?.email });
+      setCorreo((cliente?.email || '').trim());
       setEstado('listo');
     })();
   }, [token]);
 
   const guardar = async () => {
+    const email = correo.trim();
+    if (!correoValido(email)) { setError('Escribe un correo válido para continuar.'); return; }
     setError(''); setEstado('guardando');
     try {
-      const r = await registrarTarjeta({ afiliadoId: datos.id, email: datos.email });
+      // Si el tutor corrigió el correo, queda guardado en su ficha: es el mismo
+      // al que llegan las facturas.
+      if (email !== (datos.email || '').trim()) {
+        await supabase.from('clients').update({ email }).eq('id', datos.client_id);
+        setDatos((d) => ({ ...d, email }));
+      }
+      const r = await registrarTarjeta({ afiliadoId: datos.id, email });
       if (!r) { setEstado('listo'); return; }   // cerró el widget
 
       // El token es de un solo uso: una vez registrada, el enlace muere.
@@ -140,6 +150,27 @@ export default function TarjetaPage() {
           Ya tienes una tarjeta registrada. Si continúas, la reemplazas por la nueva.
         </p>
       )}
+
+      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: C.tealDark, marginBottom: '0.35rem' }}>
+        Tu correo electrónico
+      </label>
+      <input
+        type="email"
+        inputMode="email"
+        autoComplete="email"
+        value={correo}
+        onChange={(e) => { setCorreo(e.target.value); if (error) setError(''); }}
+        placeholder="tucorreo@ejemplo.com"
+        style={{
+          width: '100%', boxSizing: 'border-box', padding: '0.8rem 0.9rem', fontSize: '1rem', fontFamily: 'inherit',
+          border: `1.5px solid ${correo && !correoValido(correo) ? C.danger : C.border}`, borderRadius: 12, marginBottom: '0.35rem',
+        }}
+      />
+      <p style={{ fontSize: '0.76rem', color: correo && !correoValido(correo) ? C.danger : C.muted, margin: '0 0 0.9rem', lineHeight: 1.5 }}>
+        {correo && !correoValido(correo)
+          ? 'Revisa tu correo: parece incompleto (por ejemplo, le falta la @).'
+          : 'Ahí te llegan los comprobantes de pago y las facturas.'}
+      </p>
 
       {error && (
         <p style={{ color: C.danger, fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.8rem' }}>⚠️ {error}</p>
