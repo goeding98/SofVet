@@ -231,6 +231,20 @@ export default function PrepagadaV2Page() {
   const nuevos = afiliadosFiltrados.filter(esNuevo);
   const antiguos = afiliadosFiltrados.filter(a => !esNuevo(a));
 
+  // Indicadores: solo sobre la cartera vigente (sección "Nuevos"), sin la
+  // búsqueda aplicada, para que las pruebas y los antiguos por revisar no
+  // inflen las cifras.
+  const cartera = afiliados.filter(esNuevo);
+  const mesActual = nowDate().slice(0, 7);
+  const nuevosMes = cartera.filter(a => (a.fecha_afiliacion || '').slice(0, 7) === mesActual && a.estado !== 'cancelado');
+  const nuevosMesPagos = nuevosMes.filter(a => a.estado === 'activo' || a.estado === 'en_gracia').length;
+  const indicadores = [
+    { label: 'Nuevos afiliados este mes', valor: nuevosMes.length, sub: `${nuevosMesPagos} ya pagaron`, color: '#316d74', destacado: true },
+    { label: 'Afiliados activos', valor: cartera.filter(a => a.estado === 'activo').length, sub: 'al día con su pago', color: '#1e7d45' },
+    { label: 'En mora', valor: cartera.filter(a => a.estado === 'en_gracia' || a.estado === 'suspendido').length, sub: 'en gracia o suspendidos', color: '#c0392b' },
+    { label: 'Pendientes del primer pago', valor: cartera.filter(a => a.estado === 'pendiente_pago').length, sub: 'afiliados sin pagar aún', color: '#b8860b' },
+  ];
+
   const tablaAfiliados = (lista, vacio) => (
     <div style={{ background: 'white', border: '1px solid #e2e6ef', borderRadius: 14, overflow: 'hidden' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -298,6 +312,16 @@ export default function PrepagadaV2Page() {
         <button onClick={abrirModal} style={{ padding: '0.65rem 1.25rem', background: '#316d74', color: 'white', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
           + Afiliar mascota
         </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.9rem', marginBottom: '1.5rem' }}>
+        {indicadores.map(ind => (
+          <div key={ind.label} style={{ background: ind.destacado ? '#eef6f6' : 'white', border: `1px solid ${ind.destacado ? '#316d74' : '#e2e6ef'}`, borderLeft: `4px solid ${ind.color}`, borderRadius: 12, padding: '0.9rem 1.1rem' }}>
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#5c6470', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{ind.label}</div>
+            <div style={{ fontSize: '1.9rem', fontWeight: 800, color: ind.color, lineHeight: 1.2, marginTop: '0.2rem' }}>{ind.valor}</div>
+            <div style={{ fontSize: '0.78rem', color: '#8A8076' }}>{ind.sub}</div>
+          </div>
+        ))}
       </div>
 
       <input
