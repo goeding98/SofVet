@@ -34,7 +34,7 @@ const FECHA = `Cali, ${hoy.getDate()} de ${meses[hoy.getMonth()]} de ${hoy.getFu
 // Página carta, márgenes de 2 cm aprox.
 const W = 12240, MARGEN = 1150, ANCHO = W - MARGEN * 2;
 
-const t = (text, o = {}) => new TextRun({ text, font: FONT, size: o.size || 20, color: o.color || TINTA, bold: o.bold, italics: o.italics, characterSpacing: o.spacing });
+const t = (text, o = {}) => new TextRun({ text, font: FONT, size: o.size || 19, color: o.color || TINTA, bold: o.bold, italics: o.italics, characterSpacing: o.spacing });
 const p = (runs, o = {}) => new Paragraph({
   children: Array.isArray(runs) ? runs : [typeof runs === 'string' ? t(runs) : runs],
   alignment: o.align || AlignmentType.JUSTIFIED,
@@ -45,7 +45,7 @@ const p = (runs, o = {}) => new Paragraph({
   keepNext: o.keepNext,
 });
 const titulo = (num, text) => p([t(`${num}. `, { bold: true, color: TEAL, size: 22 }), t(text, { bold: true, color: TEAL, size: 22 })],
-  { before: 260, after: 100, align: AlignmentType.LEFT, keepNext: true });
+  { before: 170, after: 70, align: AlignmentType.LEFT, keepNext: true });
 
 const sinBorde = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
 const lineaInf = { style: BorderStyle.SINGLE, size: 4, color: LINEA };
@@ -57,7 +57,7 @@ function celda(contenido, ancho, o = {}) {
     children: parrafos,
     width: { size: ancho, type: WidthType.DXA },
     shading: o.fill ? { type: ShadingType.CLEAR, color: 'auto', fill: o.fill } : undefined,
-    margins: { top: 90, bottom: 90, left: 140, right: 140 },
+    margins: { top: 50, bottom: 50, left: 120, right: 120 },
     verticalAlign: VerticalAlign.CENTER,
     borders: { top: sinBorde, left: sinBorde, right: sinBorde, bottom: o.noLine ? sinBorde : lineaInf },
     columnSpan: o.span,
@@ -98,14 +98,14 @@ const encab = (textos, anchos, aligns = []) => new TableRow({
     ],
   })], [3200, ANCHO - 3200]);
 
-  const reglaTeal = p([t('')], { after: 200, border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: TEAL, space: 1 } } });
+  const reglaTeal = p([t('')], { after: 120, border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: TEAL, space: 1 } } });
 
   // ── Condiciones generales ──────────────────────────────────────────────────
   const A2 = [2900, ANCHO - 2900];
   const fila2 = (k, v) => new TableRow({ children: [celda(k, A2[0], { bold: true, size: 19 }), celda(v, A2[1], { size: 19 })] });
   const tGenerales = tabla([
     fila2('Arrendatario', `${EMPRESA.razon} (marca Pets & Pets), ${EMPRESA.nit}`),
-    fila2('Destinación', 'Sede satélite veterinaria: petshop, farmacia, spa y consulta de medicina general en horario diurno'),
+    fila2('Destinación', 'Sede satélite: petshop, farmacia, spa y consulta veterinaria diurna'),
     fila2('Duración', 'Tres (3) años, contados desde la entrega material del inmueble'),
   ], A2);
 
@@ -121,7 +121,6 @@ const encab = (textos, anchos, aligns = []) => new TableRow({
     fila3('Año 1', '$9.000.000', 'Valor fijo'),
     fila3('Año 2', '$11.000.000', 'Valor fijo'),
     fila3('Año 3', '$11.000.000 + IPC', 'Canon del Año 2 incrementado en el IPC certificado por el DANE para el año inmediatamente anterior'),
-    fila3('Año 4 (renovación)', 'Canon Año 3 + 10%', 'Aplica solo si el arrendatario decide renovar (ver numeral 4)', { fill: SUAVE }),
   ], A3);
 
   // ── Meses de gracia: comparación ───────────────────────────────────────────
@@ -133,11 +132,6 @@ const encab = (textos, anchos, aligns = []) => new TableRow({
       celda('Meses 4 y 8', A4[1], { size: 19, color: GRIS, align: AlignmentType.CENTER }),
       celda('Meses 6 y 12', A4[2], { size: 20, bold: true, color: TEAL, align: AlignmentType.CENTER, fill: 'E8F1F1' }),
     ] }),
-    new TableRow({ children: [
-      celda('Meses de canon continuo antes del primer mes de gracia', A4[0], { bold: true, size: 19 }),
-      celda('3 meses', A4[1], { size: 19, color: GRIS, align: AlignmentType.CENTER }),
-      celda('5 meses', A4[2], { size: 20, bold: true, color: TEAL, align: AlignmentType.CENTER, fill: 'E8F1F1' }),
-    ] }),
   ], A4);
 
   const recuadroGracia = new Table({
@@ -145,14 +139,14 @@ const encab = (textos, anchos, aligns = []) => new TableRow({
     rows: [new TableRow({ children: [new TableCell({
       width: { size: ANCHO, type: WidthType.DXA },
       shading: { type: ShadingType.CLEAR, color: 'auto', fill: CREMA },
-      margins: { top: 160, bottom: 160, left: 240, right: 240 },
+      margins: { top: 100, bottom: 100, left: 220, right: 220 },
       borders: { top: sinBorde, right: sinBorde, bottom: sinBorde, left: { style: BorderStyle.SINGLE, size: 24, color: TEAL } },
       children: [
         p([t('Nos movimos de nuestra propuesta inicial', { bold: true, color: TEAL, size: 21 })], { after: 80, align: AlignmentType.LEFT }),
-        p([t('En atención a sus comentarios, ajustamos los meses de gracia: pasan de los meses 4 y 8 a los '),
+        p([t('En atención a sus comentarios, trasladamos los meses de gracia de los meses 4 y 8 a los '),
           t('meses 6 y 12', { bold: true }),
-          t(' del contrato. Con este cambio, el propietario recibe cinco (5) meses de canon continuo antes del primer mes de gracia —dos más que en la propuesta inicial— y el segundo mes de gracia se traslada al cierre del primer año. Es una concesión que hacemos con el propósito de construir una relación de largo plazo.')],
-          { after: 0, line: 280 }),
+          t(' del contrato. Así, el propietario recibe cinco (5) meses de canon continuo antes del primer mes de gracia, dos más que en la propuesta inicial. Es una concesión que hacemos para construir una relación de largo plazo.')],
+          { after: 0, line: 260 }),
       ],
     })] })],
   });
@@ -176,10 +170,10 @@ const encab = (textos, anchos, aligns = []) => new TableRow({
   // ── Documento ──────────────────────────────────────────────────────────────
   const doc = new Document({
     creator: 'Pets & Pets', title: 'Propuesta de arrendamiento — sede satélite',
-    styles: { default: { document: { run: { font: FONT, size: 20, color: TINTA } } } },
+    styles: { default: { document: { run: { font: FONT, size: 19, color: TINTA } } } },
     numbering: { config: [{ reference: 'vinetas', levels: [{ level: 0, format: LevelFormat.BULLET, text: '•', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 420, hanging: 260 } } } }] }] },
     sections: [{
-      properties: { page: { size: { width: W, height: 15840 }, margin: { top: 900, bottom: 1300, left: MARGEN, right: MARGEN, footer: 500 } } },
+      properties: { page: { size: { width: W, height: 15840 }, margin: { top: 600, bottom: 1000, left: MARGEN, right: MARGEN, footer: 500 } } },
       footers: {
         default: new Footer({ children: [
           p([t('DOCUMENTO CONFIDENCIAL', { bold: true, color: ROJO, size: 14, spacing: 10 })], { after: 20, align: AlignmentType.LEFT, border: { top: { style: BorderStyle.SINGLE, size: 4, color: LINEA, space: 6 } } }),
@@ -190,37 +184,32 @@ const encab = (textos, anchos, aligns = []) => new TableRow({
         membrete,
         reglaTeal,
         p([t(FECHA, { size: 18, color: GRIS })], { align: AlignmentType.LEFT, after: 160 }),
-        p([t('Propuesta de arrendamiento', { bold: true, size: 36, color: TEAL })], { align: AlignmentType.LEFT, after: 20 }),
-        p([t('Local comercial para sede satélite Pets & Pets  ·  Propuesta ajustada', { size: 19, color: GRIS })], { align: AlignmentType.LEFT, after: 280 }),
+        p([t('Propuesta de arrendamiento', { bold: true, size: 32, color: TEAL })], { align: AlignmentType.LEFT, after: 20 }),
+        p([t('Local comercial para sede satélite Pets & Pets  ·  Propuesta ajustada', { size: 19, color: GRIS })], { align: AlignmentType.LEFT, after: 160 }),
 
-        p('Respetado propietario:', { align: AlignmentType.LEFT, after: 120 }),
-        p('Agradecemos el tiempo dedicado a revisar nuestra propuesta y los comentarios recibidos. Con base en ellos, presentamos a continuación nuestra propuesta ajustada para el arrendamiento del inmueble de su propiedad, en el que proyectamos abrir una sede satélite de Pets & Pets.', { after: 120 }),
+        p('Respetado propietario:', { align: AlignmentType.LEFT, after: 80 }),
+        p('Agradecemos sus comentarios a nuestra propuesta. Con base en ellos, presentamos nuestra propuesta ajustada para el arrendamiento de su inmueble, donde proyectamos abrir una sede satélite de Pets & Pets.', { after: 40 }),
 
         titulo(1, 'Condiciones generales'),
         tGenerales,
 
         titulo(2, 'Canon de arrendamiento'),
-        p('El canon mensual será el siguiente:', { after: 120 }),
+        
         tCanon,
         p([t('Valores en pesos colombianos, más IVA en caso de que el arrendador sea responsable de este impuesto.', { size: 16, color: GRIS, italics: true })], { before: 80, after: 0 }),
 
         titulo(3, 'Meses de gracia'),
-        p('Durante dos (2) meses del contrato no se causará canon de arrendamiento:', { after: 120 }),
+        
         tGracia,
-        p([t('')], { after: 120 }),
+        p([t('')], { after: 0, line: 160 }),
         recuadroGracia,
 
         titulo(4, 'Renovación y derecho de preferencia'),
-        p([t('Vencido el plazo inicial de tres (3) años, '), t('el arrendatario tendrá prioridad para renovar', { bold: true }), t(' el contrato sobre cualquier otro interesado en el inmueble. Si el arrendatario decide renovar, el canon del Año 4 será igual al canon del Año 3 incrementado en un '), t('diez por ciento (10%)', { bold: true }), t('. Para los años siguientes, las partes acordarán el incremento de buena fe al momento de la renovación.')], { after: 120 }),
+        p([t('Vencido el plazo inicial de tres (3) años, '), t('el arrendatario tendrá prioridad para renovar', { bold: true }), t(' el contrato sobre cualquier otro interesado en el inmueble. Si el arrendatario decide renovar, el canon del Año 4 será igual al canon del Año 3 incrementado en un '), t('diez por ciento (10%)', { bold: true }), t('. Los años siguientes se acordarán de buena fe al renovar.')], { after: 40 }),
 
-        titulo(5, 'Resumen del flujo para el propietario'),
-        tFlujo,
-        p([t('El Año 3 se ajusta con el IPC certificado por el DANE; las cifras no incluyen IVA.', { size: 16, color: GRIS, italics: true })], { before: 80, after: 0 }),
+        p('La presente propuesta se formula de buena fe y está sujeta a la suscripción del contrato de arrendamiento, en el que se detallarán las demás condiciones usuales. Quedamos atentos a sus comentarios.', { before: 160, after: 40 }),
 
-        titulo(6, 'Consideraciones finales'),
-        p('La presente propuesta se formula de buena fe y está sujeta a la revisión del inmueble y a la suscripción del contrato de arrendamiento correspondiente, en el que se detallarán las demás condiciones usuales (garantías, servicios públicos, mejoras y entrega del inmueble). Quedamos atentos a sus comentarios para avanzar.', { after: 120 }),
-
-        p([t('Cordialmente,')], { before: 200, after: 900, align: AlignmentType.LEFT }),
+        p([t('Cordialmente,')], { before: 60, after: 320, align: AlignmentType.LEFT }),
         p([t('')], { after: 40, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: TINTA, space: 1 } }, indent: { right: ANCHO - 3600 } }),
         p([t('Guillermo Oeding', { bold: true })], { align: AlignmentType.LEFT, after: 0 }),
         p([t('Representante Legal', { size: 18, color: GRIS })], { align: AlignmentType.LEFT, after: 0 }),
