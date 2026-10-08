@@ -198,20 +198,21 @@ const encab = (textos, anchos, aligns = []) => new TableRow({
   ], [KW, KW, KW, KW]);
 
   const AS = [KW, KW, KW, ANCHO - 3 * KW];
-  const sede = (n, z, d, a) => new TableCell({
+  const sede = (n, z, d, a, trayectoria) => new TableCell({
     width: { size: a, type: WidthType.DXA },
     margins: { top: 60, bottom: 60, left: 120, right: 120 },
     borders: { top: { style: BorderStyle.SINGLE, size: 12, color: TEAL }, bottom: sinBorde, left: sinBorde, right: sinBorde },
     children: [
       p([t(n, { bold: true, size: 20, color: TEAL })], { align: AlignmentType.LEFT, after: 0 }),
       p([t(z, { size: 16, color: GRIS })], { align: AlignmentType.LEFT, after: 30 }),
-      p([t(d, { size: 17 })], { align: AlignmentType.LEFT, after: 0, line: 240 }),
+      p([t(d, { size: 17 })], { align: AlignmentType.LEFT, after: trayectoria ? 50 : 0, line: 240 }),
+      ...(trayectoria ? [p([t(trayectoria, { size: 17, bold: true, color: TEAL })], { align: AlignmentType.LEFT, after: 0, line: 240 })] : []),
     ],
   });
   const tSedes = tabla([new TableRow({ children: [
-    sede('Santa Mónica', 'Norte de Cali', 'Urgencias 24 horas, hospitalización y consulta', AS[0]),
-    sede('Colseguros', 'Centro de Cali', 'Urgencias 24 horas, hospitalización y consulta', AS[1]),
-    sede('Ciudad Jardín', 'Sur de Cali', 'Urgencias 24 horas, hospitalización y consulta', AS[2]),
+    sede('Santa Mónica', 'Norte de Cali', 'Urgencias 24 horas, hospitalización y consulta', AS[0], 'Abierta hace 3 meses, con contrato de arrendamiento a 3 años'),
+    sede('Colseguros', 'Centro de Cali', 'Urgencias 24 horas, hospitalización y consulta', AS[1], '5 años de operación'),
+    sede('Ciudad Jardín', 'Sur de Cali', 'Urgencias 24 horas, hospitalización y consulta', AS[2], '5 años de operación'),
     sede('Domicilio', 'Toda la ciudad', 'Consulta y vacunación en casa', AS[3]),
   ] })], AS);
 
