@@ -105,7 +105,6 @@ const encab = (textos, anchos, aligns = []) => new TableRow({
   const fila2 = (k, v) => new TableRow({ children: [celda(k, A2[0], { bold: true, size: 19 }), celda(v, A2[1], { size: 19 })] });
   const tGenerales = tabla([
     fila2('Arrendatario', `${EMPRESA.razon} (marca Pets & Pets), ${EMPRESA.nit}`),
-    fila2('Inmueble', 'Local comercial ubicado en ____________________________, Cali'),
     fila2('Destinación', 'Sede satélite veterinaria: petshop, farmacia, spa y consulta de medicina general en horario diurno'),
     fila2('Duración', 'Tres (3) años, contados desde la entrega material del inmueble'),
   ], A2);
