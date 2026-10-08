@@ -36,6 +36,7 @@ export const TIPOS_LAB = [
   'Fosfatasa alcalina',
   'Fósforo',
   'Gamma glutamil transferasa GGT',
+  'Gasometría arterial',
   'Glucosa',
   'Lipasa',
   'Proteínas plasmáticas',
