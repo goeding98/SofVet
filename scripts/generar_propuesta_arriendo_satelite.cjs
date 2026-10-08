@@ -211,8 +211,8 @@ const encab = (textos, anchos, aligns = []) => new TableRow({
   });
   const tSedes = tabla([new TableRow({ children: [
     sede('Santa Mónica', 'Norte de Cali', 'Urgencias 24 horas, hospitalización y consulta', AS[0], 'Abierta hace 3 meses, con contrato de arrendamiento a 3 años'),
-    sede('Colseguros', 'Centro de Cali', 'Urgencias 24 horas, hospitalización y consulta', AS[1], '5 años de operación'),
-    sede('Ciudad Jardín', 'Sur de Cali', 'Urgencias 24 horas, hospitalización y consulta', AS[2], '5 años de operación'),
+    sede('Colseguros', 'Centro de Cali', 'Urgencias 24 horas, hospitalización y consulta', AS[1], '5 años en el mismo inmueble'),
+    sede('Ciudad Jardín', 'Sur de Cali', 'Urgencias 24 horas, hospitalización y consulta', AS[2], '5 años en el mismo inmueble'),
     sede('Domicilio', 'Toda la ciudad', 'Consulta y vacunación en casa', AS[3]),
   ] })], AS);
 
