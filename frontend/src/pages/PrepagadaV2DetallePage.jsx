@@ -273,9 +273,22 @@ export default function PrepagadaV2DetallePage() {
 
   const handleFacturar = async () => {
     if (!afiliado || facturando) return;
-    if (pagoYaFacturado) {
+    // La copia en memoria puede ser vieja: si el webhook de Wompi facturó
+    // mientras esta pantalla estaba abierta, aquí todavía no se ve y el botón
+    // emitía una segunda factura del mismo pago (pasó el 8 oct 2026 con
+    // FED-4312 / FED-4313). Se relee el afiliado antes de decidir.
+    const { data: fresco } = await supabase
+      .from('prepagada_afiliados')
+      .select('ultima_factura_numero, ultima_factura_fecha, ultimo_pago_fecha, ultimo_pago_metodo')
+      .eq('id', afiliado.id)
+      .single();
+    const actual = fresco || afiliado;
+    const yaFacturadoReal = !!(actual.ultima_factura_fecha && actual.ultimo_pago_fecha
+      && actual.ultima_factura_fecha >= actual.ultimo_pago_fecha);
+    if (fresco) editAfiliado(afiliado.id, fresco);
+    if (yaFacturadoReal) {
       const insistir = window.confirm(
-        `⚠️ Este pago YA está facturado con ${afiliado.ultima_factura_numero}.\n\n`
+        `⚠️ Este pago YA está facturado con ${actual.ultima_factura_numero}.\n\n`
         + 'Los pagos por Wompi se facturan solos; este botón es para los de efectivo '
         + 'o transferencia.\n\n'
         + 'Si continúas se emite una SEGUNDA factura electrónica del mismo pago, y para '
