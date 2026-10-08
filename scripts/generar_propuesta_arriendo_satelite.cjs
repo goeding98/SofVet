@@ -82,7 +82,7 @@ const encab = (textos, anchos, aligns = []) => new TableRow({
   const anchoLogo = 150, altoLogo = Math.round(anchoLogo * meta.height / meta.width);
 
   // ── Membrete ───────────────────────────────────────────────────────────────
-  const membrete = tabla([new TableRow({
+  const nuevoMembrete = () => tabla([new TableRow({
     children: [
       new TableCell({
         children: [new Paragraph({ children: [new ImageRun({ type: 'png', data: logo, transformation: { width: anchoLogo, height: altoLogo } })] })],
@@ -98,7 +98,7 @@ const encab = (textos, anchos, aligns = []) => new TableRow({
     ],
   })], [3200, ANCHO - 3200]);
 
-  const reglaTeal = p([t('')], { after: 120, border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: TEAL, space: 1 } } });
+  const nuevaRegla = () => p([t('')], { after: 120, border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: TEAL, space: 1 } } });
 
   // ── Condiciones generales ──────────────────────────────────────────────────
   const A2 = [2900, ANCHO - 2900];
@@ -167,22 +167,100 @@ const encab = (textos, anchos, aligns = []) => new TableRow({
     fila5('Total 3 años', '34 meses', '', '$354.000.000 + IPC', { fill: SUAVE }),
   ], A5);
 
+  // ── Página 1: quiénes somos ────────────────────────────────────────────────
+  // Cifras de SofVet: promedio mensual jul–sep 2026 (consultas 463, hospitalizaciones
+  // 131, laboratorios 400 + imágenes 120, ~1.540 atenciones), 6.238 clientes,
+  // 7.098 pacientes, 39 usuarios activos (16 con rol Médico).
+  const propsPagina = { page: { size: { width: W, height: 15840 }, margin: { top: 600, bottom: 1000, left: MARGEN, right: MARGEN, footer: 500 } } };
+  const nuevoPie = () => new Footer({ children: [
+    p([t('DOCUMENTO CONFIDENCIAL', { bold: true, color: ROJO, size: 14, spacing: 10 })], { after: 20, align: AlignmentType.LEFT, border: { top: { style: BorderStyle.SINGLE, size: 4, color: LINEA, space: 6 } } }),
+    p([t(`Este documento es confidencial y se entrega únicamente a su destinatario para evaluar la presente propuesta. Queda prohibida su reproducción o divulgación sin autorización escrita de ${EMPRESA.razon}`, { size: 14, color: GRIS })], { after: 0, line: 240 }),
+  ] });
+
+  // Tarjetas de cifras: número grande + etiqueta.
+  const KW = Math.floor(ANCHO / 4);
+  const blanco = { style: BorderStyle.SINGLE, size: 18, color: 'FFFFFF' };
+  const kpi = (num, lab) => new TableCell({
+    width: { size: KW, type: WidthType.DXA },
+    shading: { type: ShadingType.CLEAR, color: 'auto', fill: CREMA },
+    margins: { top: 130, bottom: 130, left: 110, right: 110 },
+    verticalAlign: VerticalAlign.CENTER,
+    borders: { top: blanco, bottom: blanco, left: blanco, right: blanco },
+    children: [
+      p([t(num, { bold: true, size: 36, color: TEAL })], { align: AlignmentType.CENTER, after: 20 }),
+      p([t(lab, { size: 16 })], { align: AlignmentType.CENTER, after: 0, line: 240 }),
+    ],
+  });
+  const filaKpi = arr => new TableRow({ children: arr.map(([n, l]) => kpi(n, l)) });
+  const tKpi = tabla([
+    filaKpi([['3', 'sedes en Cali con urgencias 24 horas'], ['+6.200', 'familias registradas como clientes'], ['+7.000', 'pacientes con historia clínica'], ['+1.500', 'atenciones al mes']]),
+    filaKpi([['+460', 'consultas al mes'], ['+130', 'hospitalizaciones al mes'], ['+500', 'exámenes de laboratorio e imágenes al mes'], ['+35', 'colaboradores, más de 15 médicos veterinarios']]),
+  ], [KW, KW, KW, KW]);
+
+  const AS = [KW, KW, KW, ANCHO - 3 * KW];
+  const sede = (n, z, d, a) => new TableCell({
+    width: { size: a, type: WidthType.DXA },
+    margins: { top: 60, bottom: 60, left: 120, right: 120 },
+    borders: { top: { style: BorderStyle.SINGLE, size: 12, color: TEAL }, bottom: sinBorde, left: sinBorde, right: sinBorde },
+    children: [
+      p([t(n, { bold: true, size: 20, color: TEAL })], { align: AlignmentType.LEFT, after: 0 }),
+      p([t(z, { size: 16, color: GRIS })], { align: AlignmentType.LEFT, after: 30 }),
+      p([t(d, { size: 17 })], { align: AlignmentType.LEFT, after: 0, line: 240 }),
+    ],
+  });
+  const tSedes = tabla([new TableRow({ children: [
+    sede('Santa Mónica', 'Norte de Cali', 'Urgencias 24 horas, hospitalización y consulta', AS[0]),
+    sede('Colseguros', 'Centro de Cali', 'Urgencias 24 horas, hospitalización y consulta', AS[1]),
+    sede('Ciudad Jardín', 'Sur de Cali', 'Urgencias 24 horas, hospitalización y consulta', AS[2]),
+    sede('Domicilio', 'Toda la ciudad', 'Consulta y vacunación en casa', AS[3]),
+  ] })], AS);
+
+  const vin = (negrita, texto) => p([t(negrita, { bold: true }), t(texto)], { align: AlignmentType.LEFT, after: 40, numbering: { reference: 'vinetas', level: 0 } });
+
+  const paginaNosotros = [
+    nuevoMembrete(),
+    nuevaRegla(),
+    p([t('Quiénes somos', { bold: true, size: 32, color: TEAL })], { align: AlignmentType.LEFT, before: 100, after: 20 }),
+    p([t('Pets & Pets  ·  Red de clínicas veterinarias en Cali', { size: 19, color: GRIS })], { align: AlignmentType.LEFT, after: 160 }),
+    p([t('Pets & Pets es una red caleña de clínicas veterinarias de alta complejidad. A través de '), t('Emergencias Veterinarias Dogspital S.A.S.', { bold: true }), t(' operamos tres sedes con urgencias las 24 horas, todos los días del año, y un servicio de atención a domicilio. Cuidamos a perros y gatos en todas las etapas de su vida: desde la primera vacuna hasta la cirugía y la hospitalización.')], { after: 160 }),
+    tKpi,
+    p([t('Cifras de nuestro sistema de gestión clínica; promedio mensual de julio a septiembre de 2026.', { size: 15, color: GRIS, italics: true })], { before: 60, after: 0 }),
+    p([t('Nuestras sedes', { bold: true, color: TEAL, size: 22 })], { align: AlignmentType.LEFT, before: 220, after: 80 }),
+    tSedes,
+    p([t('Lo que hacemos', { bold: true, color: TEAL, size: 22 })], { align: AlignmentType.LEFT, before: 220, after: 80 }),
+    vin('Urgencias y hospitalización 24/7: ', 'cuidados intensivos, cirugía y monitoreo permanente.'),
+    vin('Diagnóstico: ', 'laboratorio clínico e imágenes diagnósticas.'),
+    vin('Especialistas: ', 'cardiología, dermatología, neurología, oftalmología, oncología, ortopedia, endocrinología, gastroenterología, nefrología y odontología.'),
+    vin('Medicina preventiva y spa: ', 'consulta general, vacunación, desparasitación, peluquería y baño.'),
+    vin('Medicina prepagada propia: ', 'planes mensuales que fidelizan a nuestros clientes.'),
+    vin('Tecnología: ', 'sistema de gestión clínica propio y portal web donde cada cliente consulta la historia de su mascota.'),
+    p([t('')], { after: 0, line: 200 }),
+    new Table({
+      width: { size: ANCHO, type: WidthType.DXA }, columnWidths: [ANCHO], layout: TableLayoutType.FIXED,
+      rows: [new TableRow({ children: [new TableCell({
+        width: { size: ANCHO, type: WidthType.DXA },
+        shading: { type: ShadingType.CLEAR, color: 'auto', fill: 'E8F1F1' },
+        margins: { top: 120, bottom: 120, left: 220, right: 220 },
+        borders: { top: sinBorde, right: sinBorde, bottom: sinBorde, left: { style: BorderStyle.SINGLE, size: 24, color: TEAL } },
+        children: [
+          p([t('Un arrendatario estable y de largo plazo', { bold: true, color: TEAL, size: 21 })], { align: AlignmentType.LEFT, after: 60 }),
+          p('Operamos con nómina formal, facturación electrónica y procesos administrativos organizados. Cada sede que abrimos implica una inversión importante en adecuación y dotación; por eso buscamos relaciones de arrendamiento duraderas y cuidamos los inmuebles como propios.', { after: 0, line: 260 }),
+        ],
+      })] })],
+    }),
+  ];
+
   // ── Documento ──────────────────────────────────────────────────────────────
   const doc = new Document({
     creator: 'Pets & Pets', title: 'Propuesta de arrendamiento — sede satélite',
     styles: { default: { document: { run: { font: FONT, size: 19, color: TINTA } } } },
     numbering: { config: [{ reference: 'vinetas', levels: [{ level: 0, format: LevelFormat.BULLET, text: '•', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 420, hanging: 260 } } } }] }] },
-    sections: [{
-      properties: { page: { size: { width: W, height: 15840 }, margin: { top: 600, bottom: 1000, left: MARGEN, right: MARGEN, footer: 500 } } },
-      footers: {
-        default: new Footer({ children: [
-          p([t('DOCUMENTO CONFIDENCIAL', { bold: true, color: ROJO, size: 14, spacing: 10 })], { after: 20, align: AlignmentType.LEFT, border: { top: { style: BorderStyle.SINGLE, size: 4, color: LINEA, space: 6 } } }),
-          p([t(`Este documento es confidencial y se entrega únicamente a su destinatario para evaluar la presente propuesta. Queda prohibida su reproducción o divulgación sin autorización escrita de ${EMPRESA.razon}`, { size: 14, color: GRIS })], { after: 0, line: 240 }),
-        ] }),
-      },
+    sections: [{ properties: propsPagina, footers: { default: nuevoPie() }, children: paginaNosotros }, {
+      properties: propsPagina,
+      footers: { default: nuevoPie() },
       children: [
-        membrete,
-        reglaTeal,
+        nuevoMembrete(),
+        nuevaRegla(),
         p([t(FECHA, { size: 18, color: GRIS })], { align: AlignmentType.LEFT, after: 160 }),
         p([t('Propuesta de arrendamiento', { bold: true, size: 32, color: TEAL })], { align: AlignmentType.LEFT, after: 20 }),
         p([t('Local comercial para sede satélite Pets & Pets  ·  Propuesta ajustada', { size: 19, color: GRIS })], { align: AlignmentType.LEFT, after: 160 }),
